@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="hive">
+      <UniqueIdentifier>{a589313a-b121-4e02-ab63-1e9e3911fc6f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DeviceHive">
+      <UniqueIdentifier>{c3a3ad6e-ef5d-4187-a7fa-ee60314b2da3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\include\hive\bstream.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\defs.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\dump.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\http.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\json.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\log.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\misc.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\pch.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\swab.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\binary.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\gateway.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\basic_app.hpp" />
+    <ClInclude Include="..\simple_gw.hpp" />
+    <ClInclude Include="..\xbee_gw.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\xbee_gw.cpp" />
+  </ItemGroup>
+</Project>
