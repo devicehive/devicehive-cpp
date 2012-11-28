@@ -295,9 +295,16 @@ public:
 
 public:
 
-    /// @brief The default constructor.
-    Notification()
+    /// @brief The default/main constructor.
+    /**
+    @param[in] name_ The notification name.
+    @param[in] params_ The notification parameters.
+    */
+    explicit Notification(String const& name_ = String(),
+        json::Value const& params_ = json::Value::null())
         : id(0)
+        , name(name_)
+        , params(params_)
     {}
 };
 
