@@ -677,6 +677,152 @@ public:
 #endif // payloads
 
 
+/// @brief The XBee debug interface.
+class Debug
+{
+public:
+
+    /// @brief Dump the AT command request to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ATCommandRequest const& payload)
+    {
+        OStringStream oss;
+
+        oss << "frameId=" << int(payload.frameId) << " "
+            "command=\"" << payload.command << "\"";
+
+        return oss.str();
+    }
+
+
+    /// @brief Dump the AT command response to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ATCommandResponse const& payload)
+    {
+        OStringStream oss;
+
+        oss << "frameId=" << int(payload.frameId)
+            << " command=\"" << payload.command << "\""
+            << " status=" << dump::hex(payload.status)
+            << " result=[" << dump::hex(payload.result) << "]";
+
+        return oss.str();
+    }
+
+
+    /// @brief Dump the ZB transmit request to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ZBTransmitRequest const& payload)
+    {
+        OStringStream oss;
+
+        oss << "frameId=" << int(payload.frameId)
+            << " DA64=" << dump::hex(payload.dstAddr64)
+            << " DA16=" << dump::hex(payload.dstAddr16)
+            << " bcastRadius=" << int(payload.bcastRadius)
+            << " options=" << dump::hex(payload.options)
+            << " data=[" << dump::hex(payload.data)
+            << "] (ascii:\"" << dump::ascii(payload.data) << "\")";
+
+        return oss.str();
+    }
+
+
+    /// @brief Dump the ZB transmit status to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ZBTransmitStatus const& payload)
+    {
+        OStringStream oss;
+
+        oss << "frameId=" << int(payload.frameId)
+            << " DA16=" << dump::hex(payload.dstAddr16)
+            << " retryCount=" << int(payload.retryCount)
+            << " delivery=" << dump::hex(payload.deliveryStatus)
+            << " discovery=" << dump::hex(payload.discoveryStatus);
+
+        return oss.str();
+    }
+
+
+    /// @brief Dump the ZB receive packet to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ZBReceivePacket const& payload)
+    {
+        OStringStream oss;
+
+        oss << "SA64=" << dump::hex(payload.srcAddr64)
+            << " SA16=" << dump::hex(payload.srcAddr16)
+            << " options=" << dump::hex(payload.options)
+            << " data=[" << dump::hex(payload.data)
+            << "] (ascii:\"" << dump::ascii(payload.data) << "\")";
+
+        return oss.str();
+    }
+
+public:
+
+    /// @brief Dump the frame to string.
+    /**
+    @param[in] frame The frame to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::SharedPtr frame)
+    {
+        OStringStream oss;
+
+        if (frame)
+        switch (frame->getIntent())
+        {
+            case Frame::ATCOMMAND_REQUEST:      tdump<Frame::ATCommandRequest>(oss, frame, "ATCOMMAND_REQUEST");    break;
+            case Frame::ATCOMMAND_RESPONSE:     tdump<Frame::ATCommandResponse>(oss, frame, "ATCOMMAND_RESPONSE");  break;
+            case Frame::ZB_TRANSMIT_REQUEST:    tdump<Frame::ZBTransmitRequest>(oss, frame, "ZB_TRANSMIT_REQUEST"); break;
+            case Frame::ZB_TRANSMIT_STATUS:     tdump<Frame::ZBTransmitStatus>(oss, frame, "ZB_TRANSMIT_STATUS");   break;
+            case Frame::ZB_RECEIVE_PACKET:      tdump<Frame::ZBReceivePacket>(oss, frame, "ZB_RECEIVE_PACKET");     break;
+
+            default:
+                oss << "unknown frame type: " << frame->getIntent();
+                break;
+        }
+
+        return oss.str();
+    }
+
+private:
+
+    /// @brief Dump the custom payload.
+    /**
+    @param[in,out] oss The output stream.
+    @param[in] frame The frame content.
+    @param[in] title The payload title.
+    */
+    template<typename PayloadT>
+    static void tdump(OStream &oss, Frame::SharedPtr frame, const char *title)
+    {
+        oss << title << ": ";
+        PayloadT payload;
+        if (frame->getPayload(payload))
+            oss << dump(payload);
+        else
+            oss << "bad format";
+    }
+};
+
+
 /// @brief The XBee interface.
 /**
 Uses external stream object to communicate with XBee device.
