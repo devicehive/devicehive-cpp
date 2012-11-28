@@ -2,8 +2,8 @@
 @brief The DeviceHive framework prototype (experimental).
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
-#ifndef __SANDBOX_CLOUD6_HPP_
-#define __SANDBOX_CLOUD6_HPP_
+#ifndef __DEVICEHIVE_CLOUD6_HPP_
+#define __DEVICEHIVE_CLOUD6_HPP_
 
 #include <hive/defs.hpp>
 #include <hive/http.hpp>
@@ -900,4 +900,4 @@ public:
 
 } // cloud6 namespace
 
-#endif // __SANDBOX_CLOUD6_HPP_
+#endif // __DEVICEHIVE_CLOUD6_HPP_
