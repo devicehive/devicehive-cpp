@@ -86,7 +86,7 @@ public:
         }
 
         pthis->m_api = cloud6::ServerAPI::create(http::Client::create(pthis->m_ios), baseUrl);
-        pthis->m_gw = GatewayAPI::create(pthis->m_serial);
+        pthis->m_gw_api = GatewayAPI::create(pthis->m_serial);
         pthis->m_serialPortName = serialPortName;
         pthis->m_serialBaudrate = serialBaudrate;
         pthis->m_networkName = networkName;
@@ -136,10 +136,13 @@ protected:
 private:
 
     /// @brief Register the device.
-    void asyncRegisterDevice()
+    /**
+    @param[in] device The device to register.
+    */
+    void asyncRegisterDevice(cloud6::DevicePtr device)
     {
-        HIVELOG_INFO(m_log, "register device: " << m_device->id);
-        m_api->asyncRegisterDevice(m_device,
+        HIVELOG_INFO(m_log, "register device: " << device->id);
+        m_api->asyncRegisterDevice(device,
             boost::bind(&Application::onRegisterDevice,
                 shared_from_this(), _1, _2));
     }
@@ -349,7 +352,7 @@ private:
     */
     void sendGatewayCommand(cloud6::Command const& cmd)
     {
-        const int intent = m_gw->findCommandIntentByName(cmd.name);
+        const int intent = m_gw.findCommandIntentByName(cmd.name);
         if (0 <= intent)
         {
             HIVELOG_INFO(m_log, "command: \"" << cmd.name
@@ -364,6 +367,12 @@ private:
         {
             HIVELOG_WARN(m_log, "unknown command: \""
                 << cmd.name << "\", ignored");
+
+            cloud6::Command res = cmd;
+            res.status = "Failed";
+            res.result = "Unknown command";
+
+            m_api->asyncSendCommandResult(m_device, cmd);
         }
     }
 
@@ -375,9 +384,9 @@ private:
     */
     void sendGatewayMessage(int intent, json::Value const& data)
     {
-        if (gateway::Frame::SharedPtr frame = m_gw->jsonToFrame(intent, data))
+        if (gateway::Frame::SharedPtr frame = m_gw.jsonToFrame(intent, data))
         {
-            m_gw->send(frame,
+            m_gw_api->send(frame,
                 boost::bind(&Application::onSendGatewayFrame,
                     shared_from_this(), _1, _2));
         }
@@ -397,7 +406,7 @@ private:
         {
             HIVELOG_DEBUG(m_log, "frame successfully sent #"
                 << frame->getIntent() << ": ["
-                << m_gw->hexdump(frame) << "], "
+                << m_gw_api->hexdump(frame) << "], "
                 << frame->size() << " bytes");
         }
         else if (err == boost::asio::error::operation_aborted)
@@ -417,7 +426,7 @@ private:
     /// @brief Start/stop listen for RX frames.
     void asyncListenForGatewayFrames(bool enable)
     {
-        m_gw->recv(enable
+        m_gw_api->recv(enable
             ? boost::bind(&Application::onRecvGatewayFrame, shared_from_this(), _1, _2)
             : GatewayAPI::RecvFrameCallback());
     }
@@ -436,10 +445,10 @@ private:
             {
                 HIVELOG_DEBUG(m_log, "frame received #"
                     << frame->getIntent() << ": ["
-                    << m_gw->hexdump(frame) << "], "
+                    << m_gw_api->hexdump(frame) << "], "
                     << frame->size() << " bytes");
                 handleGatewayMessage(frame->getIntent(),
-                    m_gw->frameToJson(frame));
+                    m_gw.frameToJson(frame));
             }
             else
                 HIVELOG_DEBUG_STR(m_log, "no frame received");
@@ -468,7 +477,7 @@ private:
 
         if (intent == gateway::INTENT_REGISTRATION_RESPONSE)
         {
-            m_gw->handleRegisterResponse(data);
+            m_gw.handleRegisterResponse(data);
 
             { // create device
                 String id = data["id"].asString();
@@ -504,7 +513,7 @@ private:
                 }
             }
 
-            asyncRegisterDevice();
+            asyncRegisterDevice(m_device);
         }
 
         else if (intent == gateway::INTENT_COMMAND_RESULT_RESPONSE)
@@ -528,7 +537,7 @@ private:
         {
             if (m_device)
             {
-                String name = m_gw->findNotificationNameByIntent(intent);
+                String name = m_gw.findNotificationNameByIntent(intent);
                 if (!name.empty())
                 {
                     HIVELOG_DEBUG(m_log, "got notification");
@@ -567,8 +576,9 @@ private:
     String m_networkDesc; ///< @brief The network description.
 
 private:
-    typedef gateway::API<boost::asio::serial_port> GatewayAPI; ///< @brief The gateway API type.
-    GatewayAPI::SharedPtr m_gw; ///< @brief The gateway API.
+    typedef gateway::API<boost::asio::serial_port> GatewayAPI; ///< @brief The gateway %API type.
+    GatewayAPI::SharedPtr m_gw_api; ///< @brief The gateway %API.
+    gateway::Engine m_gw; ///< @brief The gateway engine.
 
 private:
     cloud6::DevicePtr m_device; ///< @brief The device.
@@ -710,3 +720,5 @@ Now you can copy executable to your gateway device and use it.
 register request:   C5C30100000000000000000000000000
                     c5c301000000000076
 */
+
+// TODO: refactor API callbacks

@@ -653,59 +653,12 @@ private:
 };
 
 
-/// @brief The gateway %API.
+/// @brief The gateway engine.
 /**
-Uses external stream object.
+Stores the commands and notifications.
 */
-template<typename StreamT>
-class API:
-    public binary::Transceiver<StreamT, Frame>
+class Engine
 {
-    /// @brief The base type.
-    typedef binary::Transceiver<StreamT, Frame> Base;
-
-    /// @brief The type alias.
-    typedef API<StreamT> This;
-
-private:
-
-    /// @brief The default constructor.
-    /**
-    @param[in] stream The external stream.
-    */
-    explicit API(StreamT &stream)
-        : Base("gateway/API", stream)
-    {}
-
-public:
-
-    /// @brief The frame shared pointer type.
-    typedef typename Base::FrameSPtr FrameSPtr;
-
-    /// @brief The shared pointer type.
-    typedef boost::shared_ptr<This> SharedPtr;
-
-
-    /// @brief The factory method.
-    /**
-    @param[in] stream The external stream.
-    @return The new instance.
-    */
-    static SharedPtr create(StreamT &stream)
-    {
-        return SharedPtr(new This(stream));
-    }
-
-
-    /// @brief Get the shared pointer.
-    /**
-    @return The shared pointer to this instance.
-    */
-    SharedPtr shared_from_this()
-    {
-        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
-    }
-
 public:
 
     /// @brief Find the command intent by name.
@@ -738,7 +691,7 @@ public:
     @param[in] data The JSON frame payload.
     @return The binary frame. May be NULL for unknown intents.
     */
-    FrameSPtr jsonToFrame(int intent, json::Value const& data) const
+    Frame::SharedPtr jsonToFrame(int intent, json::Value const& data) const
     {
         if (Layout::SharedPtr layout = m_layouts.find(intent))
         {
@@ -751,7 +704,7 @@ public:
         }
         //else HIVELOG_WARN(m_log, "unknown layout for intent #" << intent);
 
-        return FrameSPtr(); // no conversion
+        return Frame::SharedPtr(); // no conversion
     }
 
 
@@ -760,7 +713,7 @@ public:
     @param[in] frame The frame to convert.
     @return The JSON frame payload. May be empty for unknown intents.
     */
-    json::Value frameToJson(FrameSPtr frame) const
+    json::Value frameToJson(Frame::SharedPtr frame) const
     {
         if (Layout::SharedPtr layout = m_layouts.find(frame->getIntent()))
         {
@@ -1054,6 +1007,48 @@ private:
     LayoutManager m_layouts; ///< @brief The registered intents and its layouts.
     std::map<String, int> m_commands; ///< @brief The registered commands.
     std::map<int, String> m_notifications; ///< @brief The registered notifications.
+};
+
+
+/// @brief The gateway %API.
+/**
+Uses external stream object.
+*/
+template<typename StreamT>
+class API:
+    public binary::Transceiver<StreamT, Frame>
+{
+    /// @brief The base type.
+    typedef binary::Transceiver<StreamT, Frame> Base;
+
+    /// @brief The type alias.
+    typedef API<StreamT> This;
+
+private:
+
+    /// @brief The default constructor.
+    /**
+    @param[in] stream The external stream.
+    */
+    explicit API(StreamT &stream)
+        : Base("gateway/API", stream)
+    {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<This> SharedPtr;
+
+
+    /// @brief The factory method.
+    /**
+    @param[in] stream The external stream.
+    @return The new instance.
+    */
+    static SharedPtr create(StreamT &stream)
+    {
+        return SharedPtr(new This(stream));
+    }
 };
 
 } // gateway namespace
