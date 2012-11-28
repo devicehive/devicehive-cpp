@@ -3,8 +3,8 @@
 @author Dmitry Kinev <dmitry.kinev@dataart.com>
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
-#ifndef __SANDBOX_GATEWAY_HPP_
-#define __SANDBOX_GATEWAY_HPP_
+#ifndef __DEVICEHIVE_GATEWAY_HPP_
+#define __DEVICEHIVE_GATEWAY_HPP_
 
 #include <hive/bstream.hpp>
 #include <hive/swab.hpp>
@@ -965,10 +965,14 @@ public:
                 case DT_STRING:
                 case DT_BINARY:
                 {
-                    const UInt32 len = bs.getUInt16();
-                    std::vector<UInt8> buf(len);
-                    bs.getBuffer(&buf[0], len);
-                    return json::Value(String(buf.begin(), buf.end()));
+                    if (const UInt32 len = bs.getUInt16()) // read if non-empty
+                    {
+                        std::vector<UInt8> buf(len);
+                        bs.getBuffer(&buf[0], len);
+                        return json::Value(String(buf.begin(), buf.end()));
+                    }
+                    else
+                        return json::Value("");
                 } break;
 
                 case DT_ARRAY:
@@ -1088,4 +1092,4 @@ private:
 
 } // gateway namespace
 
-#endif // __SANDBOX_GATEWAY_HPP_
+#endif // __DEVICEHIVE_GATEWAY_HPP_
