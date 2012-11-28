@@ -2,8 +2,8 @@
 @brief The XBee API prototype (experimental).
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
-#ifndef __SANDBOX_XBEE_HPP_
-#define __SANDBOX_XBEE_HPP_
+#ifndef __DEVICEHIVE_XBEE_HPP_
+#define __DEVICEHIVE_XBEE_HPP_
 
 #include <hive/bstream.hpp>
 #include <hive/swab.hpp>
@@ -764,4 +764,4 @@ public:
 
 } // xbee namespace
 
-#endif // __SANDBOX_XBEE_HPP_
+#endif // __DEVICEHIVE_XBEE_HPP_

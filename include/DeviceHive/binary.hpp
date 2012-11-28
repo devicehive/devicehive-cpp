@@ -2,8 +2,8 @@
 @brief The binary transceiver prototype (experimental).
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
-#ifndef __SANDBOX_BINARY_HPP_
-#define __SANDBOX_BINARY_HPP_
+#ifndef __DEVICEHIVE_BINARY_HPP_
+#define __DEVICEHIVE_BINARY_HPP_
 
 #include <hive/bstream.hpp>
 #include <hive/swab.hpp>
@@ -735,4 +735,4 @@ protected:
 
 } // binary namespace
 
-#endif // __SANDBOX_BINARY_HPP_
+#endif // __DEVICEHIVE_BINARY_HPP_
