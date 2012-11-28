@@ -23,12 +23,93 @@ namespace binary
 {
     using namespace hive;
 
-/// @brief The simple frame example.
+/// @brief The binary frame content.
 /**
-The main aim of this class is to demonstrate frame prototype for all other formats.
+This is auxiliary base class for all binary frame formats.
 
 This class holds the whole frame content incuding header, payload, and checksum.
 The empty frame doesn't contain any data.
+*/
+class FrameContent
+{
+public:
+
+    /// @brief The default constructor.
+    /**
+    Constructs the empty frame.
+    */
+    FrameContent()
+    {}
+
+public:
+
+    /// @brief The binary content type.
+    typedef std::vector<UInt8> Content;
+
+
+    /// @brief Get the frame content.
+    /**
+    @return The frame content.
+    */
+    Content const& getContent() const
+    {
+        return m_content;
+    }
+
+
+    /// @brief Is the frame empty?
+    /**
+    @return `true` if the frame is empty.
+    */
+    bool empty() const
+    {
+        return m_content.empty();
+    }
+
+
+    /// @brief Get the frame size.
+    /**
+    This size includes the header size, frame payload and checksum.
+    @return The frame size in bytes.
+    */
+    size_t size() const
+    {
+        return m_content.size();
+    }
+
+public:
+
+    /// @brief The constant iterator type.
+    typedef Content::const_iterator Iterator;
+
+
+    /// @brief Get the begin of frame content.
+    /**
+    @return The begin of frame content.
+    */
+    Iterator begin() const
+    {
+        return m_content.begin();
+    }
+
+
+    /// @brief Get the end of frame content.
+    /**
+    @return The end of frame content.
+    */
+    Iterator end() const
+    {
+        return m_content.end();
+    }
+
+protected:
+    Content m_content; ///< @brief The frame content.
+};
+
+
+/// @brief The simple frame example.
+/**
+The main aim of this class is to demonstrate frame prototype for all other formats.
 
 The frame format is quite simple:
 
@@ -40,7 +121,8 @@ The frame format is quite simple:
 |   payload | N
 |  checksum | 1
 */
-class SimpleFrame
+class SimpleFrame:
+    public FrameContent
 {
 public:
 
@@ -212,16 +294,6 @@ public:
         return frame;
     }
 
-
-    /// @brief Get the frame content.
-    /**
-    @return The frame content.
-    */
-    std::vector<UInt8> const& getContent() const
-    {
-        return m_content;
-    }
-
 public:
 
     /// @brief Get the frame intent.
@@ -241,28 +313,6 @@ public:
         }
 
         return -1; // unknown
-    }
-
-public:
-
-    /// @brief Is the frame empty?
-    /**
-    @return `true` if the frame is empty.
-    */
-    bool empty() const
-    {
-        return m_content.empty();
-    }
-
-
-    /// @brief Get the frame size.
-    /**
-    This size includes the header size, frame payload and checksum.
-    @return The frame size in bytes.
-    */
-    size_t size() const
-    {
-        return m_content.size();
     }
 
 protected:
@@ -311,9 +361,6 @@ protected:
             m_content.begin(),
             m_content.end()));
     }
-
-protected:
-    std::vector<UInt8> m_content; ///< @brief The frame content.
 };
 
 

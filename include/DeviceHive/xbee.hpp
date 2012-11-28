@@ -47,7 +47,8 @@ There are a few payloads:
     - ZBTransmitStatus
     - ZBReceivePacket
 */
-class Frame
+class Frame:
+    public binary::FrameContent
 {
 public:
 
@@ -239,16 +240,6 @@ public:
         return frame;
     }
 
-
-    /// @brief Get the frame content.
-    /**
-    @return The frame content.
-    */
-    std::vector<UInt8> const& getContent() const
-    {
-        return m_content;
-    }
-
 public:
 
     /// @brief Get the frame intent (or command identifier).
@@ -261,27 +252,6 @@ public:
             return m_content[HEADER_LEN];
 
         return -1; // unknown
-    }
-
-public:
-
-    /// @brief Is the frame empty?
-    /**
-    @return `true` if the frame is empty.
-    */
-    bool empty() const
-    {
-        return m_content.empty();
-    }
-
-
-    /// @brief Get the frame size.
-    /**
-    @return The frame size in bytes.
-    */
-    size_t size() const
-    {
-        return m_content.size();
     }
 
 protected:
@@ -327,9 +297,6 @@ protected:
             checksum(payload.begin(),
                 payload.end()));
     }
-
-private:
-    std::vector<UInt8> m_content; ///< @brief The frame content.
 };
 
 

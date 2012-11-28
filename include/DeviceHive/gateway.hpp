@@ -384,7 +384,8 @@ This class contains full formated frame:
 
 The empty frame doesn't contain any data.
 */
-class Frame
+class Frame:
+    public binary::FrameContent
 {
 public:
 
@@ -579,16 +580,6 @@ public:
         return frame;
     }
 
-
-    /// @brief Get the frame content.
-    /**
-    @return The frame content.
-    */
-    std::vector<UInt8> const& getContent() const
-    {
-        return m_content;
-    }
-
 public:
 
     /// @brief Get the frame intent.
@@ -608,28 +599,6 @@ public:
         }
 
         return -1; // unknown
-    }
-
-public:
-
-    /// @brief Is the frame empty?
-    /**
-    @return `true` if the frame is empty.
-    */
-    bool empty() const
-    {
-        return m_content.empty();
-    }
-
-
-    /// @brief Get the frame size.
-    /**
-    This size includes the header size, frame payload and checksum.
-    @return The frame size in bytes.
-    */
-    size_t size() const
-    {
-        return m_content.size();
     }
 
 private:
@@ -681,9 +650,6 @@ private:
             m_content.begin(),
             m_content.end()));
     }
-
-private:
-    std::vector<UInt8> m_content; ///< @brief The frame content.
 };
 
 
