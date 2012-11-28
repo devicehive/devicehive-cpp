@@ -5,6 +5,7 @@ DeviceHive C++ framework TODO list
 Basic tools:
 - JSON module:
   - support for UTF-8 encoding
+  - formal tests
 - HTTP module:
   - support for HTTPS connections, checks cerficiates
   - support for HTTP 1.1, mutiple request per connection
@@ -18,3 +19,4 @@ Basic tools:
 DeviceHive framework:
 - support for C++ client framework
 - protocol generator based on formal JSON description
+- script to build externals (boost, openssl)

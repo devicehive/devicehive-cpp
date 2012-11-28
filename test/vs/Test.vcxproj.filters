@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="hive">
+      <UniqueIdentifier>{a589313a-b121-4e02-ab63-1e9e3911fc6f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="test">
+      <UniqueIdentifier>{8bba0546-89cd-4ef9-b79f-95d190640ebd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="doxygen">
+      <UniqueIdentifier>{c30dc736-4fb1-470f-8786-379aee78fa11}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DeviceHive">
+      <UniqueIdentifier>{c3a3ad6e-ef5d-4187-a7fa-ee60314b2da3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\test-http.hpp">
+      <Filter>test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test-defs.hpp">
+      <Filter>test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test-swab.hpp">
+      <Filter>test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test-log.hpp">
+      <Filter>test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test-json.hpp">
+      <Filter>test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test-dump.hpp">
+      <Filter>test</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\binary.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\gateway.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\xbee.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\bstream.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\defs.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\dump.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\http.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\json.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\log.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\misc.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\pch.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\swab.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\docs\basictools.md">
+      <Filter>doxygen</Filter>
+    </None>
+    <None Include="..\..\docs\codestyle.txt">
+      <Filter>doxygen</Filter>
+    </None>
+    <None Include="..\..\docs\examples.md">
+      <Filter>doxygen</Filter>
+    </None>
+    <None Include="..\..\docs\mainpage.md">
+      <Filter>doxygen</Filter>
+    </None>
+  </ItemGroup>
+</Project>
