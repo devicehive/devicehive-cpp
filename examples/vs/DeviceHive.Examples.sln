@@ -5,7 +5,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimpleDevice", "SimpleDevic
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimpleGateway", "SimpleGateway.vcxproj", "{AC46B2ED-8E5E-42BA-A1C3-AE1AD82BF07C}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XBeeGateway", "XBeeGateway.vcxproj", "{0B280B7F-C120-4589-A8D8-F54277B6C6E2}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ZigBeeGateway", "ZigBeeGateway.vcxproj", "{0B280B7F-C120-4589-A8D8-F54277B6C6E2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

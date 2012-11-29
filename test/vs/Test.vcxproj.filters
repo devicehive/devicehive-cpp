@@ -16,6 +16,9 @@
     <Filter Include="DeviceHive">
       <UniqueIdentifier>{c3a3ad6e-ef5d-4187-a7fa-ee60314b2da3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="examples">
+      <UniqueIdentifier>{3adad087-41d8-4518-ae59-861542d92546}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\test-http.hpp">
@@ -74,6 +77,18 @@
     </ClInclude>
     <ClInclude Include="..\..\include\hive\swab.hpp">
       <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\basic_app.hpp">
+      <Filter>examples</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\simple_dev.hpp">
+      <Filter>examples</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\simple_gw.hpp">
+      <Filter>examples</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\examples\zigbee_gw.hpp">
+      <Filter>examples</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

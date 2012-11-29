@@ -5,6 +5,11 @@
 */
 #include <hive/pch.hpp>
 
+#include <examples/basic_app.hpp>
+#include <examples/simple_dev.hpp>
+#include <examples/simple_gw.hpp>
+#include <examples/zigbee_gw.hpp>
+
 #include "test-defs.hpp"
 #include "test-swab.hpp"
 #include "test-dump.hpp"
@@ -26,6 +31,9 @@
 /**
 This function is used for debug & unit-test purposes.
 
+You may define XTEST_EXAMPLE macro as basic_app, simple_dev,
+simple_gw, etc. to run exactly that example code.
+
 Also you may define XTEST_UNIT as test_defs0, test_swab0, etc
 to run exactly that unit test code.
 
@@ -40,14 +48,21 @@ int main(int argc, const char *argv[])
 {
     try
     {
-#if defined(XTEST_UNIT) // custom unit-test
+#if defined(XTEST_EXAMPLE)  // custom example
+        XTEST_EXAMPLE::main(argc, argv);
+#elif defined(XTEST_UNIT)   // custom unit-test
         XTEST_UNIT();
-#else                   // manual
+#else                       // manual
+        if (1) basic_app::main(argc, argv);
+        if (0) simple_dev::main(argc, argv);
+        if (0) simple_gw::main(argc, argv);
+        if (0) zigbee_gw::main(argc, argv);
+
         if (0) test_defs0();
         if (0) test_swab0();
         if (0) test_dump0();
         if (0) test_json0();
-        if (1) test_json1(1<argc ? argv[1] : "../json");
+        if (0) test_json1(1<argc ? argv[1] : "../json");
         if (0) test_http0();
         if (0) test_http1();
         if (0) test_log0();

@@ -589,6 +589,27 @@ private:
     cloud6::ServerAPI::SharedPtr m_api; ///< @brief The cloud server API.
 };
 
+
+/// @brief The simple gateway application entry point.
+/**
+Creates the Application instance and calls its Application::run() method.
+
+@param[in] argc The number of command line arguments.
+@param[in] argv The command line arguments.
+*/
+inline void main(int argc, const char* argv[])
+{
+    { // configure logging
+        log::Target::SharedPtr log_file = log::Target::File::create("simple_gw.log");
+        log::Logger::root().setTarget(log::Target::Tie::create(
+            log_file, log::Logger::root().getTarget()));
+        log::Logger::root().setLevel(log::LEVEL_TRACE);
+        log::Logger("/hive/http").setTarget(log_file).setLevel(log::LEVEL_DEBUG); // disable annoying messages
+    }
+
+    Application::create(argc, argv)->run();
+}
+
 } // simple_gw namespace
 
 

@@ -47,9 +47,9 @@
     </ClInclude>
     <ClInclude Include="..\basic_app.hpp" />
     <ClInclude Include="..\simple_gw.hpp" />
-    <ClInclude Include="..\xbee_gw.hpp" />
+    <ClInclude Include="..\zigbee_gw.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\xbee_gw.cpp" />
+    <ClCompile Include="..\zigbee_gw.cpp" />
   </ItemGroup>
 </Project>

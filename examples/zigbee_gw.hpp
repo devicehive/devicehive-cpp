@@ -3,15 +3,17 @@
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
 //@see @ref page_ex03
-#ifndef __EXAMPLES_XBEE_GW_HPP_
-#define __EXAMPLES_XBEE_GW_HPP_
+#ifndef __EXAMPLES_ZIGBEE_GW_HPP_
+#define __EXAMPLES_ZIGBEE_GW_HPP_
 
+#include <DeviceHive/gateway.hpp>
+#include <DeviceHive/cloud6.hpp>
 #include <DeviceHive/xbee.hpp>
 #include "basic_app.hpp"
 
 
 /// @brief The ZigBee gateway example.
-namespace xbee_gw
+namespace zigbee_gw
 {
     using namespace hive;
 
@@ -748,7 +750,28 @@ private:
     size_t m_xbeeFrameId; ///< @brief The XBee TX frame identifier.
 };
 
-} // xbee_gw namespace
+
+/// @brief The ZigBee gateway application entry point.
+/**
+Creates the Application instance and calls its Application::run() method.
+
+@param[in] argc The number of command line arguments.
+@param[in] argv The command line arguments.
+*/
+inline void main(int argc, const char* argv[])
+{
+    { // configure logging
+        log::Target::SharedPtr log_file = log::Target::File::create("zigbee_gw.log");
+        log::Logger::root().setTarget(log::Target::Tie::create(
+            log_file, log::Logger::root().getTarget()));
+        log::Logger::root().setLevel(log::LEVEL_TRACE);
+        log::Logger("/hive/http").setTarget(log_file).setLevel(log::LEVEL_DEBUG); // disable annoying messages
+    }
+
+    Application::create(argc, argv)->run();
+}
+
+} // zigbee_gw namespace
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -757,7 +780,7 @@ private:
 !!!UNDER CONSTRUCTION!!!
 
 
-@example Examples/xbee_gw.hpp
+@example examples/zigbee_gw.hpp
 */
 
-#endif // __EXAMPLES_XBEE_GW_HPP_
+#endif // __EXAMPLES_ZIGBEE_GW_HPP_

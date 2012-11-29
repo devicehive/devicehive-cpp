@@ -54,7 +54,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>HIVE_DISABLE_SSL;_SCL_SECURE_NO_WARNINGS;BOOST_SYSTEM_NO_DEPRECATED;_WIN32_WINNT=0x0501;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;$(ProjectDir)..\..\externals\include\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\..\include\;$(ProjectDir)..\..\externals\include\</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -71,7 +71,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>HIVE_DISABLE_SSL;_SCL_SECURE_NO_WARNINGS;BOOST_SYSTEM_NO_DEPRECATED;_WIN32_WINNT=0x0501;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;$(ProjectDir)..\..\externals\include\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\..\include\;$(ProjectDir)..\..\externals\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -85,6 +85,10 @@
     <ClCompile Include="..\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\examples\basic_app.hpp" />
+    <ClInclude Include="..\..\examples\simple_dev.hpp" />
+    <ClInclude Include="..\..\examples\simple_gw.hpp" />
+    <ClInclude Include="..\..\examples\zigbee_gw.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\binary.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\gateway.hpp" />

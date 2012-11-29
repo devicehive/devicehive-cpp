@@ -192,7 +192,7 @@ private:
 };
 
 
-/// @brief The test application entry point.
+/// @brief The application skeleton entry point.
 /**
 Creates the Application instance and calls its Application::run() method.
 

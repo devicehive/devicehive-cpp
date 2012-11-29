@@ -96,10 +96,10 @@
     <ClInclude Include="..\..\include\hive\swab.hpp" />
     <ClInclude Include="..\basic_app.hpp" />
     <ClInclude Include="..\simple_gw.hpp" />
-    <ClInclude Include="..\xbee_gw.hpp" />
+    <ClInclude Include="..\zigbee_gw.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\xbee_gw.cpp" />
+    <ClCompile Include="..\zigbee_gw.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
