@@ -193,14 +193,16 @@ Updates temperature sensors every second.
 @see @ref page_ex01
 */
 class Application:
-    public basic_app::Application
+    public basic_app::Application,
+    public basic_app::ServerModule
 {
     typedef basic_app::Application Base; ///< @brief The base type.
 protected:
 
     /// @brief The default constructor.
     Application()
-        : m_timer(m_ios)
+        : ServerModule(m_ios, m_log)
+        , m_timer(m_ios)
     {}
 
 public:
@@ -302,7 +304,7 @@ public:
             pthis->m_device = device;
         }
 
-        pthis->m_api = ServerAPI::create(http::Client::create(pthis->m_ios), baseUrl);
+        pthis->initServerModule(baseUrl, pthis);
         return pthis;
     }
 
@@ -325,7 +327,7 @@ protected:
     virtual void start()
     {
         Base::start();
-        asyncRegisterDevice();
+        asyncRegisterDevice(m_device);
     }
 
 
@@ -335,22 +337,12 @@ protected:
     */
     virtual void stop()
     {
-        m_api->cancelAll();
+        cancelServerModule();
         m_timer.cancel();
         Base::stop();
     }
 
-private:
-
-    /// @brief Register the device asynchronously.
-    void asyncRegisterDevice()
-    {
-        HIVELOG_INFO(m_log, "register device: " << m_device->id);
-        m_api->asyncRegisterDevice(m_device,
-            boost::bind(&Application::onRegisterDevice,
-                shared_from_this(), _1, _2));
-    }
-
+private: // ServerModule
 
     /// @brief The "register device" callback.
     /**
@@ -359,33 +351,16 @@ private:
     @param[in] err The error code.
     @param[in] device The device.
     */
-    void onRegisterDevice(boost::system::error_code err, DevicePtr device)
+    virtual void onRegisterDevice(boost::system::error_code err, DevicePtr device)
     {
+        ServerModule::onRegisterDevice(err, device);
+
         if (!err)
         {
-            HIVELOG_INFO(m_log, "got \"register device\" response: " << device->id);
-
             resetAllLedControls("0");
             asyncPollCommands(device);
             asyncUpdateSensors(0); // ASAP
         }
-        else
-            HIVELOG_ERROR(m_log, "register device error: " << err.message());
-    }
-
-private:
-
-    /// @brief Poll commands asynchronously.
-    /**
-    @param[in] device The device.
-    */
-    void asyncPollCommands(DevicePtr device)
-    {
-        HIVELOG_INFO(m_log, "poll commands for: " << device->id);
-
-        m_api->asyncPollCommands(device,
-            boost::bind(&Application::onPollCommands,
-                shared_from_this(), _1, _2, _3));
     }
 
 
@@ -395,9 +370,9 @@ private:
     @param[in] device The device.
     @param[in] commands The list of commands.
     */
-    void onPollCommands(boost::system::error_code err, DevicePtr device, std::vector<Command> const& commands)
+    virtual void onPollCommands(boost::system::error_code err, DevicePtr device, std::vector<Command> const& commands)
     {
-        HIVELOG_INFO(m_log, "got commands for: " << device->id);
+        ServerModule::onPollCommands(err, device, commands);
 
         if (!err)
         {
@@ -416,13 +391,13 @@ private:
                         led->setState(state);
 
                         cmd.status = "Completed";
-                        m_api->asyncSendCommandResult(device, cmd);
+                        m_serverAPI->asyncSendCommandResult(device, cmd);
 
                         Notification ntf;
                         ntf.name = "equipment";
                         ntf.params["equipment"] = led->id;
                         ntf.params["state"] = state;
-                        m_api->asyncSendNotification(device, ntf);
+                        m_serverAPI->asyncSendNotification(device, ntf);
                     }
                 }
 
@@ -432,10 +407,6 @@ private:
             // start poll again
             asyncPollCommands(device);
         }
-        else if (err == boost::asio::error::operation_aborted)
-            HIVELOG_DEBUG_STR(m_log, "poll commands operation aborted");
-        else
-            HIVELOG_ERROR(m_log, "poll commands error: " << err.message());
     }
 
 private:
@@ -475,7 +446,7 @@ private:
                         ntf.name = "equipment";
                         ntf.params["equipment"] = sensor->id;
                         ntf.params["temperature"] = val;
-                        m_api->asyncSendNotification(m_device, ntf);
+                        m_serverAPI->asyncSendNotification(m_device, ntf);
 
                         sensor->lastValue = val;
                     }
@@ -488,7 +459,10 @@ private:
         else if (err == boost::asio::error::operation_aborted)
             HIVELOG_DEBUG_STR(m_log, "\"update\" timer cancelled");
         else
-            HIVELOG_ERROR(m_log, "\"update\" timer error: " << err.message());
+        {
+            HIVELOG_ERROR(m_log, "\"update\" timer error: ["
+                << err << "] " << err.message());
+        }
     }
 
 
@@ -510,7 +484,7 @@ private:
                 ntf.name = "equipment";
                 ntf.params["equipment"] = led->id;
                 ntf.params["state"] = state;
-                m_api->asyncSendNotification(m_device, ntf);
+                m_serverAPI->asyncSendNotification(m_device, ntf);
             }
         }
     }
@@ -518,7 +492,6 @@ private:
 private:
     boost::asio::deadline_timer m_timer; ///< @brief The update timer.
     Device::SharedPtr m_device; ///< @brief The device.
-    ServerAPI::SharedPtr m_api; ///< @brief The server API.
 };
 
 

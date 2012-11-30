@@ -20,16 +20,17 @@ namespace zigbee_gw
 
 /// @brief The ZigBee gateway application.
 class Application:
-    public basic_app::Application
+    public basic_app::Application,
+    public basic_app::ServerModule,
+    public basic_app::SerialModule
 {
     typedef basic_app::Application Base; ///< @brief The base class.
 protected:
 
     /// @brief The default constructor.
     Application()
-        : m_serialOpenTimer(m_ios)
-        , m_serial(m_ios)
-        , m_serialBaudrate(0)
+        : ServerModule(m_ios, m_log)
+        , SerialModule(m_ios, m_log)
         , m_xbeeFrameId(1)
     {}
 
@@ -86,14 +87,13 @@ public:
                 serialBaudrate = boost::lexical_cast<UInt32>(argv[++i]);
         }
 
-        pthis->m_api = cloud6::ServerAPI::create(http::Client::create(pthis->m_ios), baseUrl);
         pthis->m_xbee = XBeeAPI::create(pthis->m_serial);
-        pthis->m_serialPortName = serialPortName;
-        pthis->m_serialBaudrate = serialBaudrate;
         pthis->m_networkName = networkName;
         pthis->m_networkKey = networkKey;
         pthis->m_networkDesc = networkDesc;
 
+        pthis->initServerModule(baseUrl, pthis);
+        pthis->initSerialModule(serialPortName, serialBaudrate, pthis);
         return pthis;
     }
 
@@ -126,11 +126,10 @@ protected:
     */
     virtual void stop()
     {
-        m_api->cancelAll();
+        cancelServerModule();
+        cancelSerialModule();
         //m_gw->cancelAll();
         //m_xbee->cancelAll();
-        m_serialOpenTimer.cancel();
-        m_serial.close();
         asyncListenForXBeeFrames(false); // stop listening to release shared pointer
         Base::stop();
     }
@@ -144,7 +143,6 @@ private:
         XBEE_FRAGMENTATION = 256   ///< @brief The maximum XBee API payload size.
     };
 
-private:
 
     /// @brief The remote device.
     /**
@@ -195,90 +193,75 @@ private:
         }
     }
 
-private:
 
-    /// @brief Register the device.
+    /// @brief Find remote device.
     /**
-    @param[in] rdev The remote device to register.
+    @param[in] device The device to find.
+    @return The remote device.
     */
-    void asyncRegisterDevice(RemoteDeviceSPtr rdev)
+    RemoteDeviceSPtr findRemoteDevice(cloud6::DevicePtr device) const
     {
-        HIVELOG_INFO(m_log, "register device: " << rdev->device->id);
-        m_api->asyncRegisterDevice(rdev->device,
-            boost::bind(&Application::onRegisterDevice,
-                shared_from_this(), _1, _2, rdev));
+        typedef std::map<UInt64, RemoteDeviceSPtr>::const_iterator Iterator;
+        for (Iterator i = m_remoteDevices.begin(); i != m_remoteDevices.end(); ++i)
+        {
+            RemoteDeviceSPtr rdev = i->second;
+            if (rdev->device == device)
+                return rdev;
+        }
+
+        return RemoteDeviceSPtr(); // not found
     }
 
+private: // ServerModule
 
     /// @brief The "register device" callback.
     /**
     Starts listening for commands from the server.
 
     @param[in] err The error code.
-    @param[in] rdev The corresponding remote device.
+    @param[in] device The device.
     */
-    void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr, RemoteDeviceSPtr rdev)
+    virtual void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr device)
     {
+        ServerModule::onRegisterDevice(err, device);
+
         if (!err)
         {
-            rdev->deviceRegistered = true;
+            if (RemoteDeviceSPtr rdev = findRemoteDevice(device))
+            {
+                rdev->deviceRegistered = true;
+                sendDelayedNotifications(rdev);
+            }
 
-            HIVELOG_INFO(m_log, "got \"register device\" response: " << rdev->device->id);
-            asyncPollCommands(rdev);
-
-            sendDelayedNotifications(rdev);
+            asyncPollCommands(device);
         }
-        else
-        {
-            HIVELOG_ERROR(m_log, "register device error: ["
-                << err << "] " << err.message());
-        }
-    }
-
-private:
-
-    /// @brief Poll commands for the device.
-    /**
-    @param[in] rdev The remote device.
-    */
-    void asyncPollCommands(RemoteDeviceSPtr rdev)
-    {
-        HIVELOG_INFO(m_log, "poll commands for: " << rdev->device->id);
-
-        m_api->asyncPollCommands(rdev->device,
-            boost::bind(&Application::onPollCommands,
-                shared_from_this(), _1, _2, _3, rdev));
     }
 
 
     /// @brief The "poll commands" callback.
     /**
     @param[in] err The error code.
+    @param[in] device The device.
     @param[in] commands The list of commands.
-    @param[in] rdev The remote device.
     */
-    void onPollCommands(boost::system::error_code err, cloud6::DevicePtr, std::vector<cloud6::Command> const& commands, RemoteDeviceSPtr rdev)
+    void onPollCommands(boost::system::error_code err, cloud6::DevicePtr device, std::vector<cloud6::Command> const& commands)
     {
-        HIVELOG_INFO(m_log, "got " << commands.size()
-            << " commands for: " << rdev->device->id);
+        ServerModule::onPollCommands(err, device, commands);
 
         if (!err)
         {
-            typedef std::vector<cloud6::Command>::const_iterator Iterator;
-            for (Iterator i = commands.begin(); i != commands.end(); ++i)
-                sendGatewayCommand(rdev, *i);
+            if (RemoteDeviceSPtr rdev = findRemoteDevice(device))
+            {
+                typedef std::vector<cloud6::Command>::const_iterator Iterator;
+                for (Iterator i = commands.begin(); i != commands.end(); ++i)
+                    sendGatewayCommand(rdev, *i);
+            }
 
             // start poll again
-            asyncPollCommands(rdev);
-        }
-        else
-        {
-            HIVELOG_ERROR(m_log, "poll commands error: ["
-                << err << "] " << err.message());
+            asyncPollCommands(device);
         }
     }
 
-private:
 
     /// @brief Send all delayed notifications.
     /**
@@ -293,109 +276,31 @@ private:
         for (size_t i = 0; i < N; ++i)
         {
             cloud6::Notification ntf = rdev->delayedNotifications[i];
-            m_api->asyncSendNotification(rdev->device, ntf);
+            m_serverAPI->asyncSendNotification(rdev->device, ntf);
         }
         rdev->delayedNotifications.clear();
     }
 
-private:
+private: // SerialModule
 
-    /// @brief Try to open serial device asynchronously.
+    /// @brief The serial port is opneded callback.
     /**
-    @param[in] wait_sec The number of seconds to wait before open.
-    */
-    void asyncOpenSerial(long wait_sec)
-    {
-        HIVELOG_TRACE(m_log, "try to open serial"
-            " after " << wait_sec << " seconds");
-
-        m_serialOpenTimer.expires_from_now(boost::posix_time::seconds(wait_sec));
-        m_serialOpenTimer.async_wait(boost::bind(&Application::onOpenSerial,
-            shared_from_this(), boost::asio::placeholders::error));
-    }
-
-
-    /// @brief Try to open serial device.
-    /**
-    @return The error code.
-    */
-    boost::system::error_code openSerial()
-    {
-        boost::asio::serial_port & port = m_serial;
-        boost::system::error_code err;
-
-        port.close(err); // (!) ignore error
-        port.open(m_serialPortName, err);
-        if (err) return err;
-
-        // set baud rate
-        port.set_option(boost::asio::serial_port::baud_rate(m_serialBaudrate), err);
-        if (err) return err;
-
-        // set character size
-        port.set_option(boost::asio::serial_port::character_size(), err);
-        if (err) return err;
-
-        // set flow control
-        port.set_option(boost::asio::serial_port::flow_control(), err);
-        if (err) return err;
-
-        // set stop bits
-        port.set_option(boost::asio::serial_port::stop_bits(), err);
-        if (err) return err;
-
-        // set parity
-        port.set_option(boost::asio::serial_port::parity(), err);
-        if (err) return err;
-
-        return err; // OK
-    }
-
-
-    /// @brief Try to open serial port device callback.
-    /**
-    This method is called as the "open serial timer" callback.
-
     @param[in] err The error code.
     */
     void onOpenSerial(boost::system::error_code err)
     {
+        SerialModule::onOpenSerial(err);
+
         if (!err)
         {
-            boost::system::error_code serr = openSerial();
-            if (!serr)
-            {
-                HIVELOG_DEBUG(m_log,
-                    "got serial device \"" << m_serialPortName
-                    << "\" at baudrate: " << m_serialBaudrate);
-
-                asyncListenForXBeeFrames(true);
-                sendGatewayRegistrationRequest();
-            }
-            else
-            {
-                HIVELOG_DEBUG(m_log, "cannot open serial device \""
-                    << m_serialPortName << "\": ["
-                    << serr << "] " << serr.message());
-
-                // try to open later
-                asyncOpenSerial(10); // TODO: reconnect timeout?
-            }
+            asyncListenForXBeeFrames(true);
+            sendGatewayRegistrationRequest();
         }
-        else if (err == boost::asio::error::operation_aborted)
-            HIVELOG_DEBUG_STR(m_log, "open serial device timer cancelled");
         else
-            HIVELOG_ERROR(m_log, "open serial device timer error: ["
-                << err << "] " << err.message());
-    }
-
-
-    /// @brief Reset the serial device.
-    void resetSerial()
-    {
-        HIVELOG_WARN(m_log, "serial device reset");
-        m_serial.close();
-        asyncOpenSerial(0);
+        {
+            // try to open later
+            asyncOpenSerial(10); // TODO: reconnect timeout?
+        }
     }
 
 private:
@@ -534,14 +439,12 @@ private:
                 << xbee::Debug::dump(frame));
         }
         else if (err == boost::asio::error::operation_aborted)
-        {
             HIVELOG_DEBUG_STR(m_log, "TX operation cancelled");
-        }
         else
         {
             HIVELOG_ERROR(m_log, "failed to send frame: ["
                 << err << "] " << err.message());
-            resetSerial();
+            resetSerial(true);
         }
     }
 
@@ -578,14 +481,12 @@ private:
                 HIVELOG_DEBUG_STR(m_log, "no frame received");
         }
         else if (err == boost::asio::error::operation_aborted)
-        {
             HIVELOG_DEBUG_STR(m_log, "RX operation cancelled");
-        }
         else
         {
             HIVELOG_ERROR(m_log, "failed to receive frame: ["
                 << err << "] " << err.message());
-            resetSerial();
+            resetSerial(true);
         }
     }
 
@@ -678,7 +579,7 @@ private:
                 }
             }
 
-            asyncRegisterDevice(rdev);
+            asyncRegisterDevice(rdev->device);
         }
 
         else if (intent == gateway::INTENT_COMMAND_RESULT_RESPONSE)
@@ -692,7 +593,7 @@ private:
                 cmd.status = data["status"].asString();
                 cmd.result = data["result"].asString();
 
-                m_api->asyncSendCommandResult(rdev->device, cmd);
+                m_serverAPI->asyncSendCommandResult(rdev->device, cmd);
             }
             else
                 HIVELOG_WARN_STR(m_log, "got command result before registration, ignored");
@@ -712,7 +613,7 @@ private:
                     ntf.params = data;
 
                     if (rdev->deviceRegistered)
-                        m_api->asyncSendNotification(rdev->device, ntf);
+                        m_serverAPI->asyncSendNotification(rdev->device, ntf);
                     else
                     {
                         HIVELOG_DEBUG_STR(m_log, "device is not registered, notification delayed");
@@ -731,17 +632,11 @@ private:
     }
 
 private:
-    boost::asio::deadline_timer m_serialOpenTimer; ///< @brief Open the serial port device timer.
-    boost::asio::serial_port m_serial; ///< @brief The serial port device.
-    String m_serialPortName; ///< @brief The serial port name.
-    UInt32 m_serialBaudrate; ///< @brief The serial baudrate.
-
     String m_networkName; ///< @brief The network name.
     String m_networkKey; ///< @brief The network key.
     String m_networkDesc; ///< @brief The network description.
 
 private:
-    cloud6::ServerAPI::SharedPtr m_api; ///< @brief The cloud server %API.
     gateway::Engine m_gw; ///< @brief The gateway engine for system intents.
 
 private:

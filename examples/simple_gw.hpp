@@ -19,16 +19,17 @@ namespace simple_gw
 
 /// @brief The simple gateway application.
 class Application:
-    public basic_app::Application
+    public basic_app::Application,
+    public basic_app::ServerModule,
+    public basic_app::SerialModule
 {
     typedef basic_app::Application Base; ///< @brief The base type.
 protected:
 
     /// @brief The default constructor.
     Application()
-        : m_serialOpenTimer(m_ios)
-        , m_serial(m_ios)
-        , m_serialBaudrate(0)
+        : ServerModule(m_ios, m_log)
+        , SerialModule(m_ios, m_log)
         , m_deviceRegistered(false)
     {}
 
@@ -85,14 +86,13 @@ public:
                 serialBaudrate = boost::lexical_cast<UInt32>(argv[++i]);
         }
 
-        pthis->m_api = cloud6::ServerAPI::create(http::Client::create(pthis->m_ios), baseUrl);
         pthis->m_gw_api = GatewayAPI::create(pthis->m_serial);
-        pthis->m_serialPortName = serialPortName;
-        pthis->m_serialBaudrate = serialBaudrate;
         pthis->m_networkName = networkName;
         pthis->m_networkKey = networkKey;
         pthis->m_networkDesc = networkDesc;
 
+        pthis->initServerModule(baseUrl, pthis);
+        pthis->initSerialModule(serialPortName, serialBaudrate, pthis);
         return pthis;
     }
 
@@ -115,7 +115,7 @@ protected:
     virtual void start()
     {
         Base::start();
-        asyncOpenSerial(0);
+        asyncOpenSerial(0); // ASAP
     }
 
 
@@ -125,28 +125,14 @@ protected:
     */
     virtual void stop()
     {
-        m_api->cancelAll();
+        cancelServerModule();
+        cancelSerialModule();
         //m_gw->cancelAll();
-        m_serialOpenTimer.cancel();
-        m_serial.close();
         asyncListenForGatewayFrames(false); // stop listening to release shared pointer
         Base::stop();
     }
 
-private:
-
-    /// @brief Register the device.
-    /**
-    @param[in] device The device to register.
-    */
-    void asyncRegisterDevice(cloud6::DevicePtr device)
-    {
-        HIVELOG_INFO(m_log, "register device: " << device->id);
-        m_api->asyncRegisterDevice(device,
-            boost::bind(&Application::onRegisterDevice,
-                shared_from_this(), _1, _2));
-    }
-
+private: // ServerModule
 
     /// @brief The "register device" callback.
     /**
@@ -155,37 +141,17 @@ private:
     @param[in] err The error code.
     @param[in] device The device.
     */
-    void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr device)
+    virtual void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr device)
     {
+        ServerModule::onRegisterDevice(err, device);
+
         if (!err)
         {
             m_deviceRegistered = true;
 
-            HIVELOG_INFO(m_log, "got \"register device\" response: " << device->id);
             asyncPollCommands(device);
-
             sendDelayedNotifications();
         }
-        else
-        {
-            HIVELOG_ERROR(m_log, "register device error: ["
-                << err << "] " << err.message());
-        }
-    }
-
-private:
-
-    /// @brief Poll commands for the device.
-    /**
-    @param[in] device The device.
-    */
-    void asyncPollCommands(cloud6::DevicePtr device)
-    {
-        HIVELOG_INFO(m_log, "poll commands for: " << device->id);
-
-        m_api->asyncPollCommands(device,
-            boost::bind(&Application::onPollCommands,
-                shared_from_this(), _1, _2, _3));
     }
 
 
@@ -195,29 +161,20 @@ private:
     @param[in] device The device.
     @param[in] commands The list of commands.
     */
-    void onPollCommands(boost::system::error_code err, cloud6::DevicePtr device, std::vector<cloud6::Command> const& commands)
+    virtual void onPollCommands(boost::system::error_code err, cloud6::DevicePtr device, std::vector<cloud6::Command> const& commands)
     {
-        HIVELOG_INFO(m_log, "got " << commands.size()
-            << " commands for: " << device->id);
+        ServerModule::onPollCommands(err, device, commands);
 
         if (!err)
         {
-            // TODO: check if 'commands' is array
             typedef std::vector<cloud6::Command>::const_iterator Iterator;
             for (Iterator i = commands.begin(); i != commands.end(); ++i)
                 sendGatewayCommand(*i);
 
-            // start poll again
-            asyncPollCommands(device);
-        }
-        else
-        {
-            HIVELOG_ERROR(m_log, "poll commands error: ["
-                << err << "] " << err.message());
+            asyncPollCommands(device); // start poll again
         }
     }
 
-private:
 
     /// @brief Send all delayed notifications.
     void sendDelayedNotifications()
@@ -229,109 +186,31 @@ private:
         for (size_t i = 0; i < N; ++i)
         {
             cloud6::Notification ntf = m_delayedNotifications[i];
-            m_api->asyncSendNotification(m_device, ntf);
+            m_serverAPI->asyncSendNotification(m_device, ntf);
         }
         m_delayedNotifications.clear();
     }
 
-private:
+private: // SerialModule
 
-    /// @brief Try to open serial device asynchronously.
+    /// @brief The serial port is opended callback.
     /**
-    @param[in] wait_sec The number of seconds to wait before open.
-    */
-    void asyncOpenSerial(long wait_sec)
-    {
-        HIVELOG_TRACE(m_log, "try to open serial"
-            " after " << wait_sec << " seconds");
-
-        m_serialOpenTimer.expires_from_now(boost::posix_time::seconds(wait_sec));
-        m_serialOpenTimer.async_wait(boost::bind(&Application::onOpenSerial,
-            shared_from_this(), boost::asio::placeholders::error));
-    }
-
-
-    /// @brief Try to open serial device.
-    /**
-    @return The error code.
-    */
-    boost::system::error_code openSerial()
-    {
-        boost::asio::serial_port & port = m_serial;
-        boost::system::error_code err;
-
-        port.close(err); // (!) ignore error
-        port.open(m_serialPortName, err);
-        if (err) return err;
-
-        // set baud rate
-        port.set_option(boost::asio::serial_port::baud_rate(m_serialBaudrate), err);
-        if (err) return err;
-
-        // set character size
-        port.set_option(boost::asio::serial_port::character_size(), err);
-        if (err) return err;
-
-        // set flow control
-        port.set_option(boost::asio::serial_port::flow_control(), err);
-        if (err) return err;
-
-        // set stop bits
-        port.set_option(boost::asio::serial_port::stop_bits(), err);
-        if (err) return err;
-
-        // set parity
-        port.set_option(boost::asio::serial_port::parity(), err);
-        if (err) return err;
-
-        return err; // OK
-    }
-
-
-    /// @brief Try to open serial port device callback.
-    /**
-    This method is called as the "open serial timer" callback.
-
     @param[in] err The error code.
     */
     void onOpenSerial(boost::system::error_code err)
     {
+        SerialModule::onOpenSerial(err);
+
         if (!err)
         {
-            boost::system::error_code serr = openSerial();
-            if (!serr)
-            {
-                HIVELOG_DEBUG(m_log,
-                    "got serial device \"" << m_serialPortName
-                    << "\" at baudrate: " << m_serialBaudrate);
-
-                asyncListenForGatewayFrames(true);
-                sendGatewayRegistrationRequest();
-            }
-            else
-            {
-                HIVELOG_DEBUG(m_log, "cannot open serial device \""
-                    << m_serialPortName << "\": ["
-                    << serr << "] " << serr.message());
-
-                // try to open later
-                asyncOpenSerial(10); // TODO: reconnect timeout?
-            }
+            asyncListenForGatewayFrames(true);
+            sendGatewayRegistrationRequest();
         }
-        else if (err == boost::asio::error::operation_aborted)
-            HIVELOG_DEBUG_STR(m_log, "open serial device timer cancelled");
         else
-            HIVELOG_ERROR(m_log, "open serial device timer error: ["
-                << err << "] " << err.message());
-    }
-
-
-    /// @brief Reset the serial device.
-    void resetSerial()
-    {
-        HIVELOG_WARN(m_log, "serial device reset");
-        m_serial.close();
-        asyncOpenSerial(0);
+        {
+            // try to open later
+            asyncOpenSerial(10); // TODO: reconnect timeout?
+        }
     }
 
 private:
@@ -372,7 +251,7 @@ private:
             res.status = "Failed";
             res.result = "Unknown command";
 
-            m_api->asyncSendCommandResult(m_device, cmd);
+            m_serverAPI->asyncSendCommandResult(m_device, cmd);
         }
     }
 
@@ -417,7 +296,7 @@ private:
         {
             HIVELOG_ERROR(m_log, "failed to send frame: ["
                 << err << "] " << err.message());
-            resetSerial();
+            resetSerial(true);
         }
     }
 
@@ -461,7 +340,7 @@ private:
         {
             HIVELOG_ERROR(m_log, "failed to receive frame: ["
                 << err << "] " << err.message());
-            resetSerial();
+            resetSerial(true);
         }
     }
 
@@ -527,7 +406,7 @@ private:
                 cmd.status = data["status"].asString();
                 cmd.result = data["result"].asString();
 
-                m_api->asyncSendCommandResult(m_device, cmd);
+                m_serverAPI->asyncSendCommandResult(m_device, cmd);
             }
             else
                 HIVELOG_WARN_STR(m_log, "got command result before registration, ignored");
@@ -547,7 +426,7 @@ private:
                     ntf.params = data;
 
                     if (m_deviceRegistered)
-                        m_api->asyncSendNotification(m_device, ntf);
+                        m_serverAPI->asyncSendNotification(m_device, ntf);
                     else
                     {
                         HIVELOG_DEBUG_STR(m_log, "device is not registered, notification delayed");
@@ -566,11 +445,6 @@ private:
     }
 
 private:
-    boost::asio::deadline_timer m_serialOpenTimer; ///< @brief Open the serial port device timer.
-    boost::asio::serial_port m_serial; ///< @brief The serial port device.
-    String m_serialPortName; ///< @brief The serial port name.
-    UInt32 m_serialBaudrate; ///< @brief The serial baudrate.
-
     String m_networkName; ///< @brief The network name.
     String m_networkKey; ///< @brief The network key.
     String m_networkDesc; ///< @brief The network description.
@@ -584,9 +458,6 @@ private:
     cloud6::DevicePtr m_device; ///< @brief The device.
     bool m_deviceRegistered; ///< @brief The DeviceHive cloud "registered" flag.
     std::vector<cloud6::Notification> m_delayedNotifications; ///< @brief The list of delayed notification.
-
-private:
-    cloud6::ServerAPI::SharedPtr m_api; ///< @brief The cloud server API.
 };
 
 
