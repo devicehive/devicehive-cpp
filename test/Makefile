@@ -33,7 +33,7 @@ endif
 #home_path:=${PWD}
 #base_path:=$(shell dirname "${home_path}")
 home_path:=.
-include_dirs:=-I${home_path}/../include -I${home_path}/../externals/include
+include_dirs:=-I${home_path}/.. -I${home_path}/../include -I${home_path}/../externals/include
 ex_libs:=${home_path}/../externals/lib.${platform}
 
 defines+=-DBOOST_SYSTEM_NO_DEPRECATED
@@ -54,25 +54,37 @@ CXXFLAGS+=-fdata-sections -ffunction-sections
 LDFLAGS+=-Wl,--gc-sections -pthread -L${ex_libs}
 #LIBS+=-lboost_system
 
-examples: simple_dev simple_gw zigbee_gw
 
-simple_dev: ${home_path}/simple_dev.cpp
-	${CROSS_COMPILE}${CXX} -o simple_dev ${home_path}/simple_dev.cpp ${CXXFLAGS} ${LDFLAGS} \
+#########################################################
+# this is simple program that prints the "Hello" message
+# it's used to check compability of toolchain and device
+hello: ${home_path}/hello.cpp
+	${CROSS_COMPILE}${CXX} -o hello ${home_path}/hello.cpp ${CXXFLAGS} ${LDFLAGS}
+
+#########################################################
+# this is simple test program
+xtest: ${home_path}/main.cpp
+	${CROSS_COMPILE}${CXX} -o xtest ${home_path}/main.cpp ${CXXFLAGS} ${LDFLAGS} \
 		-lboost_system
 
-simple_gw: ${home_path}/simple_gw.cpp
-	${CROSS_COMPILE}${CXX} -o simple_gw ${home_path}/simple_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
-		-lboost_system
+simple_dev:
+	make xtest XTEST_EXAMPLE=simple_dev
+	mv -f xtest simple_dev
 
-zigbee_gw: ${home_path}/zigbee_gw.cpp
-	${CROSS_COMPILE}${CXX} -o zigbee_gw ${home_path}/zigbee_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
-		-lboost_system
+simple_gw:
+	make xtest XTEST_EXAMPLE=simple_gw
+	mv -f xtest simple_gw
+
+zigbee_gw:
+	make xtest XTEST_EXAMPLE=zigbee_gw
+	mv -f xtest zigbee_gw
+
 
 #########################################################
 # clean all the object files and applications
 clean:
 	@rm -rf *.o
-	@rm -f simple_dev simple_gw zigbee_gw
+	@rm -f hello xtest simple_dev simple_gw zigbee_gw
 	@rm -f ${PCH_objects}
 
 
@@ -99,4 +111,4 @@ PCH: ${PCH_objects}
 	@${CROSS_COMPILE}${CC} ${CXXFLAGS} -c $< -o $@
 
 
-.PHONY: clean examples
+.PHONY: clean hello xtest simple_dev simple_gw zigbee_gw

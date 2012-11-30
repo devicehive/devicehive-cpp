@@ -1,7 +1,10 @@
-Examples {#page_hive_examples}
-==============================
+Examples {#page_examples}
+=========================
 
-There are a few examples of DeviceHive framework usage:
-- @subpage page_ex00
-- @subpage page_ex01
-- @subpage page_ex02
+Please read the @ref page_start first.
+
+There are a few examples of DeviceHive C++ framework usage:
+- @subpage page_basic_app
+- @subpage page_simple_dev
+- @subpage page_simple_gw
+- @subpage page_zigbee_gw

@@ -1,0 +1,8 @@
+# config backups & logs
+/.config.*
+/*.log
+
+# automatic configs & build
+/.build
+/config
+/config.gen

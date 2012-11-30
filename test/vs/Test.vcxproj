@@ -111,8 +111,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\docs\basictools.md" />
-    <None Include="..\..\docs\codestyle.txt" />
     <None Include="..\..\docs\examples.md" />
+    <None Include="..\..\docs\getstarted.md" />
     <None Include="..\..\docs\mainpage.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

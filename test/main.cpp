@@ -1,7 +1,7 @@
 /** @file
 @brief The test application.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
-@see @ref page_hive_examples
+@see @ref page_examples
 */
 #include <hive/pch.hpp>
 

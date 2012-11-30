@@ -1,7 +1,7 @@
 /** @file
 @brief The simple device example.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
-@see @ref page_ex01
+@see @ref page_simple_dev
 */
 #ifndef __EXAMPLES_SIMPLE_DEV_HPP_
 #define __EXAMPLES_SIMPLE_DEV_HPP_
@@ -190,7 +190,7 @@ Contains any number of LED controls and temperature sensors.
 
 Updates temperature sensors every second.
 
-@see @ref page_ex01
+@see @ref page_simple_dev
 */
 class Application:
     public basic_app::Application,
@@ -519,17 +519,16 @@ inline void main(int argc, const char* argv[])
 
 
 ///////////////////////////////////////////////////////////////////////////////
-/** @page page_ex01 C++ device example
+/** @page page_simple_dev Simple device example
 
 [BeagleBone]: http://beagleboard.org/bone/ "BeagleBone official site"
 [RaspberryPi]: http://www.raspberrypi.org/ "RaspberryPi official site"
-[Boost]: http://www.boost.org/ "Boost official site"
-[crosstool-NG]: http://crosstool-ng.org/ "crosstool-NG official site"
 
 
-This simple example aims to demonstrate usage of DeviceHive framework from C++ application.
+This simple example aims to demonstrate usage of DeviceHive framework from C++
+application.
 
-In terms of DeviceHive framework this example is **device** implementation:
+In terms of DeviceHive framework this example is **Device** implementation:
 
 ![DeviceHive framework](@ref preview2.png)
 
@@ -540,36 +539,20 @@ which runs Linux and manages the following peripheral:
 
 The Internet connection is provided by 3G modem connected to device's USB port.
 
-Android application is used as a **client** to control LED state and to monitor temperature.
+Android application is used as a **Client** to control LED state and to monitor
+temperature.
 
-See @ref page_ex01_appendix_hardware for more information about used hardware, schemes etc.
-
-The full source code available in Examples/simple_dev.hpp file.
-
-
-Requirements {#page_ex01_requirements}
-======================================
-
-To build this example under the Linux with ARM architecture we have to prepare appropriate toolchain
-for cross compilation. Please see @ref page_ex01_appendix_toolchain for more details.
-
-The C++ implementation of DeviceHive framework is based on [Boost] library.
-To build this example you have to prepare the following libraries:
-(see @ref page_ex01_appendix_boost for more details about how to do that):
-    - boost.system
-
-Also at least the following header-only [Boost] libraries are used:
-    - boost.asio (which is the key part of the framework)
-    - boost.shared_ptr
-    - boost.bind
+Please see @ref page_start to get information about how to prepare toolchain
+and build the *boost* library.
 
 
-Application {#page_ex01_application}
-====================================
+Application
+===========
 
-Application is a console program and it's represented by an instance of simple_dev::Application.
-This instance can be created using simple_dev::Application::create() factory method.
-Application does all its useful work in simple_dev::Application::run() method.
+Application is a console program and it's represented by an instance of
+simple_dev::Application. This instance can be created using
+simple_dev::Application::create() factory method. Application does all its
+useful work in simple_dev::Application::run() method.
 
 ~~~{.cpp}
 using namespace simple_dev;
@@ -582,15 +565,17 @@ int main(int argc, const char* argv[])
 
 Application contains the following key objects:
     - simple_dev::Application::m_ios the IO service instance to perform various
-    asynchronous operations (such as HTTP requests and update timers)
-    - simple_dev::Application::m_device the DeviceHive device object which contains several equipment objects:
+      asynchronous operations (such as HTTP requests and update timers)
+    - simple_dev::Application::m_device the DeviceHive device object which
+      contains several equipment objects:
         - any number of simple_dev::LedControl instances
         - any number of simple_dev::TempSensor instances
-    - simple_dev::Application::m_api the "clue" which links our application and the DeviceHive server
+    - simple_dev::Application::m_api the "clue" which links our application and
+      the DeviceHive server
 
 
-LED control {#page_ex01_equipment_led}
---------------------------------------
+LED control
+-----------
 
 We assume that actual LED hardware is mapped by kernel to some *device* file
 which is in virtual filesystem such as `/proc` or `/sys`. Such *device* file
@@ -608,20 +593,21 @@ command from the server to change the LED state, this state
 will be immediately written to the corresponding *device* file
 using simple_dev::LedControl::setState() method, which is very simple:
 
-@snippet Examples/simple_dev.hpp LedControl_setState
+@snippet examples/simple_dev.hpp LedControl_setState
 
 
-Temperature sensor {#page_ex01_equipment_temp}
-----------------------------------------------
+Temperature sensor
+------------------
 
-The temperature sensor also uses *device* file. But this file is written by hardware
-and simple_dev::TempSensor instance reads it periodically. The *device* file format is not
-so simple as for LED control but we can extract actual temperature value searching
-for the `t=` keyword.
+The temperature sensor also uses *device* file. But this file is written by
+hardware and simple_dev::TempSensor instance reads it periodically.
+The *device* file format is not so simple as for LED control but we can extract
+actual temperature value searching for the `t=` keyword.
 
-Also we have to verify integrity of the *device* file and skip measurement if CRC equals to "NO".
+Also we have to verify integrity of the *device* file and skip measurement if
+CRC equals to "NO".
 
-@snippet Examples/simple_dev.hpp TempSensor_getValue
+@snippet examples/simple_dev.hpp TempSensor_getValue
 
 Typical DS18B20 file content is:
 
@@ -632,25 +618,28 @@ Typical DS18B20 file content is:
 
 It means that current temperature is 24.187C.
 
-Our application periodically checks all the connected temperature sensors and sends
-notifications to the DeviceHive server if the temperature measurement has been changed
-since last time.
+Our application periodically checks all the connected temperature sensors and
+sends notifications to the DeviceHive server if the temperature measurement has
+been changed (more than 0.2 degree) since last time.
 
 
+Control flow
+------------
 
-Control flow {#page_ex01_application_flow}
-------------------------------------------
+At the start we should register our device on the server using
+simple_dev::Application::asyncRegisterDevice() method. If registration is
+successful we start listening for the commands from the server using
+simple_dev::Application::asyncPollCommands() method. At the same time we start
+*update* timer and periodically check the temperature sensors using
+simple_dev::Application::asyncUpdateSensors() method. If temperature
+measurement has been changed, then we send notification to the DeviceHive
+server.
 
-At the start we should register our device on the server using simple_dev::Application::asyncRegisterDevice() method.
-If registration is successful we start listening for the commands from the server using simple_dev::Application::asyncPollCommands() method.
-At the same time we start *update* timer and periodically check the temperature sensors using simple_dev::Application::asyncUpdateSensors().
-If temperature measurement has been changed, then we send notification to the DeviceHive server.
 
+Command line arguments
+----------------------
 
-Command line arguments {#page_ex01_application_cmdline}
--------------------------------------------------------
-
-Application supports the following command line options:
+Application supports the following command line arguments:
 
 |                                   Option | Description
 |-----------------------------------------|-----------------------------------------------
@@ -672,7 +661,7 @@ instances (LED controls and temperature sensors respectively).
 For example, to start application on [BeagleBone] board run the following command:
 
 ~~~{.sh}
-./xtest --led p8_3 "LED" "/sys/class/gpio/gpio38/value" \
+./simple_dev --led p8_3 "LED" "/sys/class/gpio/gpio38/value" \
  --temp p8_6 "DS18B20" "/sys/bus/w1/devices/28-00000393268a/w1_slave"
 ~~~
 
@@ -680,107 +669,39 @@ Where `gpio38` is the name of output GPIO pin which is used to control LED.
 And `28-00000393268a` is the name of *1-wire* device.
 
 
-Make and run {#page_ex01_make_and_run}
-======================================
+Make and run
+============
 
 To build example application just run the following command:
 
 ~~~{.sh}
-make xtest-01
+make simple_dev
 ~~~
 
 To build example application using custom toolchain use `CROSS_COMPILE` variable:
 
 ~~~{.sh}
-make xtest-01 CROSS_COMPILE=arm-unknown-linux-gnueabi-
+make simple_dev CROSS_COMPILE=arm-unknown-linux-gnueabi-
 ~~~
 
 Now you can copy executable to your device and use it.
 
 ~~~{.sh}
-./xtest-01
-~~~
-
-See @ref page_ex01_application_cmdline for more options.
-
-
-Appendix {#page_ex01_appendix}
-==============================
-
-Preparing toolchain {#page_ex01_appendix_toolchain}
----------------------------------------------------
-
-Since [RaspberryPi] and [BeagleBone] has ARM processor we have to use special toolchain to build our application.
-There are a few tools which can help to prepare such a toolchain: crossdev, crosstool, [crosstool-NG], etc.
-Let's use the last one.
-
-
-###Installing [crosstool-NG]
-
-The following [article](http://www.bootc.net/archives/2012/05/26/how-to-build-a-cross-compiler-for-your-raspberry-pi)
-describes how to prepare toolchain for [RaspberryPi]. The short version is:
-    - download and unpack
-    - `./configure && make && sudo make install`
-    - `cd ./tools/crosstool-ng/raspberrypi`
-    - `ct-ng menuconfig`
-    - `ct-ng build`
-
-The [crosstool-NG] package has the following dependencies: `bison` `flex` `texinfo` `subversion` `libtool` `automake` `libncurses5-dev`
-You may install all of these dependencies using the following command:
-
-~~~{.sh}
-sudo apt-get install bison flex texinfo subversion libtool automake libncurses5-dev
+./simple_dev
 ~~~
 
 
-###Simple "Hello World!" application
+Hardware details
+----------------
 
-To check cross compilation is working just build the "Hello" application:
-~~~{.sh}
-make hello CROSS_COMPILE=arm-unknown-linux-gnueabi-
-~~~
+[BeagleBone] `gpio38` refers to the `GPIO1_6` (`1*32+6=38`)
+which is located in `P8_3` pin.
 
-The following command
-~~~{.sh}
-file hello
-~~~
-should print something like:
-~~~{.sh}
-hello: ELF 32-bit LSB executable, ARM, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 3.5.0, not stripped
-~~~
-
-Now you can copy executable to your [RaspberryPi] device and check it's working fine:
-~~~{.sh}
-./hello World
-~~~
+On [RaspberryPi] to enable 1-wire support load the `w1-gpio`
+and `w1-therm` kernel modules first.
 
 
-Building boost {#page_ex01_appendix_boost}
-------------------------------------------
-
-The [Boost] library is widely used in DeviceHive C++ framework. Although most of the [Boost] libraries are header-only,
-there are a few [Boost] libraries which we have to build using ARM toolchain.
-
-- download and unpack boost library
-- `./bootstrap.sh --with-libraries=date_time,thread,system --prefix=/usr/local/raspberrypi`
-- `./b2 toolset=gcc-arm`
-
-Before build the boost you have ensure that the `~/user-config.jam` configuration file contains the following line:
-~~~
-using gcc : arm : arm-unknown-linux-gnueabi-g++ ;
-~~~
-
-Now you can link your application with boost static or shared libraries.
-
-
-Hardware details {#page_ex01_appendix_hardware}
----------------------------------------------
-
-[BeagleBone] `gpio38` refers to the `GPIO1_6` (`1*32+6=38`) which is located in `P8_3` pin.
-
-On [RaspberryPi] to enable 1-wire support load the `w1-gpio` and `w1-therm` kernel modules.
-
-@example Examples/simple_dev.hpp
+@example examples/simple_dev.hpp
 */
 
 #endif // __EXAMPLES_SIMPLE_DEV_HPP_

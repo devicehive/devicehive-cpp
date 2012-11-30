@@ -1,7 +1,7 @@
 /** @file
 @brief The simplest example.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
-@see @ref page_ex00
+@see @ref page_basic_app
 */
 #ifndef __EXAMPLES_BASIC_APP_HPP_
 #define __EXAMPLES_BASIC_APP_HPP_
@@ -41,7 +41,7 @@ its own initialization and finilization tasks.
 Use create() factory method to create new instances of the application.
 See main() function for example.
 
-@see @ref page_ex00
+@see @ref page_basic_app
 */
 class Application:
     public boost::enable_shared_from_this<Application>
@@ -519,15 +519,21 @@ inline void main(int argc, const char* argv[])
 
 
 ///////////////////////////////////////////////////////////////////////////////
-/** @page page_ex00 C++ application skeleton
+/** @page page_basic_app Application skeleton
 
-This is the test application skeleton and base class for all test application examples.
+This is the test application skeleton and base class for all application
+examples.
 
 It does almost nothing: handles system signals and closes the application.
 But it contains a few key objects which are widely used by derived classes.
 
-See basic_app::Application documentation for more details or Examples/basic_app.hpp file for full source code.
+See basic_app::Application documentation for more details
+or examples/basic_app.hpp file for full source code.
 
+Also there are two modules which can be used to extend functionality
+of your application:
+    - basic_app::ServerModule which allows you to use cloud6::ServerAPI
+    - basic_app::SerialModule which allows you to use serial port
 
 @example examples/basic_app.hpp
 */

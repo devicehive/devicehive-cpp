@@ -1,7 +1,7 @@
 /** @file
 @brief The simple gateway example.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
-@see @ref page_ex02
+@see @ref page_simple_gw
 */
 #ifndef __EXAMPLES_SIMPLE_GW_HPP_
 #define __EXAMPLES_SIMPLE_GW_HPP_
@@ -485,47 +485,46 @@ inline void main(int argc, const char* argv[])
 
 
 ///////////////////////////////////////////////////////////////////////////////
-/** @page page_ex02 C++ gateway example
+/** @page page_simple_gw Simple gateway example
 
 [MSP430]: http://www.ti.com/tool/msp-exp430g2 "TI MSP430 LaunchPad"
 [MSP430G2553]: http://www.ti.com/product/msp430g2553 "TI MSP430G2553 microcontroller"
 [PIC16F88]: http://www.microchip.com/wwwproducts/Devices.aspx?dDocName=en010243 "Microchip PIC16F88 microcontroller"
 
 
-This simple example aims to demonstrate usage of binary DeviceHive protocol from C++ application.
+This simple example aims to demonstrate usage of binary DeviceHive protocol
+from C++ application.
 
-In terms of DeviceHive framework this example is **gateway** implementation:
+In terms of DeviceHive framework this example is **Gateway** implementation:
 
 ![DeviceHive framework](@ref preview2.png)
 
-Our target device is one of small microcontrollers (like [MSP430] development board or [PIC16F88] based board)
-which runs microcode and manages the following peripheral:
+Our target device is one of small microcontrollers (like [MSP430] development
+board or [PIC16F88] based board) which runs microcode and manages the following
+peripheral:
     - simple LED, allowing user to switch it *ON* or *OFF*
     - simple push button, providing user with custom asynchronous events
 
+Because of limited resources it's impossible to use RESTful protocol on
+such small devices. So device uses binary protocol to communicate with an
+intermediate node - gateway. Gateway is used to convert binary messages
+to the JSON messages of RESTful protocol and visa versa.
 
-Because of limited resources it's impossible to use RESTful protocol on such small devices.
-So device uses binary protocol to communicate with an intermediate node - gateway.
-Gateway is used to convert binary messages to the JSON messages of RESTful protocol and visa versa.
+The full source code available in examples/simple_gw.hpp file.
 
-The full source code available in Examples/simple_gw.hpp file.
+It's highly recommended to study @ref page_simple_dev first.
 
-It's highly recommended to study @ref page_ex01 first.
-
-
-Requirements {#page_ex02_requirements}
-======================================
-
-Please take a look at corresponding @ref page_ex01_requirements section of @ref page_ex01.
-All requirements are exactly the same.
+Please see @ref page_start to get information about how to prepare toolchain
+and build the *boost* library.
 
 
-Application {#page_ex02_application}
-====================================
+Application
+===========
 
-Application is a console program and it's reperented by an instance of simple_gw::Application.
-This instance can be created using simple_gw::Application::create() factory method.
-Application does all its useful work in simple_gw::Application::run() method.
+Application is a console program and it's reperented by an instance of
+simple_gw::Application. This instance can be created using
+simple_gw::Application::create() factory method. Application does all
+its useful work in simple_gw::Application::run() method.
 
 ~~~{.cpp}
 using namespace simple_gw;
@@ -537,37 +536,43 @@ int main(int argc, const char* argv[])
 ~~~
 
 
-Binary message layout {#page_ex02_layout}
-=========================================
+Binary message layout
+=====================
 
-Each binary message has it's own layout - the binary data format - according to binary protocol specification.
-Simple, layout is the list of data fields of various types (integers, string, etc.) and it's names.
+Each binary message has it's own layout - the binary data format - according
+to binary protocol specification. Simple, layout is the list of data fields
+of various types (integers, string, etc.) and it's names.
 Layout also may be treated as a binary<->JSON conversion rule.
 
-Message layout is represented by gateway::Layout class. Besides system layouts wich have known format,
-each endpoint device should provide layout for device-specific messages during registration procedure.
+Message layout is represented by gateway::Layout class. Besides system layouts
+wich have known format, each endpoint device should provide layout for
+device-specific messages during registration procedure.
 
-Each message is identified by unique intent number. The gateway::LayoutManager class manages
-such intent numbers and corresponding layouts.
-
-
-Control flow {#page_ex02_application_flow}
-------------------------------------------
-
-At the start we should send registration request to the target device connected via serial cable.
-Once we got registration response we register our device on the server using simple_gw::Application::asyncRegisterDevice() method.
-
-If registration is successful we start listening for commands from the DeviceHive server using simple_gw::Application::asyncPollCommands() method.
-Once we received command we convert it from JSON to binary format and send converted command to the device via serial port.
-
-At the same time we listen for notifications from serial port. Once we got notification from device
-we convert it from binary to JSON format and send converted notification to the DeviceHive server.
+Each message is identified by unique intent number. The gateway::LayoutManager
+class manages such intent numbers and corresponding layouts.
 
 
-Command line arguments {#page_ex02_application_cmdline}
--------------------------------------------------------
+Control flow
+------------
 
-Application supports the following command line options:
+At the start we should send registration request to the target device connected
+via serial cable. Once we got registration response we register our device on
+the server using simple_gw::Application::asyncRegisterDevice() method.
+
+If registration is successful we start listening for commands from the
+DeviceHive server using simple_gw::Application::asyncPollCommands() method.
+Once we received command we convert it from JSON to binary format and send
+converted command to the device via serial port.
+
+At the same time we listen for notifications from serial port. Once we got
+notification from device we convert it from binary to JSON format and send
+converted notification to the DeviceHive server.
+
+
+Command line arguments
+----------------------
+
+Application supports the following command line arguments:
 
 |                                   Option | Description
 |-----------------------------------------|-----------------------------------------------
@@ -581,36 +586,33 @@ Application supports the following command line options:
 For example, to start application run the following command:
 
 ~~~{.sh}
-./xtest --serial COM31 --baudrate 9600
+./simple_gw --serial COM31 --baudrate 9600
 ~~~
 
 
-Make and run {#page_ex02_make_and_run}
-======================================
+Make and run
+============
 
 To build example application just run the following command:
 
 ~~~{.sh}
-make xtest-02
+make simple_gw
 ~~~
 
 To build example application using custom toolchain use `CROSS_COMPILE` variable:
 
 ~~~{.sh}
-make xtest-02 CROSS_COMPILE=arm-unknown-linux-gnueabi-
+make simple_gw CROSS_COMPILE=arm-unknown-linux-gnueabi-
 ~~~
 
 Now you can copy executable to your gateway device and use it.
 
 
-@example Examples/simple_gw.hpp
+@example examples/simple_gw.hpp
 */
 
 #endif // __EXAMPLES_SIMPLE_GW_HPP_
 
 /*
-register request:   C5C30100000000000000000000000000
-                    c5c301000000000076
+register request: c5c301000000000076
 */
-
-// TODO: refactor API callbacks

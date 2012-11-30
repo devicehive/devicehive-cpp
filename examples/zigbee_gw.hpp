@@ -1,8 +1,8 @@
 /** @file
 @brief The ZigBee gateway example.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
+@see @ref page_zigbee_gw
 */
-//@see @ref page_ex03
 #ifndef __EXAMPLES_ZIGBEE_GW_HPP_
 #define __EXAMPLES_ZIGBEE_GW_HPP_
 
@@ -364,7 +364,7 @@ private:
 
     /// @brief Send the gateway frame.
     /**
-    @param[in] payload The custom gateway message payload.
+    @param[in] frame The gateway frame to send.
     @param[in] da64 The destination MAC address.
     @param[in] da16 The destination network address.
     */
@@ -670,9 +670,15 @@ inline void main(int argc, const char* argv[])
 
 
 ///////////////////////////////////////////////////////////////////////////////
-/* @page page_ex03 C++ ZigBee gateway example
+/** @page page_zigbee_gw ZigBee gateway example
 
-!!!UNDER CONSTRUCTION!!!
+ZigBee gateway example is very similar to @ref page_simple_gw except that
+end-devices are connected to the gateway via XBee module. Of course it is
+possible to connect more than one remote device.
+
+
+This page is under construction!
+================================
 
 
 @example examples/zigbee_gw.hpp
