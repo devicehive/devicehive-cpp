@@ -166,7 +166,8 @@ private:
             {
                 case SIGTERM:
                 case SIGINT:
-                    stop();
+                    m_terminated += 1; // force 'terminated' flag
+                    stop();            // since stop() is virtual
                     break;
 
                 default:

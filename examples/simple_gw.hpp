@@ -16,6 +16,13 @@ namespace simple_gw
 {
     using namespace hive;
 
+/// @brief Various contants and timeouts.
+enum
+{
+    SERIAL_RECONNECT_TIMEOUT    = 10, ///< @brief Try to open serial port each X seconds.
+    DEVICE_OFFLINE_TIMEOUT      = 0
+};
+
 
 /// @brief The simple gateway application.
 class Application:
@@ -127,7 +134,6 @@ protected:
     {
         cancelServerModule();
         cancelSerialModule();
-        //m_gw->cancelAll();
         asyncListenForGatewayFrames(false); // stop listening to release shared pointer
         Base::stop();
     }
@@ -169,7 +175,26 @@ private: // ServerModule
         {
             typedef std::vector<cloud6::Command>::const_iterator Iterator;
             for (Iterator i = commands.begin(); i != commands.end(); ++i)
-                sendGatewayCommand(*i);
+            {
+                cloud6::Command cmd = *i; // copy to modify
+                bool processed = true;
+
+                try
+                {
+                    processed = sendGatewayCommand(cmd);
+                }
+                catch (std::exception const& ex)
+                {
+                    HIVELOG_ERROR(m_log, "handle command error: "
+                        << ex.what());
+
+                    cmd.status = "Failed";
+                    cmd.result = ex.what();
+                }
+
+                if (processed)
+                    m_serverAPI->asyncSendCommandResult(device, cmd);
+            }
 
             asyncPollCommands(device); // start poll again
         }
@@ -207,10 +232,7 @@ private: // SerialModule
             sendGatewayRegistrationRequest();
         }
         else
-        {
-            // try to open later
-            asyncOpenSerial(10); // TODO: reconnect timeout?
-        }
+            asyncOpenSerial(SERIAL_RECONNECT_TIMEOUT); // try to open later
     }
 
 private:
@@ -228,8 +250,9 @@ private:
     /// @brief Send the command to the device.
     /**
     @param[in] cmd The command to send.
+    @return `true` if command processed.
     */
-    void sendGatewayCommand(cloud6::Command const& cmd)
+    bool sendGatewayCommand(cloud6::Command const& cmd)
     {
         const int intent = m_gw.findCommandIntentByName(cmd.name);
         if (0 <= intent)
@@ -240,19 +263,14 @@ private:
             json::Value data;
             data["id"] = cmd.id;
             data["parameters"] = cmd.params;
-            sendGatewayMessage(intent, data);
+            if (!sendGatewayMessage(intent, data))
+                throw std::runtime_error("invalid command format");
+            return false; // device will report command result later!
         }
         else
-        {
-            HIVELOG_WARN(m_log, "unknown command: \""
-                << cmd.name << "\", ignored");
+            throw std::runtime_error("unknown command, ignored");
 
-            cloud6::Command res = cmd;
-            res.status = "Failed";
-            res.result = "Unknown command";
-
-            m_serverAPI->asyncSendCommandResult(m_device, cmd);
-        }
+        return true;
     }
 
 
@@ -260,17 +278,21 @@ private:
     /**
     @param[in] intent The message intent.
     @param[in] data The custom message data.
+    @return `false` for invalid command.
     */
-    void sendGatewayMessage(int intent, json::Value const& data)
+    bool sendGatewayMessage(int intent, json::Value const& data)
     {
         if (gateway::Frame::SharedPtr frame = m_gw.jsonToFrame(intent, data))
         {
             m_gw_api->send(frame,
                 boost::bind(&Application::onSendGatewayFrame,
                     shared_from_this(), _1, _2));
+            return true;
         }
         else
             HIVELOG_WARN_STR(m_log, "cannot convert frame to binary format");
+
+        return false;
     }
 
 
@@ -326,8 +348,17 @@ private:
                     << frame->getIntent() << ": ["
                     << m_gw_api->hexdump(frame) << "], "
                     << frame->size() << " bytes");
-                handleGatewayMessage(frame->getIntent(),
-                    m_gw.frameToJson(frame));
+
+                try
+                {
+                    handleGatewayMessage(frame->getIntent(),
+                        m_gw.frameToJson(frame));
+                }
+                catch (std::exception const& ex)
+                {
+                    HIVELOG_ERROR(m_log, "failed handle received frame: " << ex.what());
+                    resetSerial(true);
+                }
             }
             else
                 HIVELOG_DEBUG_STR(m_log, "no frame received");
@@ -367,7 +398,7 @@ private:
                 cloud6::NetworkPtr network = cloud6::Network::create(
                     m_networkName, m_networkKey, m_networkDesc);
 
-                cloud6::Device::ClassPtr deviceClass = cloud6::Device::Class::create("", "", false, 10);
+                cloud6::Device::ClassPtr deviceClass = cloud6::Device::Class::create("", "", false, DEVICE_OFFLINE_TIMEOUT);
                 cloud6::ServerAPI::Serializer::json2deviceClass(data["deviceClass"], deviceClass);
 
                 m_device = cloud6::Device::create(id, name, key, deviceClass, network);
@@ -421,16 +452,15 @@ private:
                 {
                     HIVELOG_DEBUG(m_log, "got notification");
 
-                    cloud6::Notification ntf;
-                    ntf.name = name;
-                    ntf.params = data;
-
                     if (m_deviceRegistered)
-                        m_serverAPI->asyncSendNotification(m_device, ntf);
+                    {
+                        m_serverAPI->asyncSendNotification(m_device,
+                            cloud6::Notification(name, data));
+                    }
                     else
                     {
                         HIVELOG_DEBUG_STR(m_log, "device is not registered, notification delayed");
-                        m_delayedNotifications.push_back(ntf);
+                        m_delayedNotifications.push_back(cloud6::Notification(name, data));
                     }
                 }
                 else

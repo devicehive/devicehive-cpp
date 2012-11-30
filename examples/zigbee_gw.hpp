@@ -17,6 +17,13 @@ namespace zigbee_gw
 {
     using namespace hive;
 
+/// @brief Various contants and timeouts.
+enum
+{
+    SERIAL_RECONNECT_TIMEOUT    = 10, ///< @brief Try to open serial port each X seconds.
+    DEVICE_OFFLINE_TIMEOUT      = 0
+};
+
 
 /// @brief The ZigBee gateway application.
 class Application:
@@ -116,7 +123,7 @@ protected:
     virtual void start()
     {
         Base::start();
-        asyncOpenSerial(0);
+        asyncOpenSerial(0); //ASAP
     }
 
 
@@ -128,8 +135,6 @@ protected:
     {
         cancelServerModule();
         cancelSerialModule();
-        //m_gw->cancelAll();
-        //m_xbee->cancelAll();
         asyncListenForXBeeFrames(false); // stop listening to release shared pointer
         Base::stop();
     }
@@ -144,72 +149,72 @@ private:
     };
 
 
-    /// @brief The remote device.
+    /// @brief The ZigBee device.
     /**
     */
-    class RemoteDevice
+    class ZDevice
     {
     public:
         UInt64 address64; ///< @brief The MAC address.
         UInt16 address16; ///< @brief The network address.
         boost::asio::streambuf m_rx_buf; ///< @brief The RX stream buffer.
 
-        cloud6::DevicePtr device; ///< @brief The device.
-        bool deviceRegistered;           ///< @brief The "registered" flag.
+        cloud6::DevicePtr device; ///< @brief The corresponding device.
+        bool deviceRegistered;    ///< @brief The "registered" flag.
         std::vector<cloud6::Notification> delayedNotifications; ///< @brief The list of delayed notification.
         gateway::Engine gw; ///< @brief The gateway engine.
 
         /// @brief The default constructor.
-        RemoteDevice()
+        ZDevice()
             : address64(XBEE_BROADCAST64)
             , address16(XBEE_BROADCAST16)
             , deviceRegistered(false)
         {}
     };
 
-    /// @brief The remote device shared pointer type.
-    typedef boost::shared_ptr<RemoteDevice> RemoteDeviceSPtr;
+    /// @brief The ZigBee device shared pointer type.
+    typedef boost::shared_ptr<ZDevice> ZDeviceSPtr;
 
 private:
 
-    /// @brief The list of remote devices.
-    std::map<UInt64, RemoteDeviceSPtr> m_remoteDevices;
+    /// @brief The list of ZigBee devices.
+    std::map<UInt64, ZDeviceSPtr> m_devices;
 
-    /// @brief Get or create new remote device.
+    /// @brief Get or create new ZigBee device.
     /**
-    @param[in] address The remote device MAC address.
-    @return The remote device structure.
+    @param[in] address The device MAC address.
+    @return The ZigBee device.
     */
-    RemoteDeviceSPtr getRemoteDevice(UInt64 address)
+    ZDeviceSPtr getZDevice(UInt64 address)
     {
-        if (RemoteDeviceSPtr rdev = m_remoteDevices[address])
-            return rdev;
+        if (ZDeviceSPtr zdev = m_devices[address])
+            return zdev;
         else
         {
-            rdev.reset(new RemoteDevice());
-            m_remoteDevices[address] = rdev;
-            rdev->address64 = address;
-            return rdev;
+            zdev.reset(new ZDevice());
+            m_devices[address] = zdev;
+            zdev->address64 = address;
+            return zdev;
         }
     }
 
 
-    /// @brief Find remote device.
+    /// @brief Find ZigBee device.
     /**
     @param[in] device The device to find.
-    @return The remote device.
+    @return The ZigBee device or NULL.
     */
-    RemoteDeviceSPtr findRemoteDevice(cloud6::DevicePtr device) const
+    ZDeviceSPtr findZDevice(cloud6::DevicePtr device) const
     {
-        typedef std::map<UInt64, RemoteDeviceSPtr>::const_iterator Iterator;
-        for (Iterator i = m_remoteDevices.begin(); i != m_remoteDevices.end(); ++i)
+        typedef std::map<UInt64, ZDeviceSPtr>::const_iterator Iterator;
+        for (Iterator i = m_devices.begin(); i != m_devices.end(); ++i)
         {
-            RemoteDeviceSPtr rdev = i->second;
-            if (rdev->device == device)
-                return rdev;
+            ZDeviceSPtr zdev = i->second;
+            if (zdev->device == device)
+                return zdev;
         }
 
-        return RemoteDeviceSPtr(); // not found
+        return ZDeviceSPtr(); // not found
     }
 
 private: // ServerModule
@@ -227,13 +232,14 @@ private: // ServerModule
 
         if (!err)
         {
-            if (RemoteDeviceSPtr rdev = findRemoteDevice(device))
+            if (ZDeviceSPtr zdev = findZDevice(device))
             {
-                rdev->deviceRegistered = true;
-                sendDelayedNotifications(rdev);
+                zdev->deviceRegistered = true;
+                sendDelayedNotifications(zdev);
+                asyncPollCommands(device);
             }
-
-            asyncPollCommands(device);
+            else
+                HIVELOG_ERROR(m_log, "unknown device");
         }
     }
 
@@ -250,35 +256,55 @@ private: // ServerModule
 
         if (!err)
         {
-            if (RemoteDeviceSPtr rdev = findRemoteDevice(device))
+            if (ZDeviceSPtr zdev = findZDevice(device))
             {
                 typedef std::vector<cloud6::Command>::const_iterator Iterator;
                 for (Iterator i = commands.begin(); i != commands.end(); ++i)
-                    sendGatewayCommand(rdev, *i);
-            }
+                {
+                    cloud6::Command cmd = *i; // copy to modify
+                    bool processed = true;
 
-            // start poll again
-            asyncPollCommands(device);
+                    try
+                    {
+                        processed = sendGatewayCommand(zdev, *i);
+                    }
+                    catch (std::exception const& ex)
+                    {
+                        HIVELOG_ERROR(m_log, "handle command error: "
+                            << ex.what());
+
+                        cmd.status = "Failed";
+                        cmd.result = ex.what();
+                    }
+
+                    if (processed)
+                        m_serverAPI->asyncSendCommandResult(device, cmd);
+                }
+
+                asyncPollCommands(device); // start poll again
+            }
+            else
+                HIVELOG_ERROR(m_log, "unknown device");
         }
     }
 
 
     /// @brief Send all delayed notifications.
     /**
-    @param[in] rdev The remote device.
+    @param[in] zdev The ZigBee device.
     */
-    void sendDelayedNotifications(RemoteDeviceSPtr rdev)
+    void sendDelayedNotifications(ZDeviceSPtr zdev)
     {
-        const size_t N = rdev->delayedNotifications.size();
+        const size_t N = zdev->delayedNotifications.size();
         HIVELOG_INFO(m_log, "sending " << N
             << " delayed notifications");
 
         for (size_t i = 0; i < N; ++i)
         {
-            cloud6::Notification ntf = rdev->delayedNotifications[i];
-            m_serverAPI->asyncSendNotification(rdev->device, ntf);
+            cloud6::Notification ntf = zdev->delayedNotifications[i];
+            m_serverAPI->asyncSendNotification(zdev->device, ntf);
         }
-        rdev->delayedNotifications.clear();
+        zdev->delayedNotifications.clear();
     }
 
 private: // SerialModule
@@ -297,10 +323,7 @@ private: // SerialModule
             sendGatewayRegistrationRequest();
         }
         else
-        {
-            // try to open later
-            asyncOpenSerial(10); // TODO: reconnect timeout?
-        }
+            asyncOpenSerial(SERIAL_RECONNECT_TIMEOUT); // try to open later
     }
 
 private:
@@ -311,18 +334,19 @@ private:
         json::Value data;
         data["data"] = json::Value();
 
-        sendGatewayMessage(RemoteDeviceSPtr(), gateway::INTENT_REGISTRATION_REQUEST, data);
+        sendGatewayMessage(ZDeviceSPtr(), gateway::INTENT_REGISTRATION_REQUEST, data);
     }
 
 
     /// @brief Send the command to the device.
     /**
-    @param[in] rdev The remote device.
+    @param[in] zdev The ZigBee device.
     @param[in] cmd The command to send.
+    @return `true` if command processed.
     */
-    void sendGatewayCommand(RemoteDeviceSPtr rdev, cloud6::Command const& cmd)
+    bool sendGatewayCommand(ZDeviceSPtr zdev, cloud6::Command const& cmd)
     {
-        const int intent = rdev->gw.findCommandIntentByName(cmd.name);
+        const int intent = zdev->gw.findCommandIntentByName(cmd.name);
         if (0 <= intent)
         {
             HIVELOG_INFO(m_log, "command: \"" << cmd.name
@@ -331,34 +355,40 @@ private:
             json::Value data;
             data["id"] = cmd.id;
             data["parameters"] = cmd.params;
-            sendGatewayMessage(rdev, intent, data);
+            if (!sendGatewayMessage(zdev, intent, data))
+                throw std::runtime_error("invalid command format");
+            return false; // device will report command result later!
         }
         else
-        {
-            HIVELOG_WARN(m_log, "unknown command: \""
-                << cmd.name << "\", ignored");
-        }
+            throw std::runtime_error("unknown command, ignored");
+
+        return true;
     }
 
 
     /// @brief Send the custom gateway message.
     /**
-    @param[in] rdev The remote device.
+    @param[in] zdev The ZigBee device.
     @param[in] intent The message intent.
     @param[in] data The custom message data.
+    @return `false` for invalid command.
     */
-    void sendGatewayMessage(RemoteDeviceSPtr rdev, int intent, json::Value const& data)
+    bool sendGatewayMessage(ZDeviceSPtr zdev, int intent, json::Value const& data)
     {
-        const gateway::Engine &gw = rdev ? rdev->gw : m_gw;
+        const gateway::Engine &gw = zdev ? zdev->gw : m_gw;
         if (gateway::Frame::SharedPtr frame = gw.jsonToFrame(intent, data))
         {
-            if (rdev)
-                sendGatewayFrame(frame, rdev->address64, rdev->address16);
+            if (zdev)
+                sendGatewayFrame(frame, zdev->address64, zdev->address16);
             else
                 sendGatewayFrame(frame, XBEE_BROADCAST64, XBEE_BROADCAST16);
+
+            return true;
         }
         else
             HIVELOG_WARN_STR(m_log, "cannot convert frame to binary format");
+
+        return false;
     }
 
 
@@ -475,7 +505,16 @@ private:
                     << m_xbee->hexdump(frame) << "], "
                     << frame->size() << " bytes:\n"
                     << xbee::Debug::dump(frame));
-                handleRecvXBeeFrame(frame);
+
+                try
+                {
+                    handleRecvXBeeFrame(frame);
+                }
+                catch (std::exception const& ex)
+                {
+                    HIVELOG_ERROR(m_log, "failed handle received frame: " << ex.what());
+                    resetSerial(true);
+                }
             }
             else
                 HIVELOG_DEBUG_STR(m_log, "no frame received");
@@ -505,11 +544,11 @@ private:
                 xbee::Frame::ZBReceivePacket payload;
                 if (frame->getPayload(payload))
                 {
-                    boost::shared_ptr<RemoteDevice> rdev = getRemoteDevice(payload.srcAddr64);
-                    rdev->address16 = payload.srcAddr16;
+                    boost::shared_ptr<ZDevice> zdev = getZDevice(payload.srcAddr64);
+                    zdev->address16 = payload.srcAddr16;
 
                     { // put the data to the stream buffer
-                        OStream os(&rdev->m_rx_buf);
+                        OStream os(&zdev->m_rx_buf);
                         os.write(payload.data.data(), payload.data.size());
                     }
 
@@ -517,10 +556,10 @@ private:
                         << dump::hex(payload.srcAddr64) << "/" << dump::hex(payload.srcAddr16));
 
                     gateway::Frame::ParseResult result = gateway::Frame::RESULT_SUCCESS;
-                    if (gateway::Frame::SharedPtr frame = gateway::Frame::parseFrame(rdev->m_rx_buf, &result))
+                    if (gateway::Frame::SharedPtr frame = gateway::Frame::parseFrame(zdev->m_rx_buf, &result))
                     {
                         handleGatewayMessage(frame->getIntent(),
-                            rdev->gw.frameToJson(frame), rdev);
+                            zdev->gw.frameToJson(frame), zdev);
                     }
                 }
             } break;
@@ -535,15 +574,15 @@ private:
     /**
     @param[in] intent The message intent.
     @param[in] data The custom message data.
-    @param[in] rdev The remote device.
+    @param[in] zdev The ZigBee device.
     */
-    void handleGatewayMessage(int intent, json::Value const& data, RemoteDeviceSPtr rdev)
+    void handleGatewayMessage(int intent, json::Value const& data, ZDeviceSPtr zdev)
     {
         HIVELOG_INFO(m_log, "process intent #" << intent << " data: " << data << "\n");
 
         if (intent == gateway::INTENT_REGISTRATION_RESPONSE)
         {
-            rdev->gw.handleRegisterResponse(data);
+            zdev->gw.handleRegisterResponse(data);
 
             { // create device
                 String id = data["id"].asString();
@@ -554,14 +593,14 @@ private:
                 cloud6::NetworkPtr network = cloud6::Network::create(
                     m_networkName, m_networkKey, m_networkDesc);
 
-                cloud6::Device::ClassPtr deviceClass = cloud6::Device::Class::create("", "", false, 10);
+                cloud6::Device::ClassPtr deviceClass = cloud6::Device::Class::create("", "", false, DEVICE_OFFLINE_TIMEOUT);
                 cloud6::ServerAPI::Serializer::json2deviceClass(data["deviceClass"], deviceClass);
 
-                rdev->device = cloud6::Device::create(id, name, key, deviceClass, network);
-                rdev->device->status = "Online";
+                zdev->device = cloud6::Device::create(id, name, key, deviceClass, network);
+                zdev->device->status = "Online";
 
-                rdev->delayedNotifications.clear();
-                rdev->deviceRegistered = false;
+                zdev->delayedNotifications.clear();
+                zdev->deviceRegistered = false;
             }
 
             { // update equipment
@@ -575,16 +614,16 @@ private:
                     String name = eq["name"].asString();
                     String type = eq["type"].asString();
 
-                    rdev->device->equipment.push_back(cloud6::Equipment::create(id, name, type));
+                    zdev->device->equipment.push_back(cloud6::Equipment::create(id, name, type));
                 }
             }
 
-            asyncRegisterDevice(rdev->device);
+            asyncRegisterDevice(zdev->device);
         }
 
         else if (intent == gateway::INTENT_COMMAND_RESULT_RESPONSE)
         {
-            if (rdev->device)
+            if (zdev->device)
             {
                 HIVELOG_DEBUG(m_log, "got command result");
 
@@ -593,7 +632,7 @@ private:
                 cmd.status = data["status"].asString();
                 cmd.result = data["result"].asString();
 
-                m_serverAPI->asyncSendCommandResult(rdev->device, cmd);
+                m_serverAPI->asyncSendCommandResult(zdev->device, cmd);
             }
             else
                 HIVELOG_WARN_STR(m_log, "got command result before registration, ignored");
@@ -601,23 +640,22 @@ private:
 
         else if (intent >= gateway::INTENT_USER)
         {
-            if (rdev->device)
+            if (zdev->device)
             {
-                String name = rdev->gw.findNotificationNameByIntent(intent);
+                String name = zdev->gw.findNotificationNameByIntent(intent);
                 if (!name.empty())
                 {
                     HIVELOG_DEBUG(m_log, "got notification");
 
-                    cloud6::Notification ntf;
-                    ntf.name = name;
-                    ntf.params = data;
-
-                    if (rdev->deviceRegistered)
-                        m_serverAPI->asyncSendNotification(rdev->device, ntf);
+                    if (zdev->deviceRegistered)
+                    {
+                        m_serverAPI->asyncSendNotification(zdev->device,
+                            cloud6::Notification(name, data));
+                    }
                     else
                     {
                         HIVELOG_DEBUG_STR(m_log, "device is not registered, notification delayed");
-                        rdev->delayedNotifications.push_back(ntf);
+                        zdev->delayedNotifications.push_back(cloud6::Notification(name, data));
                     }
                 }
                 else

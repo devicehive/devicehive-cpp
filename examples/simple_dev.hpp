@@ -13,8 +13,14 @@
 /// @brief The simple device example.
 namespace simple_dev
 {
-    using namespace cloud6;
     using namespace hive;
+
+/// @brief Various contants and timeouts.
+enum
+{
+    SENSORS_UPDATE_TIMEOUT  = 1, ///< @brief Try to update temperature sensors each X seconds.
+    DEVICE_OFFLINE_TIMEOUT  = 0
+};
 
 
 /// @brief The LED control.
@@ -22,7 +28,7 @@ namespace simple_dev
 Writes the LED state "0" or "1" to the external "device" file.
 */
 class LedControl:
-    public Equipment
+    public cloud6::Equipment
 {
 public:
     String fileName; ///< @brief The target file name.
@@ -78,7 +84,7 @@ public:
 Reports current temperature which is read from the external "device" file.
 */
 class TempSensor:
-    public Equipment
+    public cloud6::Equipment
 {
 public:
     String fileName; ///< @brief The source file name.
@@ -202,7 +208,7 @@ protected:
     /// @brief The default constructor.
     Application()
         : ServerModule(m_ios, m_log)
-        , m_timer(m_ios)
+        , m_updateTimer(m_ios)
     {}
 
 public:
@@ -235,7 +241,7 @@ public:
         String deviceClassVersion = "0.0.1";
 
         // custom device properties
-        std::vector<EquipmentPtr> equipment;
+        std::vector<cloud6::EquipmentPtr> equipment;
         for (int i = 1; i < argc; ++i) // skip executable name
         {
             if (boost::algorithm::iequals(argv[i], "--help"))
@@ -295,9 +301,9 @@ public:
 
         if (1) // create device
         {
-            Device::SharedPtr device = Device::create(deviceId, deviceName, deviceKey,
-                Device::Class::create(deviceClassName, deviceClassVersion, false, 10),
-                Network::create(networkName, networkKey, networkDesc));
+            cloud6::DevicePtr device = cloud6::Device::create(deviceId, deviceName, deviceKey,
+                cloud6::Device::Class::create(deviceClassName, deviceClassVersion, false, DEVICE_OFFLINE_TIMEOUT),
+                cloud6::Network::create(networkName, networkKey, networkDesc));
             device->status = "Online";
 
             device->equipment.swap(equipment);
@@ -338,7 +344,7 @@ protected:
     virtual void stop()
     {
         cancelServerModule();
-        m_timer.cancel();
+        m_updateTimer.cancel();
         Base::stop();
     }
 
@@ -351,7 +357,7 @@ private: // ServerModule
     @param[in] err The error code.
     @param[in] device The device.
     */
-    virtual void onRegisterDevice(boost::system::error_code err, DevicePtr device)
+    virtual void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr device)
     {
         ServerModule::onRegisterDevice(err, device);
 
@@ -370,42 +376,59 @@ private: // ServerModule
     @param[in] device The device.
     @param[in] commands The list of commands.
     */
-    virtual void onPollCommands(boost::system::error_code err, DevicePtr device, std::vector<Command> const& commands)
+    virtual void onPollCommands(boost::system::error_code err, cloud6::DevicePtr device, std::vector<cloud6::Command> const& commands)
     {
         ServerModule::onPollCommands(err, device, commands);
 
         if (!err)
         {
-            typedef std::vector<Command>::const_iterator Iterator;
+            typedef std::vector<cloud6::Command>::const_iterator Iterator;
             for (Iterator i = commands.begin(); i != commands.end(); ++i)
             {
-                Command cmd = *i;
-                String eqId = cmd.params["equipment"].asString();
+                cloud6::Command cmd = *i; // copy to modify
+                bool processed = true;
 
-                EquipmentPtr eq = device->findEquipmentById(eqId);
-                if (boost::iequals(cmd.name, "UpdateLedState"))
+                try
                 {
-                    if (LedControl::SharedPtr led = boost::shared_dynamic_cast<LedControl>(eq))
+                    String eqId = cmd.params["equipment"].asString();
+
+                    cloud6::EquipmentPtr eq = device->findEquipmentById(eqId);
+                    if (boost::iequals(cmd.name, "UpdateLedState"))
                     {
-                        String state = cmd.params["state"].asString();
-                        led->setState(state);
+                        if (LedControl::SharedPtr led = boost::shared_dynamic_cast<LedControl>(eq))
+                        {
+                            String state = cmd.params["state"].asString();
+                            led->setState(state);
 
-                        cmd.status = "Completed";
-                        m_serverAPI->asyncSendCommandResult(device, cmd);
+                            cmd.status = "Success";
+                            cmd.result = "Completed";
 
-                        Notification ntf;
-                        ntf.name = "equipment";
-                        ntf.params["equipment"] = led->id;
-                        ntf.params["state"] = state;
-                        m_serverAPI->asyncSendNotification(device, ntf);
+                            json::Value ntf_params;
+                            ntf_params["equipment"] = led->id;
+                            ntf_params["state"] = state;
+                            m_serverAPI->asyncSendNotification(device,
+                                cloud6::Notification("equipment", ntf_params));
+                        }
+                        else
+                            throw std::runtime_error("unknown equipment");
                     }
+                    else
+                        throw std::runtime_error("unknown command");
+                }
+                catch (std::exception const& ex)
+                {
+                    HIVELOG_ERROR(m_log, "handle command error: "
+                        << ex.what());
+
+                    cmd.status = "Failed";
+                    cmd.result = ex.what();
                 }
 
-                // TODO: handle all errors!!!
+                if (processed)
+                    m_serverAPI->asyncSendCommandResult(device, cmd);
             }
 
-            // start poll again
-            asyncPollCommands(device);
+            asyncPollCommands(device); // start poll again
         }
     }
 
@@ -417,8 +440,8 @@ private:
     */
     void asyncUpdateSensors(long wait_sec)
     {
-        m_timer.expires_from_now(boost::posix_time::seconds(wait_sec));
-        m_timer.async_wait(boost::bind(&Application::onUpdateSensors,
+        m_updateTimer.expires_from_now(boost::posix_time::seconds(wait_sec));
+        m_updateTimer.async_wait(boost::bind(&Application::onUpdateSensors,
             this, boost::asio::placeholders::error));
     }
 
@@ -436,25 +459,24 @@ private:
             const size_t N = m_device->equipment.size();
             for (size_t i = 0; i < N; ++i)
             {
-                EquipmentPtr eq = m_device->equipment[i];
+                cloud6::EquipmentPtr eq = m_device->equipment[i];
                 if (TempSensor::SharedPtr sensor = boost::shared_dynamic_cast<TempSensor>(eq))
                 {
                     String const val = sensor->getValue();
                     if (sensor->haveToSend(val))
                     {
-                        Notification ntf;
-                        ntf.name = "equipment";
-                        ntf.params["equipment"] = sensor->id;
-                        ntf.params["temperature"] = val;
-                        m_serverAPI->asyncSendNotification(m_device, ntf);
+                        json::Value ntf_params;
+                        ntf_params["equipment"] = sensor->id;
+                        ntf_params["temperature"] = val;
+                        m_serverAPI->asyncSendNotification(m_device,
+                            cloud6::Notification("equipment", ntf_params));
 
                         sensor->lastValue = val;
                     }
                 }
             }
 
-            // start again
-            asyncUpdateSensors(1); // TODO: update interval
+            asyncUpdateSensors(SENSORS_UPDATE_TIMEOUT); // start again
         }
         else if (err == boost::asio::error::operation_aborted)
             HIVELOG_DEBUG_STR(m_log, "\"update\" timer cancelled");
@@ -475,23 +497,23 @@ private:
         const size_t N = m_device->equipment.size();
         for (size_t i = 0; i < N; ++i)
         {
-            EquipmentPtr eq = m_device->equipment[i];
+            cloud6::EquipmentPtr eq = m_device->equipment[i];
             if (LedControl::SharedPtr led = boost::shared_dynamic_cast<LedControl>(eq))
             {
                 led->setState(state);
 
-                Notification ntf;
-                ntf.name = "equipment";
-                ntf.params["equipment"] = led->id;
-                ntf.params["state"] = state;
-                m_serverAPI->asyncSendNotification(m_device, ntf);
+                json::Value ntf_params;
+                ntf_params["equipment"] = led->id;
+                ntf_params["state"] = state;
+                m_serverAPI->asyncSendNotification(m_device,
+                    cloud6::Notification("equipment", ntf_params));
             }
         }
     }
 
 private:
-    boost::asio::deadline_timer m_timer; ///< @brief The update timer.
-    Device::SharedPtr m_device; ///< @brief The device.
+    boost::asio::deadline_timer m_updateTimer; ///< @brief The update timer.
+    cloud6::DevicePtr m_device; ///< @brief The device.
 };
 
 
