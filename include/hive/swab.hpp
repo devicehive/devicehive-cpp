@@ -110,14 +110,34 @@ inline UInt16 swab(UInt16 x)
     return swab_16(x);
 }
 
+/// @copydoc swab_16()
+inline Int16 swab(Int16 x)
+{
+    return swab_16(x);
+}
+
+
 /// @copydoc swab_32()
 inline UInt32 swab(UInt32 x)
 {
     return swab_32(x);
 }
 
+/// @copydoc swab_32()
+inline Int32 swab(Int32 x)
+{
+    return swab_32(x);
+}
+
+
 /// @copydoc swab_64()
 inline UInt64 swab(UInt64 x)
+{
+    return swab_64(x);
+}
+
+/// @copydoc swab_64()
+inline Int64 swab(Int64 x)
 {
     return swab_64(x);
 }
@@ -248,6 +268,19 @@ inline UInt16 be2h(UInt16 x)
     return be2h_16(x);
 }
 
+/// @copydoc h2be_16()
+inline Int16 h2be(Int16 x)
+{
+    return h2be_16(x);
+}
+
+/// @copydoc be2h_16()
+inline Int16 be2h(Int16 x)
+{
+    return be2h_16(x);
+}
+
+
 /// @copydoc h2be_32()
 inline UInt32 h2be(UInt32 x)
 {
@@ -260,6 +293,19 @@ inline UInt32 be2h(UInt32 x)
     return be2h_32(x);
 }
 
+/// @copydoc h2be_32()
+inline Int32 h2be(Int32 x)
+{
+    return h2be_32(x);
+}
+
+/// @copydoc be2h_32()
+inline Int32 be2h(Int32 x)
+{
+    return be2h_32(x);
+}
+
+
 /// @copydoc h2be_64()
 inline UInt64 h2be(UInt64 x)
 {
@@ -268,6 +314,18 @@ inline UInt64 h2be(UInt64 x)
 
 /// @copydoc be2h_64()
 inline UInt64 be2h(UInt64 x)
+{
+    return be2h_64(x);
+}
+
+/// @copydoc h2be_64()
+inline Int64 h2be(Int64 x)
+{
+    return h2be_64(x);
+}
+
+/// @copydoc be2h_64()
+inline Int64 be2h(Int64 x)
 {
     return be2h_64(x);
 }
@@ -399,6 +457,19 @@ inline UInt16 le2h(UInt16 x)
     return le2h_16(x);
 }
 
+/// @copydoc h2le_16()
+inline Int16 h2le(Int16 x)
+{
+    return h2le_16(x);
+}
+
+/// @copydoc le2h_16()
+inline Int16 le2h(Int16 x)
+{
+    return le2h_16(x);
+}
+
+
 /// @copydoc h2le_32()
 inline UInt32 h2le(UInt32 x)
 {
@@ -411,6 +482,19 @@ inline UInt32 le2h(UInt32 x)
     return le2h_32(x);
 }
 
+/// @copydoc h2le_32()
+inline Int32 h2le(Int32 x)
+{
+    return h2le_32(x);
+}
+
+/// @copydoc le2h_32()
+inline Int32 le2h(Int32 x)
+{
+    return le2h_32(x);
+}
+
+
 /// @copydoc h2le_64()
 inline UInt64 h2le(UInt64 x)
 {
@@ -419,6 +503,18 @@ inline UInt64 h2le(UInt64 x)
 
 /// @copydoc le2h_64()
 inline UInt64 le2h(UInt64 x)
+{
+    return le2h_64(x);
+}
+
+/// @copydoc h2le_64()
+inline Int64 h2le(Int64 x)
+{
+    return h2le_64(x);
+}
+
+/// @copydoc le2h_64()
+inline Int64 le2h(Int64 x)
 {
     return le2h_64(x);
 }
@@ -476,6 +572,18 @@ public:
         return le2h_16(x);
     }
 
+    /// @copydoc h2le_16()
+    static inline Int16 h2e(Int16 x)
+    {
+        return h2le_16(x);
+    }
+
+    /// @copydoc le2h_16()
+    static inline Int16 e2h(Int16 x)
+    {
+        return le2h_16(x);
+    }
+
 public:
 
     /// @copydoc h2le_32()
@@ -486,6 +594,18 @@ public:
 
     /// @copydoc le2h_32()
     static inline UInt32 e2h(UInt32 x)
+    {
+        return le2h_32(x);
+    }
+
+    /// @copydoc h2le_32()
+    static inline Int32 h2e(Int32 x)
+    {
+        return h2le_32(x);
+    }
+
+    /// @copydoc le2h_32()
+    static inline Int32 e2h(Int32 x)
     {
         return le2h_32(x);
     }
@@ -503,10 +623,21 @@ public:
     {
         return le2h_64(x);
     }
+
+    /// @copydoc h2le_64()
+    static inline Int64 h2e(Int64 x)
+    {
+        return h2le_64(x);
+    }
+
+    /// @copydoc le2h_64()
+    static inline Int64 e2h(Int64 x)
+    {
+        return le2h_64(x);
+    }
 };
 
 
-///////////////////////////////////////////////////////////////////////////////
 /// @brief The big-endian converter.
 /**
 This class is used to convert big-endian integers
@@ -533,6 +664,18 @@ public:
         return be2h_16(x);
     }
 
+    /// @copydoc h2be_16()
+    static inline Int16 h2e(Int16 x)
+    {
+        return h2be_16(x);
+    }
+
+    /// @copydoc be2h_16()
+    static inline Int16 e2h(Int16 x)
+    {
+        return be2h_16(x);
+    }
+
 public:
 
     /// @copydoc h2be_32()
@@ -543,6 +686,18 @@ public:
 
     /// @copydoc be2h_32()
     static inline UInt32 e2h(UInt32 x)
+    {
+        return be2h_32(x);
+    }
+
+    /// @copydoc h2be_32()
+    static inline Int32 h2e(Int32 x)
+    {
+        return h2be_32(x);
+    }
+
+    /// @copydoc be2h_32()
+    static inline Int32 e2h(Int32 x)
     {
         return be2h_32(x);
     }
@@ -560,16 +715,32 @@ public:
     {
         return be2h_64(x);
     }
+
+    /// @copydoc h2be_64()
+    static inline Int64 h2e(Int64 x)
+    {
+        return h2be_64(x);
+    }
+
+    /// @copydoc be2h_64()
+    static inline Int64 e2h(Int64 x)
+    {
+        return be2h_64(x);
+    }
 };
 
 
-///////////////////////////////////////////////////////////////////////////////
 /// @brief The little-endian converter type.
+/**
+@see EndianT<1234>
+*/
 typedef EndianT<1234> LittleEndian;
 
 
-///////////////////////////////////////////////////////////////////////////////
 /// @brief The big-endian converter type.
+/**
+@see EndianT<4321>
+*/
 typedef EndianT<4321> BigEndian;
 
     } // converters
@@ -584,27 +755,29 @@ For example, the hexadecimal `AABBCCDD` value (which is `2864434397` decimal)
 stored in memory in the following ways:
 
 | # |  LE  |  BE  |                        |
-|:-:|:----:|:----:|-----------------------|
-| 0 |  AA  |  DD  | lowest memory address  |
-| 1 |  BB  |  CC  |                        |
-| 2 |  CC  |  BB  |                        |
-| 3 |  DD  |  AA  | highest memory address |
+|---|------|------|------------------------|
+| 0 | `AA` | `DD` | lowest memory address  |
+| 1 | `BB` | `CC` |                        |
+| 2 | `CC` | `BB` |                        |
+| 3 | `DD` | `AA` | highest memory address |
 
 Most of Intel processors are little-endian. Some processors like ARM and MIPS
 support both modes. In network protocols big-endian format is preferable.
 
 
-Platform byte order macro {#page_hive_swab_defs}
-===================================================
+Platform byte order macro
+-------------------------
 
-This header file defines the following macro which might be used to byte-order specific code:
+This header file defines the following macro which might be used to byte-order
+specific code:
 - #HIVE_LITTLE_ENDIAN is defined on little-endian platforms
 - #HIVE_BIG_ENDIAN is defined on big-endian platforms
-- #HIVE_BYTE_ORDER is defined as `1234` or `4321` on little-endian and big-endian platforms respectively.
+- #HIVE_BYTE_ORDER is defined as `1234` or `4321` on little-endian
+  and big-endian platforms respectively.
 
 
-Change the byte order {#page_hive_swab_swab}
-===============================================
+Change the byte order
+---------------------
 
 There are a few functions to change the byte order:
 - hive::mist::swab_16() for 16-bits integers
@@ -612,32 +785,37 @@ There are a few functions to change the byte order:
 - hive::mist::swab_64() for 64 bits integers
 - hive::mist::swab() overloaded for all integer sizes
 
-The signed integers might be safely converter to unsigned.
+The signed integers might be safely converted too.
 
 
-Little/big-endian and host {#page_hive_swab_host}
-====================================================
+Little/big-endian and host
+--------------------------
 
-There are a few functions to convert little-endian and big-endian integers to the host byte order.
+There are a few functions to convert little-endian and big-endian integers
+to the host byte order.
 
-The following functions are used to convert little-endian integers to the host byte order and visa versa:
+The following functions are used to convert little-endian integers
+to the host byte order and visa versa:
 - hive::misc::le2h_16(), hive::misc::h2le_16()
 - hive::misc::le2h_32(), hive::misc::h2le_32()
 - hive::misc::le2h_64(), hive::misc::h2le_64()
 - hive::misc::le2h(), hive::misc::h2le()
 
-The following functions are used to convert big-endian integers to the host byte order and visa versa:
+The following functions are used to convert big-endian integers
+to the host byte order and visa versa:
 - hive::misc::be2h_16(), hive::misc::h2be_16()
 - hive::misc::be2h_32(), hive::misc::h2be_32()
 - hive::misc::be2h_64(), hive::misc::h2be_64()
 - hive::misc::be2h(), hive::misc::h2be()
 
+Both signed and unsigned integers may be converted.
 
-Byte order converters {#page_hive_swab_conv}
-===============================================
 
-The hive::misc::LittleEndian and hive::misc::BigEndian classes can be used as little-endian
-and big-endian converters. See their static methods documentation.
+Byte order converters
+---------------------
+
+The hive::misc::LittleEndian and hive::misc::BigEndian classes can be used as
+little-endian and big-endian converters. See their static methods documentation.
 */
 
 } // hive namespace
