@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{AC46B2ED-8E5E-42BA-A1C3-AE1AD82BF07C}</ProjectGuid>
+    <ProjectGuid>{367423F2-D22E-40EC-8331-8BEDAB139A6F}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>test</RootNamespace>
   </PropertyGroup>
@@ -40,12 +40,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Configuration)\</IntDir>
+    <IntDir>$(SolutionDir)obj\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Configuration)\</IntDir>
+    <IntDir>$(SolutionDir)obj\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -82,9 +82,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\DeviceHive\binary.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp" />
-    <ClInclude Include="..\..\include\DeviceHive\gateway.hpp" />
     <ClInclude Include="..\..\include\hive\bstream.hpp" />
     <ClInclude Include="..\..\include\hive\defs.hpp" />
     <ClInclude Include="..\..\include\hive\dump.hpp" />
@@ -95,10 +93,10 @@
     <ClInclude Include="..\..\include\hive\pch.hpp" />
     <ClInclude Include="..\..\include\hive\swab.hpp" />
     <ClInclude Include="..\basic_app.hpp" />
-    <ClInclude Include="..\simple_gw.hpp" />
+    <ClInclude Include="..\simple_dev.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\simple_gw.cpp" />
+    <ClCompile Include="..\simple_dev.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

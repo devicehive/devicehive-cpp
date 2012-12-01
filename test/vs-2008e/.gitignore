@@ -1,0 +1,12 @@
+# Visual Studio
+/ipch
+/bin
+/obj
+/*.opensdf
+/*.sdf
+/*.suo
+/*.ncb
+/*.user
+
+# other
+*.log
