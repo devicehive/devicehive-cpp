@@ -1882,20 +1882,20 @@ inline Value str2json(String const& str)
 }
 
     } // json namespace
+} // hive namespace
+
+#endif // __HIVE_JSON_HPP_
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /** @page page_hive_json JSON module
 
-This module provides support for JSON data.
+This page is under construction!
+================================
 
-this page is under construction.
+This module provides support for JSON data.
 
 hive::json namespace
 
 hive::json::Value is the key class.
 */
-
-} // hive namespace
-
-#endif // __HIVE_JSON_HPP_

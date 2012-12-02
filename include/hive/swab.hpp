@@ -744,6 +744,9 @@ typedef EndianT<1234> LittleEndian;
 typedef EndianT<4321> BigEndian;
 
     } // converters
+} // hive namespace
+
+#endif // __HIVE_SWAB_HPP_
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -817,7 +820,3 @@ Byte order converters
 The hive::misc::LittleEndian and hive::misc::BigEndian classes can be used as
 little-endian and big-endian converters. See their static methods documentation.
 */
-
-} // hive namespace
-
-#endif // __HIVE_SWAB_HPP_

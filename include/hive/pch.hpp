@@ -54,7 +54,8 @@ Defines #HIVE_PCH macro if precompiled headers are enabled.
 
 The <hive/pch.hpp> file contains commonly used boost, STL and libc headers.
 
-To use this file as precompiled header you have to include it into every source file.
+To use this file as precompiled header you have to include it into every
+source file.
 
 For example the *MyDevice.cpp* file:
 ~~~{.cpp}
@@ -88,8 +89,9 @@ public:
 };
 ~~~
 
-Anyway the header file should include all necessary headers and the `#%if !defined(HIVE_PCH)`
-section is used when precompiled headers are disabled.
+Anyway the header file should include all necessary headers and the
+`#%if !defined(HIVE_PCH)` section is used when precompiled headers
+are disabled.
 
 There is also possible to compile header file using `gcc` compiler.
 It produces corresponding `*.gch` file.

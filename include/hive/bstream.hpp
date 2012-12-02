@@ -509,12 +509,16 @@ private:
 };
 
     } // io namespace
+} // hive namespace
+
+#endif // __HIVE_BSTREAM_HPP_
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /** @page page_hive_bstream Binary streams
 
-This page is under construction!!!
+This page is under construction!
+================================
 
 Binary formats. hive::io::BinaryOStream and hive::io::BinaryIStream should
 be used with std::stringstream or boost::asio::streambuf.
@@ -525,7 +529,3 @@ Zig-Zag format for signed integers.
 
 Examples.
 */
-
-} // hive namespace
-
-#endif // __HIVE_BSTREAM_HPP_

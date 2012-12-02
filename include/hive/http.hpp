@@ -2880,18 +2880,24 @@ In that case you will be unable to use https protocol.
 #define HIVE_DISABLE_SSL
 #endif // defined(HIVE_DOXY_MODE)
 
+} // hive namespace
+
+#endif // __HIVE_HTTP_HPP_
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /** @page page_hive_http HTTP module
 
-Using this HTTP module it's possible to send HTTP requests and get corresponding HTTP responses.
-All operations are done in asynchronous way.
+Using this HTTP module it's possible to send HTTP requests and get
+corresponding HTTP responses. All operations are done in asynchronous way.
 
-To use this module you have to form a proper HTTP request (an instance of hive::http::Request class)
-and provide the callback function, which will be called when HTTP request is finished. A HTTP client
-(an instance of hive::http::Client class) is used to process all HTTP requests.
+To use this module you have to form a proper HTTP request (an instance of
+hive::http::Request class) and provide the callback function, which will
+be called when HTTP request is finished. A HTTP client (an instance of
+hive::http::Client class) is used to process all HTTP requests.
 
-The simple example which prints the corresponding request/response to the standard output:
+The simple example which prints the corresponding request/response
+to the standard output:
 
 ~~~{.cpp}
 using namespace hive;
@@ -2923,8 +2929,9 @@ int main()
 }
 ~~~
 
-You can customize your HTTP request by providing custom HTTP headers (see hive::http::Message::addHeader()
-method and hive::http::header namespace) and message context (see hive::http::Message::setContent()).
+You can customize your HTTP request by providing custom HTTP headers
+(see hive::http::Message::addHeader() method and hive::http::header namespace)
+and message context (see hive::http::Message::setContent() method).
 
 The callback method may be any callable object with the following signature:
 
@@ -2938,15 +2945,12 @@ There are main classes in HTTP module (please see corresponding documentation):
 - hive::http::Client
 - hive::http::Url
 
-You can use http or https protocols. If you don't have OpenSSL then you can define #HIVE_DISABLE_SSL macro.
-In that case you will be unable to use https.
+You can use http or https protocols. If you don't have OpenSSL then you can
+define #HIVE_DISABLE_SSL macro. In that case you will be unable to use https.
 
-The HTTP module is based on boost.asio library. Also the following boost libraries are used:
-boost.asio, boost.bind, boost.system, boost.shared_ptr, boost.lexical_cast, boost.algorithm
+The HTTP module is based on `boost.asio` library. Also the following *boost*
+libraries are used: `boost.asio`, `boost.bind`, `boost.system`,
+`boost.shared_ptr`, `boost.lexical_cast`, `boost.algorithm`.
 
 Restrictions: no IPv6 yet.
 */
-
-} // hive namespace
-
-#endif // __HIVE_HTTP_HPP_

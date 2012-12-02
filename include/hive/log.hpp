@@ -881,75 +881,6 @@ private:
 
         } // impl namespace
     } // log namespace
-
-
-///////////////////////////////////////////////////////////////////////////////
-/** @page page_hive_log Logging tools
-
-This page is under construction!!!
-
-If your log message contains only static string (i.e. no additional parameters)
-it's better to use `_STR` macroses.
-
-Disable logging at compile time {#section_hive_log_disable}
-===========================================================
-
-You can define the following macroses before include hive/log.hpp:
-    - #HIVELOG_DISABLE_FATAL
-    - #HIVELOG_DISABLE_ERROR
-    - #HIVELOG_DISABLE_WARN
-    - #HIVELOG_DISABLE_INFO
-    - #HIVELOG_DISABLE_DEBUG
-    - #HIVELOG_DISABLE_TRACE
-
-Log levels are depend on the parent level. So if you disable INFO level,
-the DEBUG and TRACE will be disabled automatically.
-
-It's reasonable to disable DEBUG and TRACE logging for release builds.
-
-
-Targets {#section_hive_log_target}
-======================================
-
-hive::log::Target is the base class for all targets.
-There are a few standard targets:
-    - hive::log::Target::File sends log messages to the text file.
-    - hive::log::Target::Stderr sends log messages to the standard error stream.
-    - hive::log::Target::Tie sends log messages to the several child targets.
-
-The instances of these classes should be created with corresponding create() factory methods.
-
-Each target may be binded with custom message format which will be used for all log messages.
-
-
-Formats {#section_hive_log_format}
-==================================
-
-Currently the only one simple format is supported: hive::log::Format::defaultFormat().
-
-
-Loggers {#section_hive_log_logger}
-==================================
-
-Logger is used to separate different log streams. For each logger it's possible to
-specify custom name, and logging level.
-
-All loggers are organized in tree hierarchy (logger name based).
-
-For example if you create the following loggers:
-    hive::log::Logger a("/myapp/test/A");
-    hive::log::Logger b("/myapp/test/B");
-
-The hiearachy will be:
-    - "" (the root logger hive::log::Logger::root())
-        - "myapp"
-            - "test"
-                - "A"
-                - "B"
-
-All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
-*/
-
 } // hive namespace
 
 
@@ -1298,3 +1229,78 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 #endif // defined(HIVELOG_DISABLE_FATAL)
 
 #endif // macro magic
+
+
+///////////////////////////////////////////////////////////////////////////////
+/** @page page_hive_log Logging tools
+
+This page is under construction!
+================================
+
+If your log message contains only static string (i.e. no additional parameters)
+it's better to use `_STR` macroses.
+
+Disable logging at compile time
+-------------------------------
+
+You can define the following macroses before include hive/log.hpp:
+  - #HIVELOG_DISABLE_FATAL
+  - #HIVELOG_DISABLE_ERROR
+  - #HIVELOG_DISABLE_WARN
+  - #HIVELOG_DISABLE_INFO
+  - #HIVELOG_DISABLE_DEBUG
+  - #HIVELOG_DISABLE_TRACE
+
+Log levels are depend on the parent level. So if you disable INFO level,
+the DEBUG and TRACE will be disabled automatically.
+
+It's reasonable to disable DEBUG and TRACE logging for release builds.
+
+
+Targets
+-------
+
+hive::log::Target is the base class for all targets.
+There are a few standard targets:
+  - hive::log::Target::File sends log messages to the text file.
+  - hive::log::Target::Stderr sends log messages to the standard error stream.
+  - hive::log::Target::Tie sends log messages to the several child targets.
+
+The instances of these classes should be created with corresponding create()
+factory methods.
+
+Each target may be binded with custom message format which will be used for
+all log messages.
+
+
+Formats
+-------
+
+Currently the only one simple format is supported:
+  - hive::log::Format::defaultFormat().
+
+
+Loggers
+-------
+
+Logger is used to separate different log streams. For each logger it's possible
+to specify custom name, and logging level.
+
+All loggers are organized in tree hierarchy (logger name based).
+
+For example, if you create the following loggers:
+
+~~~{.cpp}
+hive::log::Logger a("/app/test/A");
+hive::log::Logger b("/app/test/B");
+~~~
+
+The hiearachy will be:
+  - the root logger hive::log::Logger::root()
+    - `"app"`
+      - `"test"`
+        - `"A"`
+        - `"B"`
+
+All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
+*/

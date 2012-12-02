@@ -9,13 +9,8 @@
 
 namespace hive
 {
-    /// @brief The miscellaneous tools.
-    /**
-    This namespace contains various auxiliary tools.
-    */
     namespace misc
     {
-
 
 /// @brief Check for the simple character.
 /**
@@ -127,7 +122,6 @@ inline char int2dec(int x)
 }
 
     } // misc namespace
-
 } // hive namespace
 
 #endif // __HIVE_MISC_HPP_

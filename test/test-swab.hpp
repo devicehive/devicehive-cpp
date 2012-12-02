@@ -17,7 +17,7 @@ namespace
     if (cond) {} else throw std::runtime_error(msg)
 
 template<typename T>
-void check_T()
+void check_swab()
 {
     // check for random generated integers
     for (size_t i = 0; i < 1000; ++i)
@@ -57,9 +57,9 @@ void test_swab0()
 {
     std::cout << "check for byte order changing... ";
 
-    check_T<UInt16>(); check_T<Int16>();
-    check_T<UInt32>(); check_T<Int32>();
-    check_T<UInt64>(); check_T<Int64>();
+    check_swab<UInt16>(); check_swab<Int16>();
+    check_swab<UInt32>(); check_swab<Int32>();
+    check_swab<UInt64>(); check_swab<Int64>();
 
     std::cout << "done\n";
 }

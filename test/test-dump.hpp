@@ -13,8 +13,33 @@ namespace
 
 // assert macro, throws exception
 #define MY_ASSERT(cond, msg) \
-    std::cout << "checking: " << #cond << "\n"; \
     if (cond) {} else throw std::runtime_error(msg)
+
+
+template<typename T>
+void check_dump_hex()
+{
+    // check for random generated integers
+    for (size_t i = 0; i < 1000; ++i)
+    {
+        T val = T(0); // reference value
+        for (size_t k = 0; k < sizeof(T); ++k)
+        {
+            val <<= 8;
+            val |= rand()&0xFF;
+        }
+
+        OStringStream oss;
+        oss << std::hex;
+        oss.fill('0');
+
+        oss << std::setw(2*sizeof(T))
+            << val;
+
+        MY_ASSERT(dump::hex(val) == oss.str(),
+            "invalid dump::hex(int)");
+    }
+}
 
 
 // test application entry point
@@ -23,6 +48,7 @@ Checks for auxiliary dump tools.
 */
 void test_dump0()
 {
+    std::cout << "check for dump::hex... ";
     { // check dump functions
         std::vector<int> d;
         d.push_back(0);
@@ -36,7 +62,12 @@ void test_dump0()
         MY_ASSERT("....." == dump::ascii(d) && "d={0, 1, 127, 255, -1}", "invalid ASCII dump");
     }
 
-    std::cout << "\n\n";
+    //check_dump_hex<UInt8>();  check_dump_hex<Int8>();
+    check_dump_hex<UInt16>(); check_dump_hex<Int16>();
+    check_dump_hex<UInt32>(); check_dump_hex<Int32>();
+    check_dump_hex<UInt64>(); check_dump_hex<Int64>();
+
+    std::cout << "done\n\n";
 }
 
 #undef MY_ASSERT
