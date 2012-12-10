@@ -15,6 +15,7 @@
 #include "test-dump.hpp"
 #include "test-json.hpp"
 #include "test-http.hpp"
+#include "test-ws13.hpp"
 #include "test-log.hpp"
 
 #include <iostream>
@@ -53,7 +54,7 @@ int main(int argc, const char *argv[])
 #elif defined(XTEST_UNIT)   // custom unit-test
         XTEST_UNIT();
 #else                       // manual
-        if (1) basic_app::main(argc, argv);
+        if (0) basic_app::main(argc, argv);
         if (0) simple_dev::main(argc, argv);
         if (0) simple_gw::main(argc, argv);
         if (0) zigbee_gw::main(argc, argv);
@@ -65,6 +66,8 @@ int main(int argc, const char *argv[])
         if (0) test_json1(1<argc ? argv[1] : "../json");
         if (0) test_http0();
         if (0) test_http1();
+        if (1) test_ws13_0();
+        if (1) test_ws13_1();
         if (0) test_log0();
         if (0) test_log1();
 #endif // XTEST_UNIT
