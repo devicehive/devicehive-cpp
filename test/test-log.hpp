@@ -37,7 +37,39 @@ public:
     // save log message
     virtual void send(log::Message const& msg) const
     {
-        log::Format::defaultFormat(std::cout, msg);
+        if (log::Format::SharedPtr fmt = getFormat())
+            fmt->format(std::cout, msg);
+        else
+            log::Format::defaultFormat(std::cout, msg);
+    }
+};
+
+
+// test format
+class TestFormat:
+    public log::Format
+{
+public:
+
+    // factory method
+    static SharedPtr create()
+    {
+        return SharedPtr(new TestFormat());
+    }
+
+public:
+
+    // format the log message.
+    virtual void format(OStream &os, log::Message const& msg)
+    {
+        //if (msg.loggerName)
+        //    os << msg.loggerName << ' ';
+        os << std::setw(5) << getLevelName(msg.level) << ": ";
+        if (msg.prefix)
+            os << msg.prefix;
+        if (msg.message)
+            os << msg.message;
+        os << '\n';
     }
 };
 
@@ -49,7 +81,11 @@ void test_log0()
 {
     std::cout << "check log macroses...\n";
     log::Logger logger("test/hive/log");
-    logger.setTarget(log::Target::Tie::create(TestTarget::create(), log::Target::File::create("test.log")));
+    log::Target::SharedPtr test_target = TestTarget::create();
+    log::Target::File::SharedPtr file_target = log::Target::File::create("test.log");
+    file_target->setMaxFileSize(128).setNumberOfBackups(5);
+    logger.setTarget(log::Target::Tie::create(test_target, file_target));
+    test_target->setFormat(TestFormat::create());
     logger.setLevel(log::LEVEL_TRACE);
     //log::Logger::root().setLevel(log::LEVEL_TRACE);
 
@@ -65,19 +101,19 @@ void test_log0()
     HIVELOG_INFO(logger, "info 2*2=" << (2*2));
     {
         HIVELOG_INFO_BLOCK(logger, "info block");
-        HIVELOG_INFO_STR(logger, "info");
+        HIVELOG_INFO_STR(logger, "info string");
     }
 
     HIVELOG_DEBUG(logger, "debug 2*2=" << (2*2));
     {
         HIVELOG_DEBUG_BLOCK(logger, "debug block");
-        HIVELOG_DEBUG_STR(logger, "debug");
+        HIVELOG_DEBUG_STR(logger, "debug string");
     }
 
     HIVELOG_TRACE(logger, "trace 2*2=" << (2*2));
     {
         HIVELOG_TRACE_BLOCK(logger, "trace block");
-        HIVELOG_TRACE_STR(logger, "trace");
+        HIVELOG_TRACE_STR(logger, "trace string");
     }
 
     std::cout << "done\n";

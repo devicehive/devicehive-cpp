@@ -32,17 +32,18 @@ namespace hive
 
 /// @brief The logging levels.
 /**
-There are a few main levels (ordered from the less important to the most important):
-    - hive::log::LEVEL_TRACE is used to log almost everything.
-    - hive::log::LEVEL_DEBUG is used to log debug information.
-    - hive::log::LEVEL_INFO is used to log main information.
-    - hive::log::LEVEL_WARN is used to log potentially dangerous situations.
-    - hive::log::LEVEL_ERROR is used to log non-critical errors or exceptions.
-    - hive::log::LEVEL_FATAL is used to log fatal errors.
+There are a few main levels (ordered from the less important
+to the most important):
+  - hive::log::LEVEL_TRACE is used to log almost everything
+  - hive::log::LEVEL_DEBUG is used to log debug information
+  - hive::log::LEVEL_INFO is used to log main information
+  - hive::log::LEVEL_WARN is used to log potentially dangerous situations
+  - hive::log::LEVEL_ERROR is used to log non-critical errors or exceptions
+  - hive::log::LEVEL_FATAL is used to log fatal errors
 
 and a few auxiliary levels:
-    - hive::log::LEVEL_OFF no any logging at all.
-    - hive::log::LEVEL_AS_PARENT is used in loggers hierarchy.
+  - hive::log::LEVEL_OFF no any logging at all
+  - hive::log::LEVEL_AS_PARENT is used in loggers hierarchy
 */
 enum Level
 {
@@ -65,7 +66,8 @@ You have to deal with this class directly only if you develop
 your own log target or formatter. See hive::log::Target::send()
 and hive::log::Format::format() methods.
 
-@warning This class doesn't make any copies of strings. Be careful with strings lifetime.
+@warning This class doesn't make any copies of strings.
+Be careful with strings lifetime.
 */
 class Message
 {
@@ -94,11 +96,16 @@ public:
     @param[in] file_ The source file name.
     @param[in] line_ The source line number.
     */
-    Message(const char* loggerName_, Level level_, const char* message_, const char *prefix_, const char* file_, int line_)
-        : loggerName(loggerName_), level(level_),
-          message(message_), prefix(prefix_),
-          file(file_), line(line_),
-          timestamp(boost::posix_time::microsec_clock::universal_time())
+    Message(const char* loggerName_, Level level_,
+            const char* message_, const char *prefix_,
+            const char* file_, int line_)
+        : loggerName(loggerName_)
+        , level(level_)
+        , message(message_)
+        , prefix(prefix_)
+        , file(file_)
+        , line(line_)
+        , timestamp(boost::posix_time::microsec_clock::universal_time())
     {}
 };
 
@@ -108,7 +115,10 @@ public:
 This is base class for all log message formats.
 
 By default uses simple format:
-    timestamp logger level {prefix message}
+
+~~~
+timestamp logger level prefix message
+~~~
 
 This format is always available through defaultFormat() static method.
 
@@ -169,8 +179,8 @@ public:
         os //<< "<<<"
             << msg.timestamp << ' ';
         if (msg.loggerName)
-            os << msg.loggerName;
-        os << ' ' << getLevelName(msg.level)
+            os << msg.loggerName << ' ';
+        os << getLevelName(msg.level)
             << ' ';
         if (msg.prefix)
             os << msg.prefix;
@@ -214,7 +224,7 @@ Base class does nothing and works like NULL target.
 
 See also the inner classes for standard targets: Stderr, File and Tie.
 
-The target uses specified log message format (see setFormat())
+The target uses specified log message format (see setFormat() method)
 or hive::log::Format::defaultFormat() if no any format provided.
 */
 class Target
@@ -257,9 +267,6 @@ public:
         // do nothing by default
     }
 
-private:
-    Format::SharedPtr m_format; ///< @brief The message format.
-
 public:
 
     /// @brief Set message format.
@@ -287,6 +294,9 @@ public: // common targets
     class File;
     class Stderr;
     class Tie;
+
+private:
+    Format::SharedPtr m_format; ///< @brief The message format.
 };
 
 
@@ -294,14 +304,32 @@ public: // common targets
 /**
 Sends log messages to the file stream.
 
-All write operations may be automatically flushed to disk
-but of course it reduces the overal application performance.
-The "auto-flush" logging level is used to control this process.
-By default it's hive::log::LEVEL_WARN, so all WARNING, ERROR
-and FATAL message will be automatically flushed, other messages
-(INFO, DEBUG, TRACE) will not.
+All write operations may be automatically flushed to disk but of course it
+reduces the overal application performance. The "auto-flush" logging level
+is used to control this process. By default it's hive::log::LEVEL_WARN,
+so all WARNING, ERROR and FATAL message will be automatically flushed,
+other messages (INFO, DEBUG, TRACE) will not.
+
+A log file size limit might be specified as long as a maximum number
+of log file backups. The file size limit isn't perfect precised and has the
+log message boundary. That means that the whole log message will be written
+although there is only one byte of free space in the log file. Once log file
+is full the "backup" procedure will be started:
+
+|   before   |    after   | comments                   |
+|------------|------------|---------------------------|
+| `my.log.4` |            | deleted (the oldest)       |
+| `my.log.3` | `my.log.4` | rename: `log.3` -> `log.4` |
+| `my.log.2` | `my.log.3` | rename: `log.2` -> `log.3` |
+| `my.log.1` | `my.log.2` | rename: `log.1` -> `log.2` |
+| `my.log.0` | `my.log.1` | rename: `log.0` -> `log.1` |
+| `my.log`   | `my.log.0` | rename: `log` -> `log.0`   |
+|            | `my.log`   | created (the newest)       |
+
+Note, it's not recommended to provide log file size limit with no backups.
+
+By default there is no any file size limit and therefore no backups.
 */
-// TODO: limit the file size and the number of backups!
 class Target::File:
     private NonCopyable,
     public Target
@@ -314,7 +342,11 @@ protected:
     @param[in] autoFlushLevel The "auto-flush" logging level.
     */
     explicit File(String const& fileName, Level autoFlushLevel)
-        : m_fileName(fileName), m_autoFlushLevel(autoFlushLevel)
+        : m_fileName(fileName)
+        , m_autoFlushLevel(autoFlushLevel)
+        , m_maxFileSize(0)
+        , m_numOfBackups(0)
+        , m_needNewFile(false)
     {}
 
 public:
@@ -336,19 +368,48 @@ public:
 
 public:
 
+    /// @brief Set the log file size limit.
+    /**
+    @param[in] maxFileSize The maximum file size in bytes.
+    @return The self reference.
+    */
+    File& setMaxFileSize(size_t maxFileSize)
+    {
+        m_maxFileSize = maxFileSize;
+        return *this;
+    }
+
+
+    /// @brief Set the maximum number of backups.
+    /**
+    @param[in] N The maximum number of backups.
+    @return The self reference.
+    */
+    File& setNumberOfBackups(size_t N)
+    {
+        m_numOfBackups = N;
+        return *this;
+    }
+
+public:
+
     /// @brief Send log message to the target.
     /**
     @param[in] msg The log message.
     */
     virtual void send(Message const& msg) const
     {
-        if (!m_file.is_open() || !m_file) // try to open/reopen
+        if (!m_file.is_open()) // try to open/reopen
         {
-            m_file.close();
-            m_file.open(m_fileName.c_str());
+            if (m_needNewFile)
+                startNewFile();
+
+            m_file.clear();
+            m_file.open(m_fileName.c_str(),
+                std::ios::app); // append!
         }
 
-        if (m_file.is_open() && m_file) // write message
+        if (m_file.is_open()) // write message
         {
             if (Format::SharedPtr fmt = getFormat())
                 fmt->format(m_file, msg);
@@ -357,12 +418,94 @@ public:
 
             if (m_autoFlushLevel <= msg.level)
                 m_file.flush();
+
+            const std::streamsize sz = m_file.tellp();
+            if (m_maxFileSize && m_maxFileSize <= sz)
+            {
+                // restart next time!
+                m_needNewFile = true;
+                m_file.close();
+            }
         }
+    }
+
+private:
+
+    /// @brief Start new log file.
+    /**
+    Do backups and start writing to new file.
+    */
+    void startNewFile() const
+    {
+        const size_t W = getNumOfDigits();
+        const size_t N = m_numOfBackups;
+
+        if (0 < N)
+        {
+            // remove the latest one
+            String next = buildFileName(N-1, W);
+            ::remove(next.c_str());
+
+            // level-up the backups
+            for (size_t i = N-1; 0 < i; --i)
+            {
+                String prev = buildFileName(i-1, W);
+                ::rename(prev.c_str(), next.c_str());
+                next = prev;
+            }
+
+            // reset the current log file
+            ::rename(m_fileName.c_str(), next.c_str());
+        }
+        else
+        {
+            // remove the current log file
+            ::remove(m_fileName.c_str());
+        }
+    }
+
+
+    /// @brief Build backup file name.
+    /**
+    @param[in] index The backup index.
+    @param[in] width The number of backup digits.
+    @return The backup file name.
+    */
+    String buildFileName(size_t index, size_t width) const
+    {
+        OStringStream oss;
+        oss.fill('0');
+        oss << m_fileName << '.'
+            << std::setw(width)
+            << index;
+        return oss.str();
+    }
+
+
+    /// @brief Get the number of backup digits.
+    /**
+    The output is equal to `ceil(log10(m_numOfBackups))`.
+    @return The number of backup digits.
+    */
+    size_t getNumOfDigits() const
+    {
+        size_t H = 10;
+        size_t n = 1;
+        while (H < m_numOfBackups && n < 10)
+        {
+            H *= 10;
+            n += 1;
+        }
+        return n;
     }
 
 private:
     String m_fileName; ///< @brief The file name.
     Level m_autoFlushLevel; ///< @brief The "auto-flush" level.
+
+    std::streamsize m_maxFileSize; ///< @brief The maximum file size in bytes.
+    size_t m_numOfBackups; ///< @brief The maximum number of backups.
+    mutable bool m_needNewFile; ///< @brief The need new file flag.
 
     mutable std::ofstream m_file; ///< @brief The file stream.
 };
@@ -417,10 +560,11 @@ public:
 Sends log messages to the several targets.
 
 You can add many child targets using add() method.
-There is no way to remove child target,
-it's only possible to remove all child targets using clear().
+There is no way to remove child target, it's only
+possible to remove all child targets using clear().
 
-The add() method returns self reference so you can combine mutiple inserts into one line:
+The add() method returns self reference so you can
+combine mutiple inserts into one line:
 
 ~~~{.cpp}
 hive::log::Target::Tie::SharedPtr tie = hive::log::Target::Tie::create();
@@ -485,11 +629,6 @@ public:
             (*i)->send(msg);
     }
 
-private:
-    typedef Target::SharedPtr Child; ///< @brief The child target type.
-    typedef std::vector<Child> Container; ///< @brief The list of child targets type.
-    Container m_childs; ///< @brief The list of child targets.
-
 public:
 
     /// @brief Add child target.
@@ -514,6 +653,11 @@ public:
         m_childs.clear();
         return *this;
     }
+
+private:
+    typedef Target::SharedPtr Child; ///< @brief The child target type.
+    typedef std::vector<Child> Container; ///< @brief The list of child targets type.
+    Container m_childs; ///< @brief The list of child targets.
 };
 
 
@@ -521,8 +665,9 @@ public:
 /**
 This is the main class of the logging tools.
 
-All loggers organized into tree hierarchy. The root logger available through root() static method.
-By default root() logger send messages to the standard error stream at the hive::log::LEVEL_WARN level.
+All loggers organized into tree hierarchy. The root logger available
+through root() static method. By default root() logger send messages
+to the standard error stream at the hive::log::LEVEL_WARN level.
 */
 class Logger
 {
@@ -546,8 +691,8 @@ private:
         @param[in] log_level The logging level.
         */
         Impl(String const& log_name, Level log_level)
-            : level(log_level),
-              name(log_name)
+            : level(log_level)
+            , name(log_name)
         {}
 
     public:
@@ -577,10 +722,6 @@ private:
             return SharedPtr(); // not found
         }
     };
-
-
-    /// @brief The implementation data.
-    Impl::SharedPtr m_impl;
 
 public:
 
@@ -635,7 +776,7 @@ public:
     */
     bool isEnabledFor(Level level) const
     {
-        boost::shared_ptr<Impl> i = m_impl;
+        Impl::SharedPtr i = m_impl;
 
         while (i)
         {
@@ -672,13 +813,48 @@ public:
 
     /// @brief Set the target.
     /**
-    @param[in] target The target.
+    @param[in] target The new target.
     @return The self reference.
     */
     Logger& setTarget(Target::SharedPtr target)
     {
         m_impl->target = target;
         return *this;
+    }
+
+public:
+
+    /// @brief Get the root logger.
+    /**
+    @return The root logger reference.
+    */
+    static Logger& root()
+    {
+        // empty name
+        static Logger L;
+        return L;
+    }
+
+public:
+
+    /// @brief Send log message to the target.
+    /**
+    If there is no appropriate target found then the log message is ignored.
+
+    @param[in] level The logging level.
+    @param[in] message The log message.
+    @param[in] prefix The log message prefix (optional).
+    @param[in] file The source file name (optional).
+    @param[in] line The source line number.
+    */
+    void send(Level level, const char* message, const char *prefix = 0, const char* file = 0, int line = 0) const
+    {
+        if (Target::SharedPtr target = getAppropriateTarget())
+        {
+            Message msg(getName().c_str(), level,
+                message, prefix, file, line);
+            target->send(msg);
+        }
     }
 
 private:
@@ -691,7 +867,7 @@ private:
     */
     Target::SharedPtr getAppropriateTarget() const
     {
-        boost::shared_ptr<Impl> i = m_impl;
+        Impl::SharedPtr i = m_impl;
 
         while (i)
         {
@@ -716,7 +892,7 @@ private:
     {
         const char SEP = '/'; // name separator
 
-        boost::shared_ptr<Impl> impl = root().m_impl;
+        Impl::SharedPtr impl = root().m_impl;
         String new_name; //new_name.reserve(name.size());
 
         for (size_t t = 0; ;) // tokinizer position
@@ -760,56 +936,8 @@ private:
         return impl;
     }
 
-public:
-
-    /// @brief Get the root logger.
-    /**
-    @return The root logger reference.
-    */
-    static Logger& root()
-    {
-        // empty name
-        static Logger L;
-        return L;
-    }
-
-public:
-
-    /// @brief Send log message to the target.
-    /**
-    If there is no appropriate targets found then the log message is ignored.
-
-    @param[in] level The logging level.
-    @param[in] message The log message.
-    @param[in] prefix The log message prefix (optional).
-    @param[in] file The source file name.
-    @param[in] line The source line number.
-    */
-    void send(Level level, String const& message, const char* prefix = 0, const char* file = 0, int line = 0) const
-    {
-        send(level, message.c_str(), prefix, file, line);
-    }
-
-
-    /// @brief Send log message to the target.
-    /**
-    If there is no appropriate targets found then the log message is ignored.
-
-    @param[in] level The logging level.
-    @param[in] message The log message.
-    @param[in] prefix The log message prefix (optional).
-    @param[in] file The source file name.
-    @param[in] line The source line number.
-    */
-    void send(Level level, const char* message, const char *prefix = 0, const char* file = 0, int line = 0) const
-    {
-        if (Target::SharedPtr target = getAppropriateTarget())
-        {
-            Message msg(getName().c_str(), level,
-                message, prefix, file, line);
-            target->send(msg);
-        }
-    }
+private:
+    Impl::SharedPtr m_impl; ///< @brief The implementation.
 };
 
 
@@ -832,6 +960,8 @@ void f()
     // function body
 }
 ~~~
+
+Cannot be used with temporary strings.
 */
 class Block
 {
@@ -848,7 +978,11 @@ public:
     @param[in] line The line number.
     */
     Block(Logger const& logger, Level level, const char* message, const char* file, int line)
-        : m_logger(logger), m_level(level), m_message(message), m_file(file), m_line(line)
+        : m_logger(logger)
+        , m_level(level)
+        , m_message(message)
+        , m_file(file)
+        , m_line(line)
     {
         if (m_logger.isEnabledFor(m_level))
         {
@@ -891,7 +1025,7 @@ private:
 /**
 @param[in] logger The logger.
 @param[in] message The log message.
-@param[in] level The logging level shortcut.
+@param[in] level The logging level.
 @hideinitializer
 */
 #define IMPL_HIVELOG_BODY(logger, message, level)               \
@@ -901,7 +1035,7 @@ private:
             hive::OStringStream oss;                            \
             oss << message;                                     \
             (logger).send(hive::log::level,                     \
-                oss.str(), 0, __FILE__, __LINE__);              \
+                oss.str().c_str(), 0, __FILE__, __LINE__);      \
         }                                                       \
     } while (0)
 
@@ -909,8 +1043,8 @@ private:
 /// @brief Send simple log string.
 /**
 @param[in] logger The logger.
-@param[in] message The log message.
-@param[in] level The logging level shortcut.
+@param[in] message The log message (C-string).
+@param[in] level The logging level.
 @hideinitializer
 */
 #define IMPL_HIVELOG_STR_BODY(logger, message, level)           \
@@ -926,8 +1060,8 @@ private:
 /// @brief Define "enter/leave" log block.
 /**
 @param[in] logger The logger.
-@param[in] message The log message.
-@param[in] level The logging level shortcut.
+@param[in] message The log message (C-string).
+@param[in] level The logging level.
 @hideinitializer
 */
 #define IMPL_HIVELOG_BLOCK_BODY(logger, message, level)         \
@@ -991,26 +1125,29 @@ private:
 /// @name TRACE logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at TRACE level.
+/// @brief Send a log message at TRACE level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_TRACE(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at TRACE level.
+/// @brief Send a log string at TRACE level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_TRACE_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Define "enter/leave" block at TRACE level.
+/// @brief Define "enter/leave" block at TRACE level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The block name.
+@hideinitializer
 */
 #define HIVELOG_TRACE_BLOCK(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1038,26 +1175,29 @@ private:
 /// @name DEBUG logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at DEBUG level.
+/// @brief Send a log message at DEBUG level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_DEBUG(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at DEBUG level.
+/// @brief Send a log string at DEBUG level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_DEBUG_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Define "enter/leave" block at DEBUG level.
+/// @brief Define "enter/leave" block at DEBUG level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The block name.
+@hideinitializer
 */
 #define HIVELOG_DEBUG_BLOCK(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1085,26 +1225,29 @@ private:
 /// @name INFO logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at INFO level.
+/// @brief Send a log message at INFO level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_INFO(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at INFO level.
+/// @brief Send a log string at INFO level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_INFO_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Define "enter/leave" block at INFO level.
+/// @brief Define "enter/leave" block at INFO level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The block name.
+@hideinitializer
 */
 #define HIVELOG_INFO_BLOCK(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1131,18 +1274,20 @@ private:
 /// @name WARN logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at WARN level.
+/// @brief Send a log message at WARN level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_WARN(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at WARN level.
+/// @brief Send a log string at WARN level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_WARN_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1166,18 +1311,20 @@ private:
 /// @name ERROR logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at ERROR level.
+/// @brief Send a log message at ERROR level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_ERROR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at ERROR level.
+/// @brief Send a log string at ERROR level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_ERROR_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1201,18 +1348,20 @@ private:
 /// @name FATAL logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at FATAL level.
+/// @brief Send a log message at FATAL level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_FATAL(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at FATAL level.
+/// @brief Send a log string at FATAL level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_FATAL_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1238,7 +1387,7 @@ This page is under construction!
 ================================
 
 If your log message contains only static string (i.e. no additional parameters)
-it's better to use `_STR` macroses.
+it's better for overall performance to use corresponding `_STR` macroses.
 
 Disable logging at compile time
 -------------------------------

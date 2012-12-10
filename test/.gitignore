@@ -4,3 +4,7 @@ simple_gw
 zigbee_gw
 hello
 xtest
+
+# log files
+*.log.*
+*.log
