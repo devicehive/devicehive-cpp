@@ -29,17 +29,21 @@ void check_swab()
             val |= rand()&0xFF;
         }
 
-        volatile char LE[sizeof(T)];
-        volatile char BE[sizeof(T)];
+        union TmpBuf
+        {
+            char buf[sizeof(T)];
+            T val;
+        };
 
-        *((T*)LE) = misc::h2le(val);
-        *((T*)BE) = misc::h2be(val);
+        volatile TmpBuf LE, BE;
+        LE.val = misc::h2le(val);
+        BE.val = misc::h2be(val);
 
         for (size_t k = 0; k < sizeof(T); ++k)
         {
             const char b = (val >> (k*8))&0xFF;
-            MY_ASSERT(LE[k] == b, "invalid LE byte order");
-            MY_ASSERT(BE[sizeof(T)-k-1] == b, "invalid BE byte order");
+            MY_ASSERT(LE.buf[k] == b, "invalid LE byte order");
+            MY_ASSERT(BE.buf[sizeof(T)-k-1] == b, "invalid BE byte order");
         }
 
         MY_ASSERT(misc::le2h(misc::h2le(val)) == val,

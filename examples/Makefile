@@ -58,15 +58,15 @@ examples: simple_dev simple_gw zigbee_gw
 
 simple_dev: ${home_path}/simple_dev.cpp
 	${CROSS_COMPILE}${CXX} -o simple_dev ${home_path}/simple_dev.cpp ${CXXFLAGS} ${LDFLAGS} \
-		-lboost_system
+		${ex_libs}/libboost_system.a
 
 simple_gw: ${home_path}/simple_gw.cpp
 	${CROSS_COMPILE}${CXX} -o simple_gw ${home_path}/simple_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
-		-lboost_system
+		${ex_libs}/libboost_system.a
 
 zigbee_gw: ${home_path}/zigbee_gw.cpp
 	${CROSS_COMPILE}${CXX} -o zigbee_gw ${home_path}/zigbee_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
-		-lboost_system
+		${ex_libs}/libboost_system.a
 
 #########################################################
 # clean all the object files and applications

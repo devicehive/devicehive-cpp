@@ -26,6 +26,8 @@ ifndef CROSS_COMPILE
   # try to detect CROSS_COMPILE
   ifeq '${platform}' 'arm'
     CROSS_COMPILE=arm-unknown-linux-gnueabi-
+  else ifeq '${platform}' 'arm-bb'
+    CROSS_COMPILE=arm-angstrom-linux-gnueabi-
   endif
 endif
 
@@ -65,19 +67,19 @@ hello: ${home_path}/hello.cpp
 # this is simple test program
 xtest: ${home_path}/main.cpp
 	${CROSS_COMPILE}${CXX} -o xtest ${home_path}/main.cpp ${CXXFLAGS} ${LDFLAGS} \
-		-lboost_system
+		${ex_libs}/libboost_system.a
 
 simple_dev:
-	make xtest XTEST_EXAMPLE=simple_dev
-	mv -f xtest simple_dev
+	${CROSS_COMPILE}${CXX} -o simple_dev ${home_path}/main.cpp -DXTEST_EXAMPLE=simple_dev ${CXXFLAGS} ${LDFLAGS} \
+		${ex_libs}/libboost_system.a
 
 simple_gw:
-	make xtest XTEST_EXAMPLE=simple_gw
-	mv -f xtest simple_gw
+	${CROSS_COMPILE}${CXX} -o simple_gw ${home_path}/main.cpp -DXTEST_EXAMPLE=simple_gw ${CXXFLAGS} ${LDFLAGS} \
+		${ex_libs}/libboost_system.a
 
 zigbee_gw:
-	make xtest XTEST_EXAMPLE=zigbee_gw
-	mv -f xtest zigbee_gw
+	${CROSS_COMPILE}${CXX} -o zigbee_gw ${home_path}/main.cpp -DXTEST_EXAMPLE=zigbee_gw ${CXXFLAGS} ${LDFLAGS} \
+		${ex_libs}/libboost_system.a
 
 
 #########################################################
