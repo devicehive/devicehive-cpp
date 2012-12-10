@@ -5,12 +5,9 @@
 #ifndef __DEVICEHIVE_XBEE_HPP_
 #define __DEVICEHIVE_XBEE_HPP_
 
-#include <hive/bstream.hpp>
-#include <hive/swab.hpp>
+#include <hive/binary.hpp>
 #include <hive/dump.hpp>
 #include <hive/log.hpp>
-
-#include "binary.hpp"
 
 #if !defined(HIVE_PCH)
 #   include <boost/enable_shared_from_this.hpp>
@@ -48,7 +45,7 @@ There are a few payloads:
     - ZBReceivePacket
 */
 class Frame:
-    public binary::FrameContent
+    public bin::FrameContent
 {
 public:
 
@@ -830,10 +827,10 @@ Application is responsible to open and setup serial device.
 */
 template<typename StreamT>
 class API:
-    public binary::Transceiver<StreamT, Frame>
+    public bin::Transceiver<StreamT, Frame>
 {
     /// @brief The base type.
-    typedef binary::Transceiver<StreamT, Frame> Base;
+    typedef bin::Transceiver<StreamT, Frame> Base;
 
     /// @brief The type alias.
     typedef API<StreamT> This;

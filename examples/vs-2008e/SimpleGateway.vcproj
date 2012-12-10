@@ -173,6 +173,10 @@
 			Name="hive"
 			>
 			<File
+				RelativePath="..\..\include\hive\binary.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\hive\bstream.hpp"
 				>
 			</File>
@@ -212,10 +216,6 @@
 		<Filter
 			Name="DeviceHive"
 			>
-			<File
-				RelativePath="..\..\include\DeviceHive\binary.hpp"
-				>
-			</File>
 			<File
 				RelativePath="..\..\include\DeviceHive\cloud6.hpp"
 				>

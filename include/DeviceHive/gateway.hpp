@@ -6,12 +6,9 @@
 #ifndef __DEVICEHIVE_GATEWAY_HPP_
 #define __DEVICEHIVE_GATEWAY_HPP_
 
-#include <hive/bstream.hpp>
-#include <hive/swab.hpp>
+#include <hive/binary.hpp>
 #include <hive/json.hpp>
 #include <hive/dump.hpp>
-
-#include "binary.hpp"
 
 #if !defined(HIVE_PCH)
 #   include <boost/shared_ptr.hpp>
@@ -385,7 +382,7 @@ This class contains full formated frame:
 The empty frame doesn't contain any data.
 */
 class Frame:
-    public binary::FrameContent
+    public bin::FrameContent
 {
 public:
 
@@ -1016,10 +1013,10 @@ Uses external stream object.
 */
 template<typename StreamT>
 class API:
-    public binary::Transceiver<StreamT, Frame>
+    public bin::Transceiver<StreamT, Frame>
 {
     /// @brief The base type.
-    typedef binary::Transceiver<StreamT, Frame> Base;
+    typedef bin::Transceiver<StreamT, Frame> Base;
 
     /// @brief The type alias.
     typedef API<StreamT> This;

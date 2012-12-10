@@ -1,14 +1,14 @@
 /** @file
-@brief The binary transceiver prototype (experimental).
+@brief The binary transceiver.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
-#ifndef __DEVICEHIVE_BINARY_HPP_
-#define __DEVICEHIVE_BINARY_HPP_
+#ifndef __HIVE_BINARY_HPP_
+#define __HIVE_BINARY_HPP_
 
-#include <hive/bstream.hpp>
-#include <hive/swab.hpp>
-#include <hive/dump.hpp>
-#include <hive/log.hpp>
+#include "bstream.hpp"
+#include "swab.hpp"
+#include "dump.hpp"
+#include "log.hpp"
 
 #if !defined(HIVE_PCH)
 #   include <boost/shared_ptr.hpp>
@@ -18,10 +18,12 @@
 #endif // HIVE_PCH
 
 
-/// @brief The binary transceiver prototype (experimental).
-namespace binary
+namespace hive
 {
-    using namespace hive;
+
+    /// @brief The binary transceiver.
+    namespace bin
+    {
 
 /// @brief The binary frame content.
 /**
@@ -780,6 +782,7 @@ protected:
     log::Logger m_log; ///< @brief The logger instance.
 };
 
-} // binary namespace
+    } // bin namespace
+} // hive namespace
 
-#endif // __DEVICEHIVE_BINARY_HPP_
+#endif // __HIVE_BINARY_HPP_
