@@ -19,61 +19,6 @@ namespace
 {
     using namespace hive;
 
-
-// test target
-class TestTarget:
-    public log::Target
-{
-public:
-
-    // factory method
-    static SharedPtr create()
-    {
-        return SharedPtr(new TestTarget());
-    }
-
-public:
-
-    // save log message
-    virtual void send(log::Message const& msg) const
-    {
-        if (log::Format::SharedPtr fmt = getFormat())
-            fmt->format(std::cout, msg);
-        else
-            log::Format::defaultFormat(std::cout, msg);
-    }
-};
-
-
-// test format
-class TestFormat:
-    public log::Format
-{
-public:
-
-    // factory method
-    static SharedPtr create()
-    {
-        return SharedPtr(new TestFormat());
-    }
-
-public:
-
-    // format the log message.
-    virtual void format(OStream &os, log::Message const& msg)
-    {
-        //if (msg.loggerName)
-        //    os << msg.loggerName << ' ';
-        os << std::setw(5) << getLevelName(msg.level) << ": ";
-        if (msg.prefix)
-            os << msg.prefix;
-        if (msg.message)
-            os << msg.message;
-        os << '\n';
-    }
-};
-
-
 /*
 Checks for log functions.
 */
@@ -81,11 +26,12 @@ void test_log0()
 {
     std::cout << "check log macroses...\n";
     log::Logger logger("test/hive/log");
-    log::Target::SharedPtr test_target = TestTarget::create();
+    log::Target::SharedPtr test_target = log::Target::Stream::createStdout();
     log::Target::File::SharedPtr file_target = log::Target::File::create("test.log");
     file_target->setMaxFileSize(128).setNumberOfBackups(5);
     logger.setTarget(log::Target::Tie::create(test_target, file_target));
-    test_target->setFormat(TestFormat::create());
+    test_target->setFormat(log::Format::create("%L:\t%N\t%M\n"));
+    test_target->setMinimumLevel(log::LEVEL_DEBUG);
     logger.setLevel(log::LEVEL_TRACE);
     //log::Logger::root().setLevel(log::LEVEL_TRACE);
 
@@ -130,8 +76,9 @@ public:
     {
         std::map<String, log::Target::SharedPtr> my_targets;
         my_targets["null"] = log::Target::create();
-        my_targets["stderr"] = log::Target::Stderr::create();
-        my_targets["console"] = my_targets["stderr"];
+        my_targets["stderr"] = log::Target::Stream::createStderr();
+        my_targets["stdout"] = log::Target::Stream::createStdout();
+        my_targets["console"] = my_targets["stdout"];
 
         { // parse log targets
             json::Value const& jtargets = jval["targets"];
@@ -223,7 +170,9 @@ private:
     // parse the log level
     static log::Level parseLevel(String const& level)
     {
-        if (level == "TRACE")
+        if (level == "ALL")
+            return log::LEVEL_ALL;
+        else if (level == "TRACE")
             return log::LEVEL_TRACE;
         else if (level == "DEBUG")
             return log::LEVEL_DEBUG;
