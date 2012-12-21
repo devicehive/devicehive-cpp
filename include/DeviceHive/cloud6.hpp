@@ -309,24 +309,6 @@ public:
 };
 
 
-/// @brief The could version 6 server API.
-/**
-This class helps devices to comminucate with server.
-
-There are a lot of API wrapper methods:
-    - asyncRegisterDevice()
-    - asyncPollCommands()
-    - asyncSendCommandResult()
-    - asyncSendNotification()
-
-All of these methods accept callback functor which is used to report result of each operation.
-*/
-class ServerAPI:
-    public boost::enable_shared_from_this<ServerAPI>
-{
-    typedef ServerAPI ThisType; ///< @brief The type alias.
-public:
-
 /// @brief The JSON serializer.
 /**
 This class helps to serialize/deserialize key DeviceHive objects to/from JSON values.
@@ -632,6 +614,23 @@ public:
     }
 };
 
+
+/// @brief The could version 6 server API.
+/**
+This class helps devices to comminucate with server.
+
+There are a lot of API wrapper methods:
+    - asyncRegisterDevice()
+    - asyncPollCommands()
+    - asyncSendCommandResult()
+    - asyncSendNotification()
+
+All of these methods accept callback functor which is used to report result of each operation.
+*/
+class ServerAPI:
+    public boost::enable_shared_from_this<ServerAPI>
+{
+    typedef ServerAPI ThisType; ///< @brief The type alias.
 public:
 
     /// @brief The shared pointer type.

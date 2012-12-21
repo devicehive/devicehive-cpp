@@ -82,9 +82,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\DeviceHive\binary.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\gateway.hpp" />
+    <ClInclude Include="..\..\include\hive\binary.hpp" />
     <ClInclude Include="..\..\include\hive\bstream.hpp" />
     <ClInclude Include="..\..\include\hive\defs.hpp" />
     <ClInclude Include="..\..\include\hive\dump.hpp" />

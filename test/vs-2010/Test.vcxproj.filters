@@ -39,9 +39,6 @@
     <ClInclude Include="..\test-dump.hpp">
       <Filter>test</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\DeviceHive\binary.hpp">
-      <Filter>DeviceHive</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp">
       <Filter>DeviceHive</Filter>
     </ClInclude>
@@ -89,6 +86,9 @@
     </ClInclude>
     <ClInclude Include="..\..\examples\zigbee_gw.hpp">
       <Filter>examples</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\hive\binary.hpp">
+      <Filter>hive</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

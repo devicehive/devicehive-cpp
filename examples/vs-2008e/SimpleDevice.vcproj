@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9,00"
@@ -173,6 +173,10 @@
 			Name="hive"
 			>
 			<File
+				RelativePath="..\..\include\hive\binary.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\hive\bstream.hpp"
 				>
 			</File>
@@ -212,10 +216,6 @@
 		<Filter
 			Name="DeviceHive"
 			>
-			<File
-				RelativePath="..\..\include\DeviceHive\binary.hpp"
-				>
-			</File>
 			<File
 				RelativePath="..\..\include\DeviceHive\cloud6.hpp"
 				>

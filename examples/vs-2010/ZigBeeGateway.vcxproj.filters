@@ -39,15 +39,15 @@
     <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp">
       <Filter>DeviceHive</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\DeviceHive\binary.hpp">
-      <Filter>DeviceHive</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\DeviceHive\gateway.hpp">
       <Filter>DeviceHive</Filter>
     </ClInclude>
     <ClInclude Include="..\basic_app.hpp" />
     <ClInclude Include="..\simple_gw.hpp" />
     <ClInclude Include="..\zigbee_gw.hpp" />
+    <ClInclude Include="..\..\include\hive\binary.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\zigbee_gw.cpp" />
