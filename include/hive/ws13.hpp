@@ -38,13 +38,6 @@ const char VERSION[] = "13";
 const char NAME[] = "websocket";
 
 
-/// @brief The octet string.
-/**
-Elements of this string should be interpreted as an octets not as a character.
-*/
-typedef String OctetString;
-
-
         /// @brief The WebSocket headers.
         /**
         This namespace contains definition of common WebSocket headers.
@@ -61,23 +54,104 @@ const char Key[]        = "Sec-WebSocket-Key";          ///< @hideinitializer @b
         } // header namespace
 
 
+/// @brief The octet string.
+/**
+Elements of this string should be interpreted as octets not as characters.
+*/
+typedef String OctetString;
+
+
+/// @brief The custom message.
+/**
+The message could be fragmented into multiple frames.
+*/
+class Message
+{
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] data The message payload data.
+    @param[in] isText The "text" indicator.
+    */
+    explicit Message(OctetString const& data, bool isText)
+        : m_data(data) , m_isText(isText)
+    {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<Message> SharedPtr;
+
+
+    /// @brief The factory method.
+    /**
+    @param[in] data The message payload data.
+    @param[in] isText The "text" indicator.
+    `true` for text data, `false` for binary data.
+    @return The new message instance.
+    */
+    static SharedPtr create(OctetString const& data, bool isText = true)
+    {
+        return SharedPtr(new Message(data, isText));
+    }
+
+public:
+
+    /// @brief Append data to the end of message.
+    /**
+    @param[in] data The data to append.
+    */
+    void appendData(OctetString const& data)
+    {
+        m_data.append(data);
+    }
+
+public:
+
+    /// @brief Get the data.
+    /**
+    @return The text or binary octet string.
+    */
+    OctetString const& getData() const
+    {
+        return m_data;
+    }
+
+
+    /// @brief Get the "text" indicator.
+    /**
+    @return `true` for text data, `false` for binary.
+    */
+    bool isText() const
+    {
+        return m_isText;
+    }
+
+private:
+    OctetString m_data; ///< @brief The data payload.
+    bool m_isText; ///< @brief The "text" indicator.
+};
+
+
 /// @brief The WebSocket frame.
 /**
 This class contains full formated frame:
 
-|     field | size in bytes
-|-----------|--------------
-| signature | 1
-|    length | 2
-|   payload | N
-|  checksum | 1
+|     field | size in bytes |
+|-----------|---------------|
+|   control | 1             |
+|    length | 1 or 3 or 9   |
+|     mask  | 0 or 4        |
+|   payload | N             |
 
 The empty frame doesn't contain any data.
 
-The following payloads may be used:
+The following non-control payloads may be used:
   - Continue
   - Text
   - Binary
+as well as control payloads:
   - Close
   - Ping
   - Pong
@@ -91,17 +165,17 @@ public:
     enum Opcode
     {
         // non-control frames
-        FRAME_CONTINUE  = 0x0, ///< @brief The "continuation frame" opcode.
-        FRAME_TEXT      = 0x1, ///< @brief The "text frame" opcode.
-        FRAME_BINARY    = 0x2, ///< @brief The "binary frame" opcode.
+        FRAME_CONTINUE  = 0x00, ///< @brief The *CONTINUE* frame opcode.
+        FRAME_TEXT      = 0x01, ///< @brief The *TEXT* frame opcode.
+        FRAME_BINARY    = 0x02, ///< @brief The *BINARY* frame opcode.
 
         // control frames
-        FRAME_CLOSE     = 0x8, ///< @brief The "connection close" opcode.
-        FRAME_PING      = 0x9, ///< @brief The "ping" opcode.
-        FRAME_PONG      = 0xA  ///< @brief The "pong" opcode.
+        FRAME_CLOSE     = 0x08, ///< @brief The *CLOSE* frame opcode.
+        FRAME_PING      = 0x09, ///< @brief The *PING* frame opcode.
+        FRAME_PONG      = 0x0A  ///< @brief The *PONG* frame opcode.
     };
 
-public: // common payloads
+public: // payloads
 
     class Payload;
         class Continue;
@@ -129,16 +203,16 @@ public:
     /// @brief Construct the frame from the payload.
     /**
     @param[in] payload The data payload.
-    Should be byte container with `format()` method.
+    Should be valid payload with `format()` method.
     @param[in] masking The masking flag.
-    @param[in] maskingKey The masking key.
-                Ignored if @a masking is `false`.
+    @param[in] mask The masking key. Ignored if @a masking is `false`.
+    @param[in] FIN The last frame indicator. `true` for the last frame.
+    @param[in] flags The 3 reserved bits.
     @return The new frame instance.
     */
     template<typename PayloadT>
-    static SharedPtr create(PayloadT const& payload,
-        bool masking, UInt32 maskingKey = 0,
-        bool FIN = true, int flags = 0)
+    static SharedPtr create(PayloadT const& payload, bool masking,
+        UInt32 mask = 0, bool FIN = true, int flags = 0)
     {
         OStringStream oss;
         io::BinaryOStream bs(oss);
@@ -146,7 +220,7 @@ public:
 
         SharedPtr pthis(new Frame());
         pthis->init(oss.str(), PayloadT::OPCODE,
-            masking, maskingKey, FIN, flags);
+            masking, mask, FIN, flags);
         return pthis;
     }
 
@@ -193,6 +267,7 @@ public:
                     frame[offset+i] ^= M;
                 }
 
+                // re-init input stream
                 IStringStream iss(frame);
                 io::BinaryIStream bs(iss);
                 iss.seekg(offset);
@@ -215,7 +290,7 @@ public:
     {
         if (1 <= m_content.size())
         {
-            const int f_ctl = m_content[0];
+            const int f_ctl = UInt8(m_content[0]);
             return f_ctl&0x0F;
         }
 
@@ -226,13 +301,14 @@ public:
     /// @brief Get the frame FIN flag.
     /**
     @return The frame FIN flag.
+        `-1` for empty frame.
     */
     int getFIN() const
     {
         if (1 <= m_content.size())
         {
-            const int f_ctl = m_content[0];
-            return f_ctl>>7;
+            const int f_ctl = UInt8(m_content[0]);
+            return (f_ctl>>7) != 0;
         }
 
         return -1; // unknown
@@ -242,12 +318,13 @@ public:
     /// @brief Get the frame flags.
     /**
     @return The frame flags. 3 bits.
+        `-1` for empty frame.
     */
     int getFlags() const
     {
         if (1 <= m_content.size())
         {
-            const int f_ctl = m_content[0];
+            const int f_ctl = UInt8(m_content[0]);
             return (f_ctl>>4)&0x07;
         }
 
@@ -278,7 +355,7 @@ public:
     static SharedPtr parseFrame(In first, In last, size_t &n_skip, ParseResult *result)
     {
         ParseResult res = RESULT_INCOMPLETE;
-        SharedPtr frame; // empty frame
+        SharedPtr frame; // no frame
 
         const size_t buf_len = std::distance(first, last);
         if (2 <= buf_len) // can parse header
@@ -427,8 +504,10 @@ protected:
 };
 
 
-
 /// @brief The empty payload.
+/**
+This is base class for all frame payloads.
+*/
 class Frame::Payload
 {
 public:
@@ -468,21 +547,18 @@ protected:
     */
     static OctetString getAll(io::BinaryIStream & bs)
     {
-        OctetString data;
-        while (!bs.getStream().eof())
-        {
-            const UInt8 b = bs.getUInt8();
-            if (!bs.getStream().eof())
-                data.push_back(b);
-            else
-                break;
-        }
-        return data;
+        OStringStream oss;
+        oss << bs.getStream().rdbuf();
+        return oss.str();
     }
 };
 
 
 /// @brief The Continue frame payload.
+/**
+This payload is used as *CONTINUE* i.e. *non-first* frame
+for fragmented messages (both *TEXT* and *BINARY*).
+*/
 class Frame::Continue:
     public Frame::Payload
 {
@@ -495,13 +571,13 @@ public:
     };
 
 public:
-    OctetString data; ///< @brief The octet data.
+    OctetString data; ///< @brief The custom data.
 
 public:
 
-    /// @brief The main constructor.
+    /// @brief The main/default constructor.
     /**
-    @param[in] data_ The octet data.
+    @param[in] data_ The custom data.
     */
     explicit Continue(OctetString data_ = OctetString())
         : data(data_)
@@ -526,7 +602,10 @@ public:
 };
 
 
-/// @brief The Text frame payload.
+/// @brief The *TEXT* frame payload.
+/**
+This payload is used for *TEXT* frames.
+*/
 class Frame::Text:
     public Frame::Payload
 {
@@ -543,7 +622,7 @@ public:
 
 public:
 
-    /// @brief The main constructor.
+    /// @brief The main/default constructor.
     /**
     @param[in] text_ The text.
     */
@@ -570,7 +649,10 @@ public:
 };
 
 
-/// @brief The Continue frame payload.
+/// @brief The *BINARY* frame payload.
+/**
+This payload is used for *BINARY* frames.
+*/
 class Frame::Binary:
     public Frame::Payload
 {
@@ -583,13 +665,13 @@ public:
     };
 
 public:
-    OctetString data; ///< @brief The octet data.
+    OctetString data; ///< @brief The custom data.
 
 public:
 
-    /// @brief The main constructor.
+    /// @brief The main/default constructor.
     /**
-    @param[in] data_ The octet data.
+    @param[in] data_ The custom data.
     */
     explicit Binary(OctetString data_ = OctetString())
         : data(data_)
@@ -614,7 +696,10 @@ public:
 };
 
 
-/// @brief The Close frame payload.
+/// @brief The *CLOSE* frame payload.
+/**
+This payload is used to indicate connection closure.
+*/
 class Frame::Close:
     public Frame::Payload
 {
@@ -626,18 +711,56 @@ public:
         OPCODE = Frame::FRAME_CLOSE
     };
 
+
+    /// @brief The status codes.
+    enum StatusCode
+    {
+        /// @brief Indicates a normal closure.
+        STATUS_NORMAL           = 1000,
+
+        /// @brief Indicates that an endpoint is "going away".
+        STATUS_GOING_AWAY       = 1001,
+
+        /// @brief Indicates that an endpoint is terminating the connection
+        /// due to a protocol error.
+        STATUS_PROTOCOL_ERROR   = 1002,
+
+        /// @brief Indicates that an endpoint is terminating the connection
+        /// because it has received a type of data it cannot accept.
+        STATUS_UNEXPECTED_DATA  = 1003,
+
+        /// @brief Indicates that an endpoint is terminating the connection
+        /// because it has received data within a message that was
+        /// not consistent with the type of the message.
+        STATUS_INVALID_DATA     = 1007,
+
+        /// @brief Indicates that an endpoint is terminating the connection
+        /// because it has received a message that is too big for it to process.
+        STATUS_MESSAGE_TOO_BIG  = 1009,
+
+        /// @brief Indicates that an endpoint (client) is terminating the
+        /// connection because it has expected the server to negotiate one
+        /// or more extension.
+        STATUS_NO_EXTENSION     = 1010,
+
+        /// @brief Indicates that a server is terminating the connection because
+        /// it encountered an unexpected condition that prevented it from
+        /// fulfilling the request.
+        STATUS_UNEXPECTED_COND  = 1011
+    };
+
 public:
-    UInt16 statusCode; ///< @brief The status code.
-    String reason; ///< @brief The reason phrase.
+    UInt16 statusCode; ///< @brief The optional status code.
+    String reason; ///< @brief The optional reason phrase.
 
 public:
 
-    /// @brief The main constructor.
+    /// @brief The main/default constructor.
     /**
     @param[in] statusCode_ The status code.
     @param[in] reason_ The reason phrase.
     */
-    explicit Close(UInt16 statusCode_ = 0, String reason_ = String())
+    explicit Close(UInt16 statusCode_ = STATUS_NORMAL, String reason_ = String())
         : statusCode(statusCode_), reason(reason_)
     {}
 
@@ -656,13 +779,16 @@ public:
     bool parse(io::BinaryIStream & bs)
     {
         statusCode = misc::be2h(bs.getUInt16()); // optional
-        reason = getAll(bs);
+        reason = getAll(bs); // up to end
         return true;
     }
 };
 
 
-/// @brief The Ping frame payload.
+/// @brief The *PING* frame payload.
+/**
+This payload is used to theck if peer is alive.
+*/
 class Frame::Ping:
     public Frame::Payload
 {
@@ -675,13 +801,13 @@ public:
     };
 
 public:
-    OctetString data; ///< @brief The octet data.
+    OctetString data; ///< @brief The application data.
 
 public:
 
-    /// @brief The main constructor.
+    /// @brief The main/default constructor.
     /**
-    @param[in] data_ The octet data.
+    @param[in] data_ The application data.
     */
     explicit Ping(OctetString data_ = OctetString())
         : data(data_)
@@ -700,13 +826,17 @@ public:
     /// @copydoc Frame::Payload::parse()
     bool parse(io::BinaryIStream & bs)
     {
-        data = getAll(bs);
+        data = getAll(bs); // up to end
         return true;
     }
 };
 
 
-/// @brief The Pong frame payload.
+/// @brief The *PONG* frame payload.
+/**
+This payload could be used as a response to the *PING* request
+or as a standalone *heartbeat* message.
+*/
 class Frame::Pong:
     public Frame::Payload
 {
@@ -719,13 +849,13 @@ public:
     };
 
 public:
-    OctetString data; ///< @brief The octet data.
+    OctetString data; ///< @brief The application data.
 
 public:
 
-    /// @brief The main constructor.
+    /// @brief The main/default constructor.
     /**
-    @param[in] data_ The octet data.
+    @param[in] data_ The application data.
     */
     explicit Pong(OctetString data_ = OctetString())
         : data(data_)
@@ -744,66 +874,9 @@ public:
     /// @copydoc Frame::Payload::parse()
     bool parse(io::BinaryIStream & bs)
     {
-        data = getAll(bs);
+        data = getAll(bs); // up to end
         return true;
     }
-};
-
-
-/// @brief The custom message.
-/**
-Maight be fragmented into multiple frames.
-*/
-class Message
-{
-protected:
-
-    /// @brief The main constructor.
-    explicit Message(OctetString const& data_, bool isText_)
-        : m_data(data_)
-        , m_isText(isText_)
-    {}
-
-public:
-
-    /// @brief The shared pointer type.
-    typedef boost::shared_ptr<Message> SharedPtr;
-
-    /// @brief The factory method.
-    static SharedPtr create(OctetString const& data_, bool isText_ = true)
-    {
-        return SharedPtr(new Message(data_, isText_));
-    }
-
-public:
-
-    /// @brief Append data to the end of message.
-    void appendData(OctetString const& data_)
-    {
-        m_data.append(data_);
-    }
-
-    /// @brief Get the data.
-    /**
-    @return The text or binary octet string.
-    */
-    OctetString const& getData() const
-    {
-        return m_data;
-    }
-
-    /// @brief Get the "is text" flag.
-    /**
-    @return `true` for text data, `false` for binary.
-    */
-    bool isText() const
-    {
-        return m_isText;
-    }
-
-private:
-    OctetString m_data; ///< @brief The data payload.
-    bool m_isText; ///< @brief The "text" flag.
 };
 
 
@@ -840,9 +913,12 @@ inline OctetString sha1(OctetString const& data)
         } // implementation
 
 
-/// @brief The socket connection.
+/// @brief The %WebSocket connection.
 /**
 Client socket connection. Sends masked frames.
+
+It's possible to work with websocket messages (high level)
+and websocket frames (low level).
 */
 class WebSocket:
     public boost::enable_shared_from_this<WebSocket>
@@ -864,6 +940,7 @@ protected:
 
 public:
 
+    /// @brief The trivial destructor.
     ~WebSocket()
     {
         HIVELOG_TRACE_STR(m_log, "deleted");
@@ -878,6 +955,7 @@ public:
     /// @brief The factory method.
     /**
     @param[in] name The optional websocket name.
+    @return The new websocket instance.
     */
     static SharedPtr create(String const& name = String())
     {
@@ -886,11 +964,13 @@ public:
 
 public:
 
-    /// @brief Prepare the WebSocket handshake request.
+    /// @brief Prepare websocket handshake request.
     /**
+    This HTTP request might be used for manual connection.
+
     @param[in] url The URL to request.
     @param[in] key The random key (base64 encoded).
-        Or empty string for automatic key.
+        Empty string for automatic key.
     @return The WebSocket handshake request.
     */
     static http::RequestPtr getHandshakeRequest(http::Url const& url, String const& key = String())
@@ -901,18 +981,17 @@ public:
         req->addHeader(http::header::Upgrade, NAME);
         req->addHeader(ws13::header::Version, VERSION);
         req->addHeader(ws13::header::Key, key.empty() ? generateNewKey() : key);
-
         return req;
     }
 
 
-    /// @brief Generate the new key.
+    /// @brief Generate new handshake key.
     /**
     @return The new key, base64 encoded.
     */
     static String generateNewKey()
     {
-        // TODO: static boost::random::mt19937 rgen;
+        // TODO: boost::random::mt19937 rgen;
         const size_t N = 16;
         std::vector<UInt8> key(N);
 
@@ -923,25 +1002,25 @@ public:
     }
 
 
-    /// @brief Build accept key.
+    /// @brief Build handshake accept key.
     /**
     @param[in] key The websocket key.
-    @return The accept key.
+    @return The handshake accept key.
     */
     static String buildAcceptKey(String const& key)
     {
-        OctetString check = impl::sha1(key + KEY_UUID);
+        const OctetString check = impl::sha1(key + KEY_UUID);
         return http::base64_encode(check.begin(), check.end());
     }
 
 
-    /// @brief Generate the new mask.
+    /// @brief Generate new masking key.
     /**
-    @return THe new mask.
+    @return The new masking key.
     */
     static UInt32 generateNewMask()
     {
-        // TODO: static boost::random::mt19937 rgen;
+        // TODO: boost::random::mt19937 rgen;
         return (rand()<<16) | rand();
     }
 
@@ -960,10 +1039,10 @@ public:
     @param[in] key The websocket key, base64 encoded.
         Empty string for random key.
     */
-    void connect(http::Url const& url, http::Client::SharedPtr httpClient,
+    void asyncConnect(http::Url const& url, http::Client::SharedPtr httpClient,
         ConnectCallback callback, size_t timeout_ms, String const& key = String())
     {
-        HIVELOG_TRACE_BLOCK(m_log, "connect()");
+        HIVELOG_TRACE_BLOCK(m_log, "asyncConnect()");
 
         HIVELOG_DEBUG(m_log, "try to connect to " << url.toString());
         httpClient->send2(getHandshakeRequest(url, key),
@@ -979,6 +1058,36 @@ public:
     bool isOpen() const
     {
         return m_trx && m_conn;
+    }
+
+
+    /// @brief Close the socket.
+    /**
+    If *force* flag is `false`, sends **CLOSE** frame.
+    Otherwise just closes the socket.
+    @param[in] force The *force* flag.
+    */
+    void close(bool force)
+    {
+        if (isOpen())
+        {
+            if (!force)
+            {
+                const UInt32 mask = generateNewMask();
+
+                HIVELOG_TRACE(m_log, "sending CLOSE frame");
+                Frame::SharedPtr frame = Frame::create(Frame::Close(Frame::Close::STATUS_NORMAL), true, mask);
+                asyncSendFrame(frame, boost::bind(&This::onSendFrame,
+                    shared_from_this(), _1, _2, SendFrameCallback()));
+            }
+            else
+            {
+                m_trx->recv(TRX::RecvFrameCallback());
+                m_trx.reset();
+                m_conn->close();
+                m_conn.reset();
+            }
+        }
     }
 
 private:
@@ -1000,7 +1109,7 @@ private:
 
         if (!err && request && response && connection)
         {
-            // TODO: check for status code
+            // TODO: check for "101 Switching Protocols" status code
 
             // check the accept key
             const String akey = response->getHeader(header::Accept);
@@ -1009,6 +1118,7 @@ private:
             {
                 m_conn = connection;
                 m_trx = TRX::create(m_log.getName(), *m_conn);
+                HIVELOG_INFO(m_log, "connection created");
 
                 // start listening ASAP
                 m_trx->recv(boost::bind(&This::onRecvFrame,
@@ -1028,116 +1138,11 @@ private:
 
 public:
 
-    typedef TRX::SendFrameCallback SendFrameCallback;
-    typedef TRX::RecvFrameCallback RecvFrameCallback;
+    /// @brief The "send message" callback type.
+    typedef boost::function2<void, boost::system::error_code, Message::SharedPtr> SendMessageCallbackType;
 
-
-    /// @brief Send the frame asynchronously.
-    /**
-    @param[in] frame The frame to send.
-    @param[in] callback The callback.
-    */
-    void asyncSendFrame(Frame::SharedPtr frame, SendFrameCallback callback)
-    {
-        HIVELOG_TRACE_BLOCK(m_log, "asyncSendFrame()");
-        assert(m_trx && "not connected");
-
-        m_trx->send(frame,
-            boost::bind(&This::onSendFrame,
-            shared_from_this(), _1, _2, callback));
-    }
-
-    void asyncListenForFrames(RecvFrameCallback callback)
-    {
-        m_recvFrameCallback = callback;
-    }
-
-private:
-    RecvFrameCallback m_recvFrameCallback;
-
-    /// @brief The send frame callback.
-    void onSendFrame(boost::system::error_code err, Frame::SharedPtr frame, SendFrameCallback callback)
-    {
-        HIVELOG_TRACE_BLOCK(m_log, "onSendFrame()");
-
-        m_trx->getStream().get_io_service().post(
-            boost::bind(callback, err, frame));
-    }
-
-    void onRecvFrame(boost::system::error_code err, Frame::SharedPtr frame)
-    {
-        HIVELOG_TRACE_BLOCK(m_log, "onRecvFrame()");
-
-        if (!err)
-        {
-            // TODO: handle the control frames like Close, Ping and Pong.
-            const int opcode = frame->getOpcode();
-            bool frame_processed = false;
-
-            if (m_recvFrameCallback)
-            {
-                m_trx->getStream().get_io_service().post(
-                    boost::bind(m_recvFrameCallback, err, frame));
-                frame_processed = true;
-            }
-
-            if (m_recvMsgCallback) // try to assemble message from frames
-            {
-                if (!m_recvMsg)
-                {
-                    if (opcode == Frame::FRAME_BINARY)
-                    {
-                        Frame::Binary info;
-                        frame->getPayload(info);
-                        m_recvMsg = Message::create(info.data, false);
-                    }
-                    else if (opcode == Frame::FRAME_TEXT)
-                    {
-                        Frame::Text info;
-                        frame->getPayload(info);
-                        m_recvMsg = Message::create(info.text, true);
-                    }
-                    else
-                    {
-                        HIVELOG_WARN(m_log, "unexpected frame, ignored");
-                    }
-                }
-                else
-                {
-                    if (opcode == Frame::FRAME_CONTINUE)
-                    {
-                        Frame::Continue info;
-                        frame->getPayload(info);
-                        m_recvMsg->appendData(info.data);
-                    }
-                    else
-                    {
-                        HIVELOG_WARN(m_log, "previous message is broken, ignored");
-                        m_recvMsg.reset();
-                    }
-                }
-
-                if (m_recvMsg && frame->getFIN()==1)
-                {
-                    onRecvMessage(boost::system::error_code(), m_recvMsg);
-                    m_recvMsg.reset();
-                }
-            }
-
-            if (!frame_processed)
-                HIVELOG_WARN(m_log, "no callback, frame ignored");
-        }
-        else
-        {
-            HIVELOG_ERROR(m_log, "RECV error: [" << err << "] - " << err.message());
-            // TODO: send error to the user
-        }
-    }
-
-public:
-
-    typedef boost::function2<void, boost::system::error_code, Message::SharedPtr> SendMsgCallback;
-    typedef boost::function2<void, boost::system::error_code, Message::SharedPtr> RecvMsgCallback;
+    /// @brief The "receive message" callback type.
+    typedef boost::function2<void, boost::system::error_code, Message::SharedPtr> RecvMessageCallbackType;
 
 
     /// @brief Send the message.
@@ -1147,7 +1152,7 @@ public:
     @param[in] fragmentSize The maximum fragment size.
         Zero to disable fragmentation.
     */
-    void asyncSendMessage(Message::SharedPtr msg, SendMsgCallback callback, size_t fragmentSize = 0)
+    void asyncSendMessage(Message::SharedPtr msg, SendMessageCallbackType callback, size_t fragmentSize = 0)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncSendMessage()");
 
@@ -1162,6 +1167,11 @@ public:
             {
                 const OctetString data(first, first + fragmentSize);
                 const UInt32 mask = generateNewMask();
+
+                HIVELOG_DEBUG(m_log, "send "
+                    << (isFirstFrame?"first ":"")
+                    << "fragment (" << fragmentSize << " bytes): "
+                    << dump::hex(data));
 
                 // "client-to-server" frames are always masked
                 Frame::SharedPtr frame = isFirstFrame ? (msg->isText()
@@ -1184,6 +1194,11 @@ public:
                 const OctetString data(first, first + F1);
                 const UInt32 mask = generateNewMask();
 
+                HIVELOG_DEBUG(m_log, "send "
+                    << (isFirstFrame?"first ":"")
+                    << "fragment (" << F1 << " bytes): "
+                    << dump::hex(data));
+
                 // "client-to-server" frames are always masked
                 Frame::SharedPtr frame = isFirstFrame ? (msg->isText()
                     ? Frame::create(Frame::Text(data), true, mask, false)
@@ -1200,6 +1215,10 @@ public:
             { // send the second fragment (and the last one)
                 const OctetString data(first, first + F2);
                 const UInt32 mask = generateNewMask();
+
+                HIVELOG_DEBUG(m_log, "send " << (isFirstFrame?"first ":"")
+                    << "fragment (" << F2 << " bytes): "
+                    << dump::hex(data));
 
                 // "client-to-server" frames are always masked
                 Frame::SharedPtr frame =
@@ -1218,6 +1237,8 @@ public:
             const OctetString &data = msg->getData();
             const UInt32 mask = generateNewMask();
 
+            HIVELOG_DEBUG(m_log, "send single frame: " << msg_size << " bytes");
+
             // "client-to-server" frames are always masked
             Frame::SharedPtr frame = msg->isText()
                 ? Frame::create(Frame::Text(data), true, mask)
@@ -1229,37 +1250,61 @@ public:
 
 
     /// @brief Listen for the messages.
-    void asyncListenForMessages(RecvMsgCallback callback)
+    /**
+    @param[in] callback The callback functor which will be called
+        each time new message received. Pass NULL to stop listening.
+    */
+    void asyncListenForMessages(RecvMessageCallbackType callback)
     {
         m_recvMsgCallback = callback;
     }
 
 private:
-    RecvMsgCallback m_recvMsgCallback;
-    Message::SharedPtr m_recvMsg;
+    RecvMessageCallbackType m_recvMsgCallback; ///< @brief The "receive message" callback.
+    Message::SharedPtr m_recvMsg; ///< @brief The assembling message or NULL.
 
-    void onSendMessage(boost::system::error_code err, Frame::SharedPtr frame, Message::SharedPtr msg, SendMsgCallback callback)
+
+    /// @brief The "send frame" callback for messages.
+    /**
+    @param[in] err The error code.
+    @param[in] frame The sent frame.
+    @param[in] msg The corresponding message.
+    @param[in] callback The users callback.
+    */
+    void onSendMessage(boost::system::error_code err, Frame::SharedPtr frame,
+        Message::SharedPtr msg, SendMessageCallbackType callback)
     {
-        HIVELOG_TRACE_BLOCK(m_log, "onSendMessage()");
+        HIVELOG_TRACE_BLOCK(m_log, "onSendMessage(frame)");
 
         if (err || frame->getFIN() == 1)
         {
-            m_trx->getStream().get_io_service().post(
-                boost::bind(callback, err, msg));
+            HIVELOG_DEBUG(m_log, "final frame confirmed, report to user");
+            if (callback)
+            {
+                m_trx->getStream().get_io_service().post(
+                    boost::bind(callback, err, msg));
+            }
         }
         else
         {
+            // TODO: report error in any case
             HIVELOG_DEBUG(m_log, "just wait for the final frame");
         }
     }
 
 
-    void onRecvMessage(boost::system::error_code err, Message::SharedPtr msg)
+    /// @brief Report the new message to the user.
+    /**
+    @param[in] err The error code.
+    @param[in] msg The corresponding message.
+    */
+    void doRecvMessage(boost::system::error_code err, Message::SharedPtr msg)
     {
-        HIVELOG_TRACE_BLOCK(m_log, "onRecvMessage()");
+        HIVELOG_TRACE_BLOCK(m_log, "doRecvMessage(msg)");
 
         if (m_recvMsgCallback)
         {
+            HIVELOG_DEBUG(m_log, "report message to user");
             m_trx->getStream().get_io_service().post(
                 boost::bind(m_recvMsgCallback, err, msg));
         }
@@ -1267,11 +1312,174 @@ private:
             HIVELOG_WARN(m_log, "no callback, message ignored");
     }
 
+public:
+
+    /// @brief The "send frame" callback type.
+    typedef TRX::SendFrameCallback SendFrameCallback;
+
+    /// @brief The "receive frame" callback type.
+    typedef TRX::RecvFrameCallback RecvFrameCallback;
+
+
+    /// @brief Send the frame asynchronously.
+    /**
+    @param[in] frame The frame to send.
+    @param[in] callback The callback.
+    */
+    void asyncSendFrame(Frame::SharedPtr frame, SendFrameCallback callback)
+    {
+        HIVELOG_TRACE_BLOCK(m_log, "asyncSendFrame()");
+        assert(isOpen() && "not connected");
+
+        m_trx->send(frame,
+            boost::bind(&This::onSendFrame,
+            shared_from_this(), _1, _2, callback));
+    }
+
+
+    /// @brief Listen for received frames.
+    /**
+    @param[in] callback The callback functor or NULL to stop listening.
+    */
+    void asyncListenForFrames(RecvFrameCallback callback)
+    {
+        m_recvFrameCallback = callback;
+    }
+
+private:
+    RecvFrameCallback m_recvFrameCallback; ///< @brief The "receive frame" callback.
+
+    /// @brief The "send frame" callback.
+    /**
+    @param[in] err The error code.
+    @param[in] frame The sent frame.
+    @param[in] callback The user's callback.
+    */
+    void onSendFrame(boost::system::error_code err, Frame::SharedPtr frame, SendFrameCallback callback)
+    {
+        HIVELOG_TRACE_BLOCK(m_log, "onSendFrame()");
+
+        if (callback)
+        {
+            m_trx->getStream().get_io_service().post(
+                boost::bind(callback, err, frame));
+        }
+    }
+
+
+    /// @brief The "receive frame" callback.
+    /**
+    Assembles messages.
+    @param[in] err The error code.
+    @param[in] frame The received frame.
+    */
+    void onRecvFrame(boost::system::error_code err, Frame::SharedPtr frame)
+    {
+        HIVELOG_TRACE_BLOCK(m_log, "onRecvFrame()");
+
+        if (!err)
+        {
+            const int opcode = frame->getOpcode();
+            bool frame_processed = false;
+
+            if (m_recvFrameCallback)
+            {
+                m_trx->getStream().get_io_service().post(
+                    boost::bind(m_recvFrameCallback, err, frame));
+                frame_processed = true;
+            }
+
+            // handle control frames here
+            switch (opcode)
+            {
+                case Frame::FRAME_CLOSE:
+                {
+                    HIVELOG_DEBUG(m_log, "got CLOSE frame");
+                    close(true);
+                } break;
+
+                case Frame::FRAME_PING:
+                {
+                    Frame::Ping ping;
+                    frame->getPayload(ping);
+                    HIVELOG_DEBUG(m_log, "got PING frame");
+
+                    const UInt32 mask = generateNewMask();
+                    HIVELOG_TRACE(m_log, "sending PONG frame");
+                    Frame::SharedPtr frame = Frame::create(Frame::Pong(ping.data), true, mask);
+                    asyncSendFrame(frame, boost::bind(&This::onSendFrame,
+                        shared_from_this(), _1, _2, SendFrameCallback()));
+                } break;
+
+                default:
+                    break;
+            }
+
+            if (m_recvMsgCallback) // try to assemble message from frames
+            {
+                if (!m_recvMsg)
+                {
+                    if (opcode == Frame::FRAME_BINARY)
+                    {
+                        Frame::Binary info;
+                        frame->getPayload(info);
+                        m_recvMsg = Message::create(info.data, false);
+                        frame_processed = true;
+                    }
+                    else if (opcode == Frame::FRAME_TEXT)
+                    {
+                        Frame::Text info;
+                        frame->getPayload(info);
+                        m_recvMsg = Message::create(info.text, true);
+                        frame_processed = true;
+                    }
+                    else
+                    {
+                        HIVELOG_WARN(m_log, "unexpected frame, ignored");
+                    }
+                }
+                else
+                {
+                    if (opcode == Frame::FRAME_CONTINUE)
+                    {
+                        Frame::Continue info;
+                        frame->getPayload(info);
+                        m_recvMsg->appendData(info.data);
+                        frame_processed = true;
+                    }
+                    else
+                    {
+                        HIVELOG_WARN(m_log, "previous message is broken, ignored");
+                        m_recvMsg.reset();
+                    }
+                }
+
+                if (m_recvMsg && frame->getFIN()==1)
+                {
+                    doRecvMessage(boost::system::error_code(), m_recvMsg);
+                    m_recvMsg.reset();
+                }
+            }
+
+            if (!frame_processed)
+                HIVELOG_WARN(m_log, "no callback, frame ignored");
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log, "RECV error: [" << err << "] - " << err.message());
+            // TODO: send error to the user
+        }
+    }
+
 private:
     http::ConnectionPtr m_conn; ///< @brief The corresponding HTTP connection.
     TRX::SharedPtr m_trx; ///< @brief The tranceiver.
     log::Logger m_log; ///< @brief The logger.
 };
+
+
+/// @brief The WebSocket shared pointer type.
+typedef WebSocket::SharedPtr WebSocketPtr;
 
     } // ws13 namespace
 } // hive namespace

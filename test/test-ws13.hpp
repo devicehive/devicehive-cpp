@@ -69,7 +69,20 @@ void on_ws13_connected(boost::system::error_code err, ws13::WebSocket::SharedPtr
         std::cout << "\nconnected\n";
 
         //ws->asyncSendFrame(ws13::Frame::create(ws13::Frame::Text("Hello from DeviceHive's WebSocket unit (frame)!"), true, ws13::WebSocket::generateNewMask()), on_ws13_send_frame);
-        ws->asyncSendMessage(ws13::Message::create("Hello from DeviceHive's WebSocket unit (message)!"), on_ws13_send_msg);//, 16);
+        //ws->asyncSendMessage(ws13::Message::create("Hello from DeviceHive's WebSocket unit (message)!"), on_ws13_send_msg);//, 16);
+
+        ws->asyncListenForMessages(on_ws13_recv_msg);
+        ws->asyncListenForFrames(on_ws13_recv_frame);
+
+        if (1)
+        {
+            json::Value action;
+            action["action"] = "authenticate";
+            action["deviceId"] = "82d1cfb9-43f8-4a22-b708-45bb4f68ae54";
+            action["deviceKey"] = "5f5cd1fa-4455-42dd-b024-d8044d36c59e";
+
+            ws->asyncSendMessage(ws13::Message::create(json::json2str(action)), on_ws13_send_msg);
+        }
     }
     else
     {
@@ -133,7 +146,7 @@ void test_ws13_0()
 // test application entry point
 void test_ws13_1()
 {
-    log::Logger::root().setLevel(log::LEVEL_INFO);
+    log::Logger::root().setLevel(log::LEVEL_TRACE);
 
     boost::asio::io_service ios;
 
@@ -143,7 +156,7 @@ void test_ws13_1()
 
     std::cout << "\n\nconnect to the WebSocket server\n";
 
-    ws->connect(http::Url("http://echo.websocket.org/"), client, on_ws13_connected, 20000);
+    ws->asyncConnect(http::Url("http://ecloud.dataart.com:8010/device"), client, on_ws13_connected, 20000);
     ws->asyncListenForMessages(on_ws13_recv_msg);
     ws->asyncListenForFrames(on_ws13_recv_frame);
 
