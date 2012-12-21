@@ -257,6 +257,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\DeviceHive\cloud7.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\DeviceHive\gateway.hpp"
 				>
 			</File>
@@ -278,6 +282,10 @@
 			</File>
 			<File
 				RelativePath="..\..\examples\simple_gw.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\examples\simple_gw2.hpp"
 				>
 			</File>
 			<File
