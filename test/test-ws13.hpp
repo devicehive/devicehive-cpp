@@ -81,7 +81,7 @@ void on_ws13_connected(boost::system::error_code err, ws13::WebSocket::SharedPtr
             action["deviceId"] = "82d1cfb9-43f8-4a22-b708-45bb4f68ae54";
             action["deviceKey"] = "5f5cd1fa-4455-42dd-b024-d8044d36c59e";
 
-            ws->asyncSendMessage(ws13::Message::create(json::json2str(action)), on_ws13_send_msg);
+            ws->asyncSendMessage(ws13::Message::create(json::toStr(action)), on_ws13_send_msg);
         }
     }
     else

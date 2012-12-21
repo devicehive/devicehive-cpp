@@ -561,7 +561,7 @@ private:
                 << " bytes, RX buffer: ["
                 << hexdump(m_rx_buf) << "]");
 
-            while (1) // try to parse frames
+            while (0 < m_rx_buf.size()) // try to parse frames
             {
                 typename Frame::ParseResult result = Frame::RESULT_SUCCESS;
                 if (FrameSPtr frame = Frame::parseFrame(m_rx_buf, &result))

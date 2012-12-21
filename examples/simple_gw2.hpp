@@ -113,7 +113,7 @@ protected:
     */
     virtual void onActionReceived(boost::system::error_code err, json::Value const& action)
     {
-        HIVELOG_DEBUG(m_log_, "got action: " << json::json2hstr(action));
+        HIVELOG_DEBUG(m_log_, "got action: " << json::toStrH(action));
     }
 
 protected:
@@ -139,7 +139,7 @@ protected:
     */
     virtual void onActionSent(boost::system::error_code, json::Value action)
     {
-        HIVELOG_DEBUG(m_log_, "action sent: " << json::json2hstr(action));
+        HIVELOG_DEBUG(m_log_, "action sent: " << json::toStrH(action));
     }
 
 protected:

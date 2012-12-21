@@ -309,24 +309,6 @@ public:
 };
 
 
-/// @brief The could version 6 server API.
-/**
-This class helps devices to comminucate with server.
-
-There are a lot of API wrapper methods:
-    - asyncRegisterDevice()
-    - asyncPollCommands()
-    - asyncSendCommandResult()
-    - asyncSendNotification()
-
-All of these methods accept callback functor which is used to report result of each operation.
-*/
-class ServerAPI:
-    public boost::enable_shared_from_this<ServerAPI>
-{
-    typedef ServerAPI ThisType; ///< @brief The type alias.
-public:
-
 /// @brief The JSON serializer.
 /**
 This class helps to serialize/deserialize key DeviceHive objects to/from JSON values.
@@ -632,6 +614,23 @@ public:
     }
 };
 
+
+/// @brief The could version 6 server API.
+/**
+This class helps devices to comminucate with server.
+
+There are a lot of API wrapper methods:
+    - asyncRegisterDevice()
+    - asyncPollCommands()
+    - asyncSendCommandResult()
+    - asyncSendNotification()
+
+All of these methods accept callback functor which is used to report result of each operation.
+*/
+class ServerAPI:
+    public boost::enable_shared_from_this<ServerAPI>
+{
+    typedef ServerAPI ThisType; ///< @brief The type alias.
 public:
 
     /// @brief The shared pointer type.
@@ -694,10 +693,10 @@ public:
         req->addHeader(http::header::Content_Type, "application/json");
         req->addHeader("Auth-DeviceID", device->id);
         req->addHeader("Auth-DeviceKey", device->key);
-        req->setContent(json::json2str(jcontent));
+        req->setContent(json::toStr(jcontent));
         req->setVersion(m_http_major, m_http_minor);
 
-        HIVELOG_DEBUG(m_log, "register device:\n" << json::json2hstr(jcontent));
+        HIVELOG_DEBUG(m_log, "register device:\n" << json::toStrH(jcontent));
         m_http->send(req, boost::bind(&ThisType::onRegisterDevice, shared_from_this(),
             _1, _2, _3, device, callback), m_timeout_ms);
     }
@@ -718,9 +717,9 @@ private:
         if (!err && response && response->getStatusCode() == http::status::OK)
         {
             // TODO: handle all exceptions
-            json::Value jval = json::str2json(response->getContent());
+            json::Value jval = json::fromStr(response->getContent());
             HIVELOG_DEBUG(m_log, "got \"register device\" response:\n"
-                << json::json2hstr(jval));
+                << json::toStrH(jval));
             Serializer::json2device(jval, device);
             callback(err, device);
         }
@@ -783,7 +782,7 @@ private:
         if (!err && response && response->getStatusCode() == http::status::OK)
         {
             // TODO: handle all exceptions
-            jval = json::str2json(response->getContent());
+            jval = json::fromStr(response->getContent());
             if (jval.isArray())
             {
                 commands.reserve(jval.size());
@@ -794,7 +793,7 @@ private:
         }
 
         HIVELOG_DEBUG(m_log, "got \"poll commands\" response:\n"
-            << json::json2hstr(jval));
+            << json::toStrH(jval));
 
         callback(err, device, commands);
     }
@@ -824,10 +823,10 @@ public:
         req->addHeader(http::header::Content_Type, "application/json");
         req->addHeader("Auth-DeviceID", device->id);
         req->addHeader("Auth-DeviceKey", device->key);
-        req->setContent(json::json2str(jbody));
+        req->setContent(json::toStr(jbody));
         req->setVersion(m_http_major, m_http_minor);
 
-        HIVELOG_DEBUG(m_log, "command result:\n" << json::json2hstr(jbody));
+        HIVELOG_DEBUG(m_log, "command result:\n" << json::toStrH(jbody));
         m_http->send(req, boost::bind(&ThisType::onSendCommandResult,
             shared_from_this(), _1, _2, _3), m_timeout_ms);
     }
@@ -872,10 +871,10 @@ public:
         req->addHeader(http::header::Content_Type, "application/json");
         req->addHeader("Auth-DeviceID", device->id);
         req->addHeader("Auth-DeviceKey", device->key);
-        req->setContent(json::json2str(jbody));
+        req->setContent(json::toStr(jbody));
         req->setVersion(m_http_major, m_http_minor);
 
-        HIVELOG_DEBUG(m_log, "notification:\n" << json::json2hstr(jbody));
+        HIVELOG_DEBUG(m_log, "notification:\n" << json::toStrH(jbody));
         m_http->send(req, boost::bind(&ThisType::onSendNotification,
             shared_from_this(), _1, _2, _3), m_timeout_ms);
     }

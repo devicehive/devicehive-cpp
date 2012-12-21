@@ -77,18 +77,12 @@ void test_json0()
         } catch (json::error::CastError const&) {}
     }
 
-    { // conversion: asInt()/asUInt()
+    { // conversion: asInt()
         MY_ASSERT(json::Value().asInt()==0, "cannot convert NULL to integer");
         MY_ASSERT(json::Value(-123).asInt()==-123, "cannot convert -123 to integer");
         MY_ASSERT(json::Value(-123.0).asInt()==-123, "cannot convert -123.0 to integer");
         MY_ASSERT(json::Value("").asInt()==0, "cannot convert empty string to integer");
-        MY_ASSERT(json::Value("-123").asInt()==-123, "cannot convert \"-123\" string to integer");
-
-        MY_ASSERT(json::Value().asUInt()==0, "cannot convert NULL to integer");
-        MY_ASSERT(json::Value(123).asUInt()==123, "cannot convert 123 to integer");
-        MY_ASSERT(json::Value(123).asUInt()==123, "cannot convert 123.0 to integer");
-        MY_ASSERT(json::Value("").asUInt()==0, "cannot convert empty string to integer");
-        MY_ASSERT(json::Value("+123").asUInt()==123, "cannot convert \"123\" string to integer");
+        MY_ASSERT(json::Value(" -123 ").asInt()==-123, "cannot convert \"-123\" string to integer");
 
         try { MY_ASSERT(json::Value("test").asInt()==0 && false, "can convert from \"test\" string to integer");
         } catch (json::error::CastError const&) {}
@@ -99,13 +93,25 @@ void test_json0()
         try { MY_ASSERT(json::Value(json::Value::TYPE_OBJECT).asInt()==0 && false, "can convert from object to integer");
         } catch (json::error::CastError const&) {}
 
-        try { MY_ASSERT(json::Value("test").asUInt()==0 && false, "can convert from \"test\" string to integer");
+        try { MY_ASSERT(json::Value(-1).asUInt64()==0 && false, "can convert from -1 to unsigned integer");
         } catch (json::error::CastError const&) {}
-        try { MY_ASSERT(json::Value("123456789012345678901234567890").asUInt()==0 && false, "can convert from \"123456789012345678901234567890\" string to integer");
+        try { MY_ASSERT(json::Value(-1).asUInt32()==0 && false, "can convert from -1 to unsigned integer");
         } catch (json::error::CastError const&) {}
-        try { MY_ASSERT(json::Value(json::Value::TYPE_ARRAY).asUInt()==0 && false, "can convert from array to integer");
+        try { MY_ASSERT(json::Value(-1).asUInt16()==0 && false, "can convert from -1 to unsigned integer");
         } catch (json::error::CastError const&) {}
-        try { MY_ASSERT(json::Value(json::Value::TYPE_OBJECT).asUInt()==0 && false, "can convert from object to integer");
+        try { MY_ASSERT(json::Value(-1).asUInt8()==0 && false, "can convert from -1 to unsigned integer");
+        } catch (json::error::CastError const&) {}
+        try { MY_ASSERT(json::Value(5000000000).asUInt32()==0 && false, "can convert from 5000000000 to 32-bits unsigned integer");
+        } catch (json::error::CastError const&) {}
+        try { MY_ASSERT(json::Value(70000).asUInt16()==0 && false, "can convert from 70000 to 16-bits unsigned integer");
+        } catch (json::error::CastError const&) {}
+        try { MY_ASSERT(json::Value(300).asUInt8()==0 && false, "can convert from 300 to 8-bits unsigned integer");
+        } catch (json::error::CastError const&) {}
+        try { MY_ASSERT(json::Value(5000000000/2).asInt32()==0 && false, "can convert from 2500000000 to 32-bits signed integer");
+        } catch (json::error::CastError const&) {}
+        try { MY_ASSERT(json::Value(50000).asInt16()==0 && false, "can convert from 50000 to 16-bits signed integer");
+        } catch (json::error::CastError const&) {}
+        try { MY_ASSERT(json::Value(150).asInt8()==0 && false, "can convert from 150 to 8-bits signed integer");
         } catch (json::error::CastError const&) {}
     }
 
@@ -137,12 +143,12 @@ void test_json0()
     }
 
     { // check parser
-        MY_ASSERT(json::str2json("null") == json::Value(), "cannot parse 'null' token");
-        MY_ASSERT(json::str2json("false") == json::Value(false), "cannot parse 'false' token");
-        MY_ASSERT(json::str2json("true") == json::Value(true), "cannot parse 'true' token");
-        MY_ASSERT(json::str2json("\"hello\"") == json::Value("hello"), "cannot parse string");
-        MY_ASSERT(json::str2json("123") == json::Value(123), "cannot parse integer");
-        MY_ASSERT(json::str2json("123.001") == json::Value(123.001), "cannot parse float-point");
+        MY_ASSERT(json::fromStr("null") == json::Value(), "cannot parse 'null' token");
+        MY_ASSERT(json::fromStr("false") == json::Value(false), "cannot parse 'false' token");
+        MY_ASSERT(json::fromStr("true") == json::Value(true), "cannot parse 'true' token");
+        MY_ASSERT(json::fromStr("\"hello\"") == json::Value("hello"), "cannot parse string");
+        MY_ASSERT(json::fromStr("123") == json::Value(123), "cannot parse integer");
+        MY_ASSERT(json::fromStr("123.001") == json::Value(123.001), "cannot parse float-point");
 
         json::Value v8;
         v8.append(json::Value(1));
@@ -150,23 +156,24 @@ void test_json0()
         v8.append(json::Value(3));
         v8.append(json::Value(4));
         v8.append(json::Value("hello"));
-        MY_ASSERT(json::str2json(" [ 1 , 2 , 3 , 4 , \"hello\" ] ") == v8, "cannot parse float-point");
+        MY_ASSERT(json::fromStr(" [ 1 , 2 , 3 , 4 , \"hello\" ] ") == v8, "cannot parse float-point");
 
         json::Value v9;
         v9["array"] = v8;
         v9["int"] = json::Value(123);
         v9["A"]["B"] = json::Value(1);
         v9["A"]["C"] = json::Value(false);
-        MY_ASSERT(json::str2json("#1\n//2\r\n/*3*/{ \"array\" : [ 1 , 2 , 3 , 4 , \"hello\" ], \"int\" : 123, \"A\" : {\"B\":1, \"C\":false} }") == v9, "cannot parse object");
+        MY_ASSERT(json::fromStr("#1\n//2\r\n/*3*/{ \"array\" : [ 1 , 2 , 3 , 4 , \"hello\" ], \"int\" : 123, \"A\" : {\"B\":1, \"C\":false} }") == v9, "cannot parse object");
 
-        try {
-            json::str2json("nul1");
-            std::cout << "parser failed\n";
-        } catch (std::exception const&) {}
+        try { MY_ASSERT(json::fromStr("nul1").asString()=="" && false, "cannot parse \"nul1\"");
+        } catch (json::error::SyntaxError const&) {}
+
+        try { MY_ASSERT(json::fromStr("null false").asString()=="" && false, "cannot parse \"null false\"");
+        } catch (json::error::SyntaxError const&) {}
 
         std::cout << "\n\n"
-            << json::json2str(v9) << "\n\n"
-            << json::json2hstr(v9) << "\n";
+            << json::toStr(v9) << "\n\n"
+            << json::toStrH(v9) << "\n";
 
         json::Value v10 = getStringJVal();
         v10 = json::Value();
@@ -234,7 +241,7 @@ void test_json1_file(String const& fileName)
             else
             {
                 std::cout << "FAILED\n"
-                    << json::json2hstr(jval)
+                    << json::toStrH(jval)
                     << "\n\n";
             }
         }

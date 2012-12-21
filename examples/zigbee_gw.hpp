@@ -594,7 +594,7 @@ private:
                     m_networkName, m_networkKey, m_networkDesc);
 
                 cloud6::Device::ClassPtr deviceClass = cloud6::Device::Class::create("", "", false, DEVICE_OFFLINE_TIMEOUT);
-                cloud6::ServerAPI::Serializer::json2deviceClass(data["deviceClass"], deviceClass);
+                cloud6::Serializer::json2deviceClass(data["deviceClass"], deviceClass);
 
                 zdev->device = cloud6::Device::create(id, name, key, deviceClass, network);
                 zdev->device->status = "Online";

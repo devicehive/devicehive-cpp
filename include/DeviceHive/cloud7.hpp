@@ -166,7 +166,7 @@ public:
     {
         assert(m_ws->isOpen() && "no connection");
 
-        m_ws->asyncSendMessage(ws13::Message::create(json::json2str(jaction)),
+        m_ws->asyncSendMessage(ws13::Message::create(json::toStr(jaction)),
             boost::bind(&This::onMessageSent, shared_from_this(), _1, _2, callback));
     }
 
@@ -184,7 +184,7 @@ private:
 
         if (callback)
         {
-            json::Value jaction = json::str2json(msg->getData());
+            json::Value jaction = json::fromStr(msg->getData());
             m_ios.post(boost::bind(callback, err, jaction)); // TODO: avoid copy of action?
         }
     }
@@ -230,8 +230,8 @@ private:
                     throw std::runtime_error("null or not a text");
 
                 HIVELOG_DEBUG(m_log, "text received: \"" << msg->getData() << "\"");
-                jaction = json::str2json(msg->getData());
-                HIVELOG_DEBUG(m_log, "converted to: " << json::json2hstr(jaction));
+                jaction = json::fromStr(msg->getData());
+                HIVELOG_DEBUG(m_log, "converted to: " << json::toStrH(jaction));
             }
             catch (std::exception const& ex)
             {

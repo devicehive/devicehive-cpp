@@ -748,7 +748,7 @@ public:
                 Layout::SharedPtr layout = gateway::Layout::create();
                 layout->add("id", gateway::DT_UINT32);
 
-                int intent = (int)command["intent"].asUInt();
+                int intent = command["intent"].asUInt16();
                 String name = command["name"].asString();
 
                 if (Layout::SharedPtr params = parseCommandParams(command["params"]))
@@ -766,7 +766,7 @@ public:
             {
                 json::Value const& notification = notifications[i];
 
-                int intent = (int)notification["intent"].asUInt();
+                int intent = notification["intent"].asUInt16();
                 String name = notification["name"].asString();
 
                 if (Layout::SharedPtr layout = parseCommandParams(notification["params"]))
@@ -795,7 +795,7 @@ public:
             json::Value const& param = jval[i];
 
             String name = param["name"].asString();
-            int type = (int)param["type"].asUInt();
+            int type = param["type"].asUInt8();
 
             layout->add(name, DataType(type));
         }
@@ -846,12 +846,12 @@ public:
             switch (layoutElement->dataType)
             {
                 case DT_NULL:   return json::Value();
-                case DT_UINT8:  return json::Value(UInt32(bs.getUInt8()));
-                case DT_UINT16: return json::Value(UInt32(bs.getUInt16()));
+                case DT_UINT8:  return json::Value(bs.getUInt8());
+                case DT_UINT16: return json::Value(bs.getUInt16());
                 case DT_UINT32: return json::Value(bs.getUInt32());
                 case DT_UINT64: return json::Value(bs.getUInt64());
-                case DT_INT8:   return json::Value(Int32(bs.getInt8()));
-                case DT_INT16:  return json::Value(Int32(bs.getInt16()));
+                case DT_INT8:   return json::Value(bs.getInt8());
+                case DT_INT16:  return json::Value(bs.getInt16());
                 case DT_INT32:  return json::Value(bs.getInt32());
                 case DT_INT64:  return json::Value(bs.getInt64());
                 case DT_BOOL:   return json::Value(bs.getUInt8() != 0);
@@ -941,14 +941,14 @@ public:
             switch (layoutElement->dataType)
             {
                 case DT_NULL:   break;
-                case DT_UINT8:  bs.putUInt8((UInt8)jval.asUInt()); break;
-                case DT_UINT16: bs.putUInt16((UInt16)jval.asUInt()); break;
-                case DT_UINT32: bs.putUInt32((UInt32)jval.asUInt()); break;
-                case DT_UINT64: bs.putUInt64(jval.asUInt()); break;
-                case DT_INT8:   bs.putInt8((Int8)jval.asInt()); break;
-                case DT_INT16:  bs.putInt16((Int16)jval.asInt()); break;
-                case DT_INT32:  bs.putInt32((Int32)jval.asInt()); break;
-                case DT_INT64:  bs.putInt64(jval.asInt()); break;
+                case DT_UINT8:  bs.putUInt8(jval.asUInt8()); break;
+                case DT_UINT16: bs.putUInt16(jval.asUInt16()); break;
+                case DT_UINT32: bs.putUInt32(jval.asUInt32()); break;
+                case DT_UINT64: bs.putUInt64(jval.asUInt64()); break;
+                case DT_INT8:   bs.putInt8(jval.asInt8()); break;
+                case DT_INT16:  bs.putInt16(jval.asInt16()); break;
+                case DT_INT32:  bs.putInt32(jval.asInt32()); break;
+                case DT_INT64:  bs.putInt64(jval.asInt64()); break;
                 case DT_BOOL:   bs.putUInt8(jval.asBool()); break;
 
                 case DT_SINGLE:

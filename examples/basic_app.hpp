@@ -136,7 +136,7 @@ protected:
     {
         m_signals.cancel();
         m_terminated += 1;
-        m_ios.stop();
+        //m_ios.stop();
     }
 
 private:
@@ -160,7 +160,9 @@ private:
     {
         if (!err)
         {
-            HIVELOG_INFO(m_log, "got signal #" << signo);
+            HIVELOG_INFO(m_log, "got "
+                << getSignalName(signo)
+                << " signal");
 
             switch (signo)
             {
@@ -185,6 +187,28 @@ private:
             HIVELOG_ERROR(m_log, "signal error: ["
                 << err << "] " << err.message());
         }
+    }
+
+
+    /// @brief Get the signal name.
+    /**
+    @param[in] signo The signal number.
+    @return The signal name string.
+    */
+    static String getSignalName(int signo)
+    {
+        switch (signo)
+        {
+            case SIGINT:    return "SIGINT";
+            case SIGSEGV:   return "SIGSEGV";
+            case SIGTERM:   return "SIGTERM";
+            default:        break;
+        }
+
+        // just print the number
+        OStringStream oss;
+        oss << "#" << signo;
+        return oss.str();
     }
 
 protected:
