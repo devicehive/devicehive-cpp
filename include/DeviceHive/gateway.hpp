@@ -692,7 +692,7 @@ public:
         if (Layout::SharedPtr layout = m_layouts.find(intent))
         {
             OStringStream payload;
-            io::BinaryOStream bs(payload);
+            bin::OStream bs(payload);
             Serializer::json2bin(data,
                 bs, layout);
 
@@ -717,7 +717,7 @@ public:
             if (frame->getPayload(payload))
             {
                 IStringStream is(payload);
-                io::BinaryIStream bs(is);
+                bin::IStream bs(is);
 
                 return Serializer::bin2json(bs, layout);
             }
@@ -818,7 +818,7 @@ public:
         @param[in] layout The layout.
         @return The JSON value.
         */
-        static json::Value bin2json(io::BinaryIStream & bs, Layout::SharedPtr layout)
+        static json::Value bin2json(bin::IStream & bs, Layout::SharedPtr layout)
         {
             json::Value jval;
 
@@ -840,7 +840,7 @@ public:
         @param[in] layoutElement The layout element.
         @return The JSON value.
         */
-        static json::Value bin2json(io::BinaryIStream & bs, Layout::Element::SharedPtr layoutElement)
+        static json::Value bin2json(bin::IStream & bs, Layout::Element::SharedPtr layoutElement)
         {
             switch (layoutElement->dataType)
             {
@@ -917,7 +917,7 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layout The layout.
         */
-        static void json2bin(json::Value const& jval, io::BinaryOStream & bs, Layout::SharedPtr layout)
+        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::SharedPtr layout)
         {
             Layout::ElementIterator i = layout->elementsBegin();
             Layout::ElementIterator e = layout->elementsEnd();
@@ -935,7 +935,7 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layoutElement The layout element.
         */
-        static void json2bin(json::Value const& jval, io::BinaryOStream & bs, Layout::Element::SharedPtr layoutElement)
+        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::Element::SharedPtr layoutElement)
         {
             switch (layoutElement->dataType)
             {

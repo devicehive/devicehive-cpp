@@ -12,9 +12,6 @@
     <ClInclude Include="..\..\include\hive\bin.hpp">
       <Filter>hive</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\hive\bstream.hpp">
-      <Filter>hive</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\hive\defs.hpp">
       <Filter>hive</Filter>
     </ClInclude>

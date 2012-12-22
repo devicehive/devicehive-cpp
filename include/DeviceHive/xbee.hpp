@@ -110,7 +110,7 @@ public:
     static SharedPtr create(PayloadT const& payload)
     {
         OStringStream oss;
-        io::BinaryOStream bs(oss);
+        bin::OStream bs(oss);
         payload.format(bs);
 
         SharedPtr pthis(new Frame());
@@ -136,7 +136,7 @@ public:
                 m_content.begin()+HEADER_LEN, // skip signature and length
                 m_content.end()-FOOTER_LEN);  // skip checksum
             IStringStream iss(pdata);
-            io::BinaryIStream bs(iss);
+            bin::IStream bs(iss);
             return payload.parse(bs);
         }
 
@@ -312,7 +312,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {}
 
 
@@ -321,7 +321,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         return true;
     }
@@ -335,7 +335,7 @@ protected:
     @param[in,out] bs The input binary stream.
     @return The parsed data.
     */
-    static String getAll(io::BinaryIStream & bs)
+    static String getAll(bin::IStream & bs)
     {
         String data;
         while (!bs.getStream().eof())
@@ -382,7 +382,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ATCOMMAND_REQUEST);
         bs.putUInt8(frameId);
@@ -396,7 +396,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ATCOMMAND_REQUEST)
             return false; // bad frame type
@@ -433,7 +433,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ATCOMMAND_RESPONSE);
         bs.putUInt8(frameId);
@@ -450,7 +450,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ATCOMMAND_RESPONSE)
             return false; // bad frame type
@@ -519,7 +519,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_TRANSMIT_REQUEST);
         bs.putUInt8(frameId);
@@ -537,7 +537,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ZB_TRANSMIT_REQUEST)
             return false;
@@ -582,7 +582,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_TRANSMIT_STATUS);
         bs.putUInt8(frameId);
@@ -598,7 +598,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ZB_TRANSMIT_STATUS)
             return false;
@@ -639,7 +639,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_RECEIVE_PACKET);
         bs.putUInt64(misc::h2be(srcAddr64));
@@ -655,7 +655,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ZB_RECEIVE_PACKET)
             return false;
