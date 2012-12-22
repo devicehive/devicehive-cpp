@@ -21,16 +21,13 @@
 
 namespace hive
 {
-
     /// @brief The binary tools.
     namespace bin
     {
 
 /// @brief The binary output stream.
 /**
-Writes formatted data to an external output stream.
-
-Uses host byte order format!!!
+Writes binary formatted data to an external output stream.
 */
 // TODO: check errors!
 class OStream
@@ -39,7 +36,7 @@ public:
 
     /// @brief The main constructor.
     /**
-    @param[in] stream The external output stream.
+    @param[in] stream The external stream.
     */
     explicit OStream(hive::OStream &stream)
         : m_stream(stream)
@@ -55,7 +52,8 @@ public:
         return m_stream;
     }
 
-/// @name Fixed-size integers
+#if 1
+/// @name Fixed-size integers (host byte order)
 /// @{
 public:
 
@@ -138,7 +136,107 @@ public:
         putIntX(val);
     }
 /// @}
+#endif // fixed-size integers (host byte order)
 
+#if 1
+/// @name Fixed-size integers (little-endian)
+/// @{
+public:
+
+    /// @copydoc putUInt16()
+    void putUInt16LE(UInt16 val)
+    {
+        putIntX(misc::le2h_16(val));
+    }
+
+
+    /// @copydoc putInt16()
+    void putInt16LE(Int16 val)
+    {
+        putIntX(misc::le2h_16(val));
+    }
+
+
+    /// @copydoc putUInt32()
+    void putUInt32LE(UInt32 val)
+    {
+        putIntX(misc::le2h_32(val));
+    }
+
+
+    /// @copydoc putInt32()
+    void putInt32LE(Int32 val)
+    {
+        putIntX(misc::le2h_32(val));
+    }
+
+
+    /// @copydoc putUInt64()
+    void putUInt64LE(UInt64 val)
+    {
+        putIntX(misc::le2h_64(val));
+    }
+
+
+    /// @copydoc putInt64()
+    void putInt64LE(Int64 val)
+    {
+        putIntX(misc::le2h_64(val));
+    }
+
+/// @}
+#endif // fixed-size integers (little-endian)
+
+#if 1
+/// @name Fixed-size integers (big-endian)
+/// @{
+public:
+
+    /// @copydoc putUInt16()
+    void putUInt16BE(UInt16 val)
+    {
+        putIntX(misc::be2h_16(val));
+    }
+
+
+    /// @copydoc putInt16()
+    void putInt16BE(Int16 val)
+    {
+        putIntX(misc::be2h_16(val));
+    }
+
+
+    /// @copydoc putUInt32()
+    void putUInt32BE(UInt32 val)
+    {
+        putIntX(misc::be2h_32(val));
+    }
+
+
+    /// @copydoc putInt32()
+    void putInt32BE(Int32 val)
+    {
+        putIntX(misc::be2h_32(val));
+    }
+
+
+    /// @copydoc putUInt64()
+    void putUInt64BE(UInt64 val)
+    {
+        putIntX(misc::be2h_64(val));
+    }
+
+
+    /// @copydoc putInt64()
+    void putInt64BE(Int64 val)
+    {
+        putIntX(misc::be2h_64(val));
+    }
+
+/// @}
+#endif // fixed-size integers (big-endian)
+
+#if 1
 /// @name Variable-size integers
 /// @{
 public:
@@ -163,7 +261,7 @@ public:
     }
 
 
-    /// @brief Write signed 32-bits integer in variable size format (zig-zag mode).
+    /// @brief Write signed 32-bits integer in variable size format (*zig-zag* mode).
     /**
     @param[in] val The value to write.
     */
@@ -173,7 +271,7 @@ public:
     }
 
 
-    /// @brief Write signed 64-bits integer in variable size format (zig-zag mode).
+    /// @brief Write signed 64-bits integer in variable size format (*zig-zag* mode).
     /**
     @param[in] val The value to write.
     */
@@ -183,6 +281,7 @@ public:
     }
 
 /// @}
+#endif // variable-size integers
 
 /// @name String and custom data buffer
 /// @{
@@ -221,11 +320,11 @@ private:
     template<typename IntX>
     void putIntX(IntX val)
     {
-        /// @brief The raw converter.
+        // The RAW converter.
         union Val2Raw
         {
-            char raw[sizeof(IntX)]; ///< @brief The RAW bytes.
-            IntX val;               ///< @brief The integer.
+            char raw[sizeof(IntX)]; // The RAW bytes.
+            IntX val;               // The integer.
         };
 
         Val2Raw buf;
@@ -266,9 +365,7 @@ private:
 
 /// @brief The binary input stream.
 /**
-Reads formatted data from the external input stream.
-
-Uses host byte order format!!!
+Reads binary formatted data from an external input stream.
 */
 // TODO: check errors!!!
 class IStream
@@ -277,7 +374,7 @@ public:
 
     /// @brief The main constructor.
     /**
-    @param[in] stream The external input stream.
+    @param[in] stream The external stream.
     */
     explicit IStream(hive::IStream &stream)
         : m_stream(stream)
@@ -293,7 +390,8 @@ public:
         return m_stream;
     }
 
-/// @name Fixed-size integers
+#if 1
+/// @name Fixed-size integers (host byte order)
 /// @{
 public:
 
@@ -377,7 +475,107 @@ public:
     }
 
 /// @}
+#endif // fixed-size integers (host byte order)
 
+#if 1
+/// @name Fixed-size integers (little-endian)
+/// @{
+public:
+
+    /// @copydoc getUInt16()
+    UInt16 getUInt16LE()
+    {
+        return misc::h2le_16(getIntX<UInt16>());
+    }
+
+
+    /// @copydoc getInt16()
+    Int16 getInt16LE()
+    {
+        return misc::h2le_16(getIntX<Int16>());
+    }
+
+
+    /// @copydoc getUInt32()
+    UInt32 getUInt32LE()
+    {
+        return misc::h2le_32(getIntX<UInt32>());
+    }
+
+
+    /// @copydoc getInt32()
+    Int32 getInt32LE()
+    {
+        return misc::h2le_32(getIntX<Int32>());
+    }
+
+
+    /// @copydoc getUInt64()
+    UInt64 getUInt64LE()
+    {
+        return misc::h2le_64(getIntX<UInt64>());
+    }
+
+
+    /// @copydoc getInt64()
+    Int64 getInt64LE()
+    {
+        return misc::h2le_64(getIntX<Int64>());
+    }
+
+/// @}
+#endif // fixed-size integers (little-endian)
+
+#if 1
+/// @name Fixed-size integers (big-endian)
+/// @{
+public:
+
+    /// @copydoc getUInt16()
+    UInt16 getUInt16BE()
+    {
+        return misc::h2be_16(getIntX<UInt16>());
+    }
+
+
+    /// @copydoc getInt16()
+    Int16 getInt16BE()
+    {
+        return misc::h2be_16(getIntX<Int16>());
+    }
+
+
+    /// @copydoc getUInt32()
+    UInt32 getUInt32BE()
+    {
+        return misc::h2be_32(getIntX<UInt32>());
+    }
+
+
+    /// @copydoc getInt32()
+    Int32 getInt32BE()
+    {
+        return misc::h2be_32(getIntX<Int32>());
+    }
+
+
+    /// @copydoc getUInt64()
+    UInt64 getUInt64BE()
+    {
+        return misc::h2be_64(getIntX<UInt64>());
+    }
+
+
+    /// @copydoc getInt64()
+    Int64 getInt64BE()
+    {
+        return misc::h2be_64(getIntX<Int64>());
+    }
+
+/// @}
+#endif // fixed-size integers (big-endian)
+
+#if 1
 /// @name Variable-size integers
 /// @{
 public:
@@ -402,7 +600,7 @@ public:
     }
 
 
-    /// @brief Read signed 32-bits integer in variable size format (zig-zag mode).
+    /// @brief Read signed 32-bits integer in variable size format (*zig-zag* mode).
     /**
     @return The read value.
     */
@@ -413,7 +611,7 @@ public:
     }
 
 
-    /// @brief Read signed 64-bits integer in variable size format (zig-zag mode).
+    /// @brief Read signed 64-bits integer in variable size format (*zig-zag* mode).
     /**
     @return The read value.
     */
@@ -423,6 +621,7 @@ public:
         return (val>>1) ^ -Int64(val&1);
     }
 /// @}
+#endif // variable-size integers
 
 /// @name String and custom data buffer
 /// @{
@@ -473,11 +672,11 @@ private:
     template<typename IntX>
     IntX getIntX()
     {
-        /// @brief The raw converter.
+        // The RAW converter.
         union Val2Raw
         {
-            char raw[sizeof(IntX)]; ///< @brief The RAW bytes.
-            IntX val;               ///< @brief The integer.
+            char raw[sizeof(IntX)]; // The RAW bytes.
+            IntX val;               // The integer.
         };
 
         Val2Raw buf;
@@ -1292,10 +1491,10 @@ This page is under construction!
 Binary streams
 --------------
 
-Binary formats. hive::io::BinaryOStream and hive::io::BinaryIStream should
+Binary formats. hive::bin::OStream and hive::bin::IStream should
 be used with std::stringstream or boost::asio::streambuf.
 
-Variable size format.
+Variable size format for unsigned integers.
 
 Zig-Zag format for signed integers.
 

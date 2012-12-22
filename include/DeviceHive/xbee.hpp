@@ -523,8 +523,8 @@ public:
     {
         bs.putUInt8(Frame::ZB_TRANSMIT_REQUEST);
         bs.putUInt8(frameId);
-        bs.putUInt64(misc::h2be(dstAddr64));
-        bs.putUInt16(misc::h2be(dstAddr16));
+        bs.putUInt64BE(dstAddr64);
+        bs.putUInt16BE(dstAddr16);
         bs.putUInt8(bcastRadius);
         bs.putUInt8(options);
         bs.putBuffer(data.data(),
@@ -543,8 +543,8 @@ public:
             return false;
 
         frameId = bs.getUInt8();
-        dstAddr64 = misc::be2h(bs.getUInt64());
-        dstAddr16 = misc::be2h(bs.getUInt16());
+        dstAddr64 = bs.getUInt64BE();
+        dstAddr16 = bs.getUInt16BE();
         bcastRadius = bs.getUInt8();
         options = bs.getUInt8();
         data = getAll(bs);
@@ -586,7 +586,7 @@ public:
     {
         bs.putUInt8(Frame::ZB_TRANSMIT_STATUS);
         bs.putUInt8(frameId);
-        bs.putUInt16(misc::h2be(dstAddr16));
+        bs.putUInt16BE(dstAddr16);
         bs.putUInt8(retryCount);
         bs.putUInt8(deliveryStatus);
         bs.putUInt8(discoveryStatus);
@@ -604,7 +604,7 @@ public:
             return false;
 
         frameId = bs.getUInt8();
-        dstAddr16 = misc::be2h(bs.getUInt16());
+        dstAddr16 = bs.getUInt16BE();
         retryCount = bs.getUInt8();
         deliveryStatus = bs.getUInt8();
         discoveryStatus = bs.getUInt8();
@@ -642,8 +642,8 @@ public:
     void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_RECEIVE_PACKET);
-        bs.putUInt64(misc::h2be(srcAddr64));
-        bs.putUInt16(misc::h2be(srcAddr16));
+        bs.putUInt64BE(srcAddr64);
+        bs.putUInt16BE(srcAddr16);
         bs.putUInt8(options);
         bs.putBuffer(data.data(),
             data.size());
@@ -660,8 +660,8 @@ public:
         if (bs.getUInt8() != Frame::ZB_RECEIVE_PACKET)
             return false;
 
-        srcAddr64 = misc::be2h(bs.getUInt64());
-        srcAddr16 = misc::be2h(bs.getUInt16());
+        srcAddr64 = bs.getUInt64BE();
+        srcAddr16 = bs.getUInt16BE();
         options = bs.getUInt8();
         data = getAll(bs);
 
