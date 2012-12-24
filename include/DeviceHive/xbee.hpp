@@ -5,9 +5,7 @@
 #ifndef __DEVICEHIVE_XBEE_HPP_
 #define __DEVICEHIVE_XBEE_HPP_
 
-#include <hive/binary.hpp>
-#include <hive/dump.hpp>
-#include <hive/log.hpp>
+#include <hive/bin.hpp>
 
 #if !defined(HIVE_PCH)
 #   include <boost/enable_shared_from_this.hpp>
@@ -112,7 +110,7 @@ public:
     static SharedPtr create(PayloadT const& payload)
     {
         OStringStream oss;
-        io::BinaryOStream bs(oss);
+        bin::OStream bs(oss);
         payload.format(bs);
 
         SharedPtr pthis(new Frame());
@@ -138,7 +136,7 @@ public:
                 m_content.begin()+HEADER_LEN, // skip signature and length
                 m_content.end()-FOOTER_LEN);  // skip checksum
             IStringStream iss(pdata);
-            io::BinaryIStream bs(iss);
+            bin::IStream bs(iss);
             return payload.parse(bs);
         }
 
@@ -314,7 +312,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {}
 
 
@@ -323,7 +321,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         return true;
     }
@@ -337,7 +335,7 @@ protected:
     @param[in,out] bs The input binary stream.
     @return The parsed data.
     */
-    static String getAll(io::BinaryIStream & bs)
+    static String getAll(bin::IStream & bs)
     {
         String data;
         while (!bs.getStream().eof())
@@ -384,7 +382,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ATCOMMAND_REQUEST);
         bs.putUInt8(frameId);
@@ -398,7 +396,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ATCOMMAND_REQUEST)
             return false; // bad frame type
@@ -435,7 +433,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ATCOMMAND_RESPONSE);
         bs.putUInt8(frameId);
@@ -452,7 +450,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ATCOMMAND_RESPONSE)
             return false; // bad frame type
@@ -521,12 +519,12 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_TRANSMIT_REQUEST);
         bs.putUInt8(frameId);
-        bs.putUInt64(misc::h2be(dstAddr64));
-        bs.putUInt16(misc::h2be(dstAddr16));
+        bs.putUInt64BE(dstAddr64);
+        bs.putUInt16BE(dstAddr16);
         bs.putUInt8(bcastRadius);
         bs.putUInt8(options);
         bs.putBuffer(data.data(),
@@ -539,14 +537,14 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ZB_TRANSMIT_REQUEST)
             return false;
 
         frameId = bs.getUInt8();
-        dstAddr64 = misc::be2h(bs.getUInt64());
-        dstAddr16 = misc::be2h(bs.getUInt16());
+        dstAddr64 = bs.getUInt64BE();
+        dstAddr16 = bs.getUInt16BE();
         bcastRadius = bs.getUInt8();
         options = bs.getUInt8();
         data = getAll(bs);
@@ -584,11 +582,11 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_TRANSMIT_STATUS);
         bs.putUInt8(frameId);
-        bs.putUInt16(misc::h2be(dstAddr16));
+        bs.putUInt16BE(dstAddr16);
         bs.putUInt8(retryCount);
         bs.putUInt8(deliveryStatus);
         bs.putUInt8(discoveryStatus);
@@ -600,13 +598,13 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ZB_TRANSMIT_STATUS)
             return false;
 
         frameId = bs.getUInt8();
-        dstAddr16 = misc::be2h(bs.getUInt16());
+        dstAddr16 = bs.getUInt16BE();
         retryCount = bs.getUInt8();
         deliveryStatus = bs.getUInt8();
         discoveryStatus = bs.getUInt8();
@@ -641,11 +639,11 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_RECEIVE_PACKET);
-        bs.putUInt64(misc::h2be(srcAddr64));
-        bs.putUInt16(misc::h2be(srcAddr16));
+        bs.putUInt64BE(srcAddr64);
+        bs.putUInt16BE(srcAddr16);
         bs.putUInt8(options);
         bs.putBuffer(data.data(),
             data.size());
@@ -657,13 +655,13 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ZB_RECEIVE_PACKET)
             return false;
 
-        srcAddr64 = misc::be2h(bs.getUInt64());
-        srcAddr16 = misc::be2h(bs.getUInt16());
+        srcAddr64 = bs.getUInt64BE();
+        srcAddr16 = bs.getUInt16BE();
         options = bs.getUInt8();
         data = getAll(bs);
 

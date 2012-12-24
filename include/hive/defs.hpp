@@ -74,14 +74,6 @@ void f()
 typedef boost::noncopyable NonCopyable;
 
 
-    /// @brief The input/output tools.
-    /**
-    This namespace contains various input/output streams.
-    */
-    namespace io
-    {}
-
-
     /// @brief The miscellaneous tools.
     /**
     This namespace contains various auxiliary tools.

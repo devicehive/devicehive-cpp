@@ -11,9 +11,8 @@ The protocol version is 13.
 #ifndef __HIVE_WS13_HPP_
 #define __HIVE_WS13_HPP_
 
-#include "binary.hpp"
 #include "http.hpp"
-#include "dump.hpp"
+#include "bin.hpp"
 
 //#include <boost/random/mersenne_twister.hpp>
 #include <boost/uuid/sha1.hpp>
@@ -215,7 +214,7 @@ public:
         UInt32 mask = 0, bool FIN = true, int flags = 0)
     {
         OStringStream oss;
-        io::BinaryOStream bs(oss);
+        bin::OStream bs(oss);
         payload.format(bs);
 
         SharedPtr pthis(new Frame());
@@ -240,7 +239,7 @@ public:
         {
             OctetString frame(m_content.begin(), m_content.end());
             IStringStream iss(frame);
-            io::BinaryIStream bs(iss);
+            bin::IStream bs(iss);
 
             const int f_ctl = bs.getUInt8();
             const int f_len = bs.getUInt8();
@@ -252,13 +251,13 @@ public:
 
             size_t len = f_len&0x7F;
             if (127 == len)         // UInt64
-                len = (size_t)misc::be2h(bs.getUInt64());
+                len = (size_t)bs.getUInt64BE();
             else if (126 == len)    // UInt16
-                len = misc::be2h(bs.getUInt16());
+                len = bs.getUInt16BE();
 
             if (masking)
             {
-                const UInt32 mask = misc::be2h(bs.getUInt32());
+                const UInt32 mask = bs.getUInt32BE();
                 const size_t offset = (size_t)iss.tellg();
                 for (size_t i = 0; i < len; ++i)
                 {
@@ -269,7 +268,7 @@ public:
 
                 // re-init input stream
                 IStringStream iss(frame);
-                io::BinaryIStream bs(iss);
+                bin::IStream bs(iss);
                 iss.seekg(offset);
                 return payload.parse(bs);
             }
@@ -456,7 +455,7 @@ protected:
     {
         boost::asio::streambuf sbuf;
         OStream os(&sbuf);
-        io::BinaryOStream bs(os);
+        bin::OStream bs(os);
 
         const size_t len = payload.size();
 
@@ -471,17 +470,17 @@ protected:
         else if (len < 64*1024)         // 2 extended bytes
         {
             bs.putUInt8(((masking?1:0)<<7) | 126);
-            bs.putUInt16(misc::h2be_16(len));
+            bs.putUInt16BE(len);
         }
         else                            // 8 extended bytes
         {
             bs.putUInt8(((masking?1:0)<<7) | 127);
-            bs.putUInt64(misc::h2be_64(len));
+            bs.putUInt64BE(len);
         }
 
         if (masking)
         {
-            bs.putUInt32(misc::h2be_32(mask));
+            bs.putUInt32BE(mask);
 
             // mask the payload
             for (size_t i = 0; i < len; ++i)
@@ -522,7 +521,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {}
 
 
@@ -531,7 +530,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         return true;
     }
@@ -545,7 +544,7 @@ protected:
     @param[in,out] bs The input binary stream.
     @return The parsed data.
     */
-    static OctetString getAll(io::BinaryIStream & bs)
+    static OctetString getAll(bin::IStream & bs)
     {
         OStringStream oss;
         oss << bs.getStream().rdbuf();
@@ -586,7 +585,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putBuffer(data.data(),
             data.size());
@@ -594,7 +593,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         data = getAll(bs);
         return true;
@@ -633,7 +632,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putBuffer(text.data(),
             text.size());
@@ -641,7 +640,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         text = getAll(bs);
         return true;
@@ -680,7 +679,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putBuffer(data.data(),
             data.size());
@@ -688,7 +687,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         data = getAll(bs);
         return true;
@@ -767,18 +766,18 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
-        bs.putUInt16(misc::h2be(statusCode));
+        bs.putUInt16BE(statusCode);
         bs.putBuffer(reason.data(),
             reason.size());
     }
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
-        statusCode = misc::be2h(bs.getUInt16()); // optional
+        statusCode = bs.getUInt16BE(); // optional
         reason = getAll(bs); // up to end
         return true;
     }
@@ -816,7 +815,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putBuffer(data.data(),
             data.size());
@@ -824,7 +823,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         data = getAll(bs); // up to end
         return true;
@@ -864,7 +863,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putBuffer(data.data(),
             data.size());
@@ -872,7 +871,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         data = getAll(bs); // up to end
         return true;
@@ -900,11 +899,11 @@ inline OctetString sha1(OctetString const& data)
     h.get_digest(hash);
 
     OStringStream oss;
-    io::BinaryOStream bs(oss);
+    bin::OStream bs(oss);
     for (size_t i = 0; i < N; ++i)
     {
         //oss << dump::hex(hash[i]);
-        bs.putUInt32(misc::h2be(hash[i]));
+        bs.putUInt32BE(hash[i]);
     }
 
     return oss.str();

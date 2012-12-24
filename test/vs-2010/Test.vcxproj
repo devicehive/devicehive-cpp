@@ -94,8 +94,7 @@
     <ClInclude Include="..\..\include\DeviceHive\cloud7.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\gateway.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\xbee.hpp" />
-    <ClInclude Include="..\..\include\hive\binary.hpp" />
-    <ClInclude Include="..\..\include\hive\bstream.hpp" />
+    <ClInclude Include="..\..\include\hive\bin.hpp" />
     <ClInclude Include="..\..\include\hive\defs.hpp" />
     <ClInclude Include="..\..\include\hive\dump.hpp" />
     <ClInclude Include="..\..\include\hive\http.hpp" />

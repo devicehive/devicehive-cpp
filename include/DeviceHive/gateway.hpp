@@ -6,9 +6,8 @@
 #ifndef __DEVICEHIVE_GATEWAY_HPP_
 #define __DEVICEHIVE_GATEWAY_HPP_
 
-#include <hive/binary.hpp>
 #include <hive/json.hpp>
-#include <hive/dump.hpp>
+#include <hive/bin.hpp>
 
 #if !defined(HIVE_PCH)
 #   include <boost/shared_ptr.hpp>
@@ -693,7 +692,7 @@ public:
         if (Layout::SharedPtr layout = m_layouts.find(intent))
         {
             OStringStream payload;
-            io::BinaryOStream bs(payload);
+            bin::OStream bs(payload);
             Serializer::json2bin(data,
                 bs, layout);
 
@@ -718,7 +717,7 @@ public:
             if (frame->getPayload(payload))
             {
                 IStringStream is(payload);
-                io::BinaryIStream bs(is);
+                bin::IStream bs(is);
 
                 return Serializer::bin2json(bs, layout);
             }
@@ -819,7 +818,7 @@ public:
         @param[in] layout The layout.
         @return The JSON value.
         */
-        static json::Value bin2json(io::BinaryIStream & bs, Layout::SharedPtr layout)
+        static json::Value bin2json(bin::IStream & bs, Layout::SharedPtr layout)
         {
             json::Value jval;
 
@@ -841,19 +840,19 @@ public:
         @param[in] layoutElement The layout element.
         @return The JSON value.
         */
-        static json::Value bin2json(io::BinaryIStream & bs, Layout::Element::SharedPtr layoutElement)
+        static json::Value bin2json(bin::IStream & bs, Layout::Element::SharedPtr layoutElement)
         {
             switch (layoutElement->dataType)
             {
                 case DT_NULL:   return json::Value();
                 case DT_UINT8:  return json::Value(bs.getUInt8());
-                case DT_UINT16: return json::Value(bs.getUInt16());
-                case DT_UINT32: return json::Value(bs.getUInt32());
-                case DT_UINT64: return json::Value(bs.getUInt64());
+                case DT_UINT16: return json::Value(bs.getUInt16LE());
+                case DT_UINT32: return json::Value(bs.getUInt32LE());
+                case DT_UINT64: return json::Value(bs.getUInt64LE());
                 case DT_INT8:   return json::Value(bs.getInt8());
-                case DT_INT16:  return json::Value(bs.getInt16());
-                case DT_INT32:  return json::Value(bs.getInt32());
-                case DT_INT64:  return json::Value(bs.getInt64());
+                case DT_INT16:  return json::Value(bs.getInt16LE());
+                case DT_INT32:  return json::Value(bs.getInt32LE());
+                case DT_INT64:  return json::Value(bs.getInt64LE());
                 case DT_BOOL:   return json::Value(bs.getUInt8() != 0);
 
                 case DT_SINGLE:
@@ -881,7 +880,7 @@ public:
                 case DT_STRING:
                 case DT_BINARY:
                 {
-                    if (const UInt32 len = bs.getUInt16()) // read if non-empty
+                    if (const UInt32 len = bs.getUInt16LE()) // read if non-empty
                     {
                         std::vector<UInt8> buf(len);
                         bs.getBuffer(&buf[0], len);
@@ -894,7 +893,7 @@ public:
                 case DT_ARRAY:
                 {
                     json::Value jarr(json::Value::TYPE_ARRAY);
-                    const UInt32 N = bs.getUInt16();
+                    const UInt32 N = bs.getUInt16LE();
                     for (size_t i = 0; i < N; ++i)
                         jarr.append(bin2json(bs, layoutElement->sublayout));
                     return jarr;
@@ -918,7 +917,7 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layout The layout.
         */
-        static void json2bin(json::Value const& jval, io::BinaryOStream & bs, Layout::SharedPtr layout)
+        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::SharedPtr layout)
         {
             Layout::ElementIterator i = layout->elementsBegin();
             Layout::ElementIterator e = layout->elementsEnd();
@@ -936,19 +935,19 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layoutElement The layout element.
         */
-        static void json2bin(json::Value const& jval, io::BinaryOStream & bs, Layout::Element::SharedPtr layoutElement)
+        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::Element::SharedPtr layoutElement)
         {
             switch (layoutElement->dataType)
             {
                 case DT_NULL:   break;
                 case DT_UINT8:  bs.putUInt8(jval.asUInt8()); break;
-                case DT_UINT16: bs.putUInt16(jval.asUInt16()); break;
-                case DT_UINT32: bs.putUInt32(jval.asUInt32()); break;
-                case DT_UINT64: bs.putUInt64(jval.asUInt64()); break;
+                case DT_UINT16: bs.putUInt16LE(jval.asUInt16()); break;
+                case DT_UINT32: bs.putUInt32LE(jval.asUInt32()); break;
+                case DT_UINT64: bs.putUInt64LE(jval.asUInt64()); break;
                 case DT_INT8:   bs.putInt8(jval.asInt8()); break;
-                case DT_INT16:  bs.putInt16(jval.asInt16()); break;
-                case DT_INT32:  bs.putInt32(jval.asInt32()); break;
-                case DT_INT64:  bs.putInt64(jval.asInt64()); break;
+                case DT_INT16:  bs.putInt16LE(jval.asInt16()); break;
+                case DT_INT32:  bs.putInt32LE(jval.asInt32()); break;
+                case DT_INT64:  bs.putInt64LE(jval.asInt64()); break;
                 case DT_BOOL:   bs.putUInt8(jval.asBool()); break;
 
                 case DT_SINGLE:
@@ -977,14 +976,14 @@ public:
                 case DT_BINARY:
                 {
                     String buf = jval.asString();
-                    bs.putUInt16(buf.size());
+                    bs.putUInt16LE(buf.size());
                     bs.putBuffer(buf.data(), buf.size());
                 } break;
 
                 case DT_ARRAY:
                 {
                     const size_t N = jval.size();
-                    bs.putUInt16(N);
+                    bs.putUInt16LE(N);
                     for (size_t i = 0; i < N; ++i)
                         json2bin(jval[i], bs, layoutElement->sublayout);
                 } break;

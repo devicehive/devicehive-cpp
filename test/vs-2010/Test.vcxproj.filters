@@ -48,9 +48,6 @@
     <ClInclude Include="..\..\include\DeviceHive\xbee.hpp">
       <Filter>DeviceHive</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\hive\bstream.hpp">
-      <Filter>hive</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\hive\defs.hpp">
       <Filter>hive</Filter>
     </ClInclude>
@@ -93,7 +90,7 @@
     <ClInclude Include="..\test-ws13.hpp">
       <Filter>test</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\hive\binary.hpp">
+    <ClInclude Include="..\..\include\hive\bin.hpp">
       <Filter>hive</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\DeviceHive\cloud7.hpp">
