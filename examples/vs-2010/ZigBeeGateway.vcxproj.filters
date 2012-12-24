@@ -9,6 +9,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\include\hive\bin.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\include\hive\bstream.hpp">
       <Filter>hive</Filter>
     </ClInclude>
@@ -45,9 +48,6 @@
     <ClInclude Include="..\basic_app.hpp" />
     <ClInclude Include="..\simple_gw.hpp" />
     <ClInclude Include="..\zigbee_gw.hpp" />
-    <ClInclude Include="..\..\include\hive\binary.hpp">
-      <Filter>hive</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\zigbee_gw.cpp" />

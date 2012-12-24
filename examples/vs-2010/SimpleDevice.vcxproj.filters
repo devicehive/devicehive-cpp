@@ -9,6 +9,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\include\hive\bin.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\include\hive\bstream.hpp">
       <Filter>hive</Filter>
     </ClInclude>
@@ -41,9 +44,6 @@
     </ClInclude>
     <ClInclude Include="..\basic_app.hpp" />
     <ClInclude Include="..\simple_dev.hpp" />
-    <ClInclude Include="..\..\include\hive\binary.hpp">
-      <Filter>hive</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\simple_dev.cpp" />

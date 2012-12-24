@@ -87,7 +87,7 @@
     <ClInclude Include="..\..\examples\zigbee_gw.hpp">
       <Filter>examples</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\hive\binary.hpp">
+    <ClInclude Include="..\..\include\hive\bin.hpp">
       <Filter>hive</Filter>
     </ClInclude>
   </ItemGroup>

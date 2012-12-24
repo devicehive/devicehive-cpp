@@ -6,9 +6,8 @@
 #ifndef __DEVICEHIVE_GATEWAY_HPP_
 #define __DEVICEHIVE_GATEWAY_HPP_
 
-#include <hive/binary.hpp>
 #include <hive/json.hpp>
-#include <hive/dump.hpp>
+#include <hive/bin.hpp>
 
 #if !defined(HIVE_PCH)
 #   include <boost/shared_ptr.hpp>

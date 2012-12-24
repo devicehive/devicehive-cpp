@@ -5,9 +5,7 @@
 #ifndef __DEVICEHIVE_XBEE_HPP_
 #define __DEVICEHIVE_XBEE_HPP_
 
-#include <hive/binary.hpp>
-#include <hive/dump.hpp>
-#include <hive/log.hpp>
+#include <hive/bin.hpp>
 
 #if !defined(HIVE_PCH)
 #   include <boost/enable_shared_from_this.hpp>

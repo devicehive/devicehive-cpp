@@ -1,9 +1,9 @@
 /** @file
-@brief The binary transceiver.
+@brief The binary tools.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
-#ifndef __HIVE_BINARY_HPP_
-#define __HIVE_BINARY_HPP_
+#ifndef __HIVE_BIN_HPP_
+#define __HIVE_BIN_HPP_
 
 #include "bstream.hpp"
 #include "swab.hpp"
@@ -785,4 +785,4 @@ protected:
     } // bin namespace
 } // hive namespace
 
-#endif // __HIVE_BINARY_HPP_
+#endif // __HIVE_BIN_HPP_

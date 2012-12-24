@@ -173,6 +173,10 @@
 			Name="hive"
 			>
 			<File
+				RelativePath="..\..\include\hive\bin.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\hive\bstream.hpp"
 				>
 			</File>
