@@ -1467,7 +1467,14 @@ private:
         else
         {
             HIVELOG_ERROR(m_log, "RECV error: [" << err << "] - " << err.message());
-            // TODO: send error to the user
+
+            if (m_recvFrameCallback)
+            {
+                m_trx->getStream().get_io_service().post(
+                    boost::bind(m_recvFrameCallback, err, Frame::SharedPtr()));
+            }
+
+            doRecvMessage(err, Message::SharedPtr());
         }
     }
 

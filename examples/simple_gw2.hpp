@@ -46,6 +46,7 @@ protected:
     */
     ServerModuleWS(boost::asio::io_service &ios, log::Logger const& logger)
         : m_httpClient(http::Client::create(ios))
+        , m_serverOpenTimer(ios)
         , m_log_(logger)
     {}
 
@@ -71,16 +72,40 @@ protected:
     void cancelServerModuleWS()
     {
         m_serverAPI->close();
+        m_serverOpenTimer.cancel();
     }
 
 protected:
 
     /// @brief Connect to the server.
-    virtual void asyncConnectToServer()
+    /**
+    @param[in] wait_sec The number of seconds to wait before open.
+    */
+    virtual void asyncConnectToServer(long wait_sec)
     {
-        m_serverAPI->asyncConnect(
-            boost::bind(&This::onConnectedToServer,
-                m_this.lock(), _1));
+        assert(!m_this.expired() && "Application is dead or not initialized");
+
+        HIVELOG_TRACE(m_log_, "try to open server connection after " << wait_sec << " seconds");
+        m_serverOpenTimer.expires_from_now(boost::posix_time::seconds(wait_sec));
+        m_serverOpenTimer.async_wait(boost::bind(&This::onTryToConnectToServer,
+            m_this.lock(), boost::asio::placeholders::error));
+    }
+
+
+    /// @brief Try to connect to the server.
+    virtual void onTryToConnectToServer(boost::system::error_code err)
+    {
+        if (!err)
+        {
+            m_serverAPI->asyncConnect(
+                boost::bind(&This::onConnectedToServer,
+                    m_this.lock(), _1));
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log_, "connection timer error: ["
+                << err << "] " << err.message());
+        }
     }
 
 
@@ -246,6 +271,7 @@ protected:
 protected:
     http::Client::SharedPtr m_httpClient; ///< @brief The HTTP client.
     cloud7::WebSocketAPI::SharedPtr m_serverAPI; ///< @brief The server API.
+    boost::asio::deadline_timer m_serverOpenTimer; ///< @brief Open the server connection.
 
 private:
     boost::weak_ptr<ServerModuleWS> m_this; ///< @brief The weak pointer to this.
@@ -351,7 +377,8 @@ protected:
     virtual void start()
     {
         Base::start();
-        asyncConnectToServer();
+        asyncConnectToServer(0); // ASAP
+        asyncOpenSerial(0); // ASAP
     }
 
 
@@ -376,9 +403,19 @@ private: // ServerModuleWS
 
         if (!err)
         {
-            asyncOpenSerial(0); // ASAP
+            sendDelayedCommandResults();
+            sendDelayedNotifications();
+
+            if (m_serial.is_open())
+                sendGatewayRegistrationRequest();
+        }
+        else if (!terminated())
+        {
+            // try to reconnect again
+            asyncConnectToServer(SERVER_RECONNECT_TIMEOUT);
         }
     }
+
 
     /// @copydoc ServerModuleWS::onActionReceived()
     virtual void onActionReceived(boost::system::error_code err, json::Value const& jaction)
@@ -387,52 +424,77 @@ private: // ServerModuleWS
 
         if (!err)
         {
-            String const action = jaction["action"].asString();
-
-            if (boost::iequals(action, "device/save")) // got registration
+            try
             {
-                if (boost::iequals(jaction["status"].asString(), "success"))
-                {
-                    // TODO: get device and subscribe for commands
-                    asyncSubscribeForCommands(m_device);
-                    m_deviceRegistered = true;
-                }
-                else
-                    HIVELOG_ERROR(m_log, "failed to register");
+                String const action = jaction["action"].asString();
+                handleAction(action, jaction);
             }
-
-            else if (boost::iequals(action, "command/insert")) // new command
+            catch (std::exception const& ex)
             {
+                HIVELOG_ERROR(m_log,
+                    "failed to process action: "
+                    << ex.what() << "\n");
+            }
+        }
+        else if (!terminated())
+        {
+            // try to reconnect again
+            asyncConnectToServer(SERVER_RECONNECT_TIMEOUT);
+        }
+    }
+
+
+    /// @brief Handle received action.
+    /**
+    @param[in] action The action name.
+    @param[in] params The action parameters.
+    */
+    void handleAction(String const& action, json::Value const& params)
+    {
+        if (boost::iequals(action, "device/save")) // got registration
+        {
+            if (boost::iequals(params["status"].asString(), "success"))
+            {
+                m_deviceRegistered = true;
+
+                asyncSubscribeForCommands(m_device);
+                sendDelayedNotifications();
+            }
+            else
+                HIVELOG_ERROR(m_log, "failed to register");
+        }
+
+        else if (boost::iequals(action, "command/insert")) // new command
+        {
+            String const deviceId = params["deviceGuid"].asString();
+            if (!m_device || deviceId != m_device->id)
+                throw std::runtime_error("unknown device identifier");
+
+            cloud7::Command cmd = cloud7::Serializer::json2cmd(params["command"]);
+            if (m_serial.is_open())
+            {
+                bool processed = true;
+
                 try
                 {
-                    String const deviceId = jaction["deviceGuid"].asString();
-                    if (!m_device || deviceId != m_device->id)
-                        throw std::runtime_error("unknown device identifier");
-
-                    cloud7::Command cmd = cloud7::Serializer::json2cmd(jaction["command"]);
-                    bool processed = true;
-
-                    try
-                    {
-                        processed = sendGatewayCommand(cmd);
-                    }
-                    catch (std::exception const& ex)
-                    {
-                        HIVELOG_ERROR(m_log, "handle command error: "
-                            << ex.what());
-
-                        cmd.status = "Failed";
-                        cmd.result = ex.what();
-                    }
-
-                    if (processed)
-                        asyncUpdateCommand(m_device, cmd);
+                    processed = sendGatewayCommand(cmd);
                 }
                 catch (std::exception const& ex)
                 {
-                    HIVELOG_ERROR(m_log, "command error: "
-                            << ex.what());
+                    HIVELOG_ERROR(m_log, "handle command error: "
+                        << ex.what());
+
+                    cmd.status = "Failed";
+                    cmd.result = ex.what();
                 }
+
+                if (processed)
+                    asyncUpdateCommand(m_device, cmd);
+            }
+            else
+            {
+                HIVELOG_WARN(m_log, "no serial device connected, command delayed");
+                m_delayedCommands.push_back(cmd);
             }
         }
     }
@@ -451,6 +513,38 @@ private: // ServerModuleWS
             asyncInsertNotification(m_device, ntf);
         }
         m_delayedNotifications.clear();
+    }
+
+
+    /// @brief Send all delayed command results.
+    void sendDelayedCommandResults()
+    {
+        const size_t N = m_delayedCommandResults.size();
+        HIVELOG_INFO(m_log, "sending " << N
+            << " delayed command results");
+
+        for (size_t i = 0; i < N; ++i)
+        {
+            cloud7::Command cmd = m_delayedCommandResults[i];
+            asyncUpdateCommand(m_device, cmd);
+        }
+        m_delayedCommandResults.clear();
+    }
+
+
+    /// @brief Send all delayed commands.
+    void sendDelayedCommands()
+    {
+        const size_t N = m_delayedCommands.size();
+        HIVELOG_INFO(m_log, "sending " << N
+            << " delayed commands");
+
+        for (size_t i = 0; i < N; ++i)
+        {
+            cloud7::Command cmd = m_delayedCommands[i];
+            sendGatewayCommand(cmd);
+        }
+        m_delayedCommands.clear();
     }
 
 private: // SerialModule
@@ -657,7 +751,8 @@ private:
                 }
             }
 
-            asyncRegisterDevice(m_device);
+            if (m_serverAPI->isOpen())
+                asyncRegisterDevice(m_device);
             //asyncAuthenticate(m_device->id, m_device->key);
         }
 
@@ -672,7 +767,10 @@ private:
                 cmd.status = data["status"].asString();
                 cmd.result = data["result"].asString();
 
-                asyncUpdateCommand(m_device, cmd);
+                if (m_deviceRegistered && m_serverAPI->isOpen())
+                    asyncUpdateCommand(m_device, cmd);
+                else
+                    m_delayedCommandResults.push_back(cmd);
             }
             else
                 HIVELOG_WARN_STR(m_log, "got command result before registration, ignored");
@@ -687,7 +785,7 @@ private:
                 {
                     HIVELOG_DEBUG(m_log, "got notification");
 
-                    if (m_deviceRegistered)
+                    if (m_deviceRegistered && m_serverAPI->isOpen())
                     {
                         asyncInsertNotification(m_device,
                             cloud7::Notification(name, data));
@@ -723,6 +821,8 @@ private:
     cloud7::DevicePtr m_device; ///< @brief The device.
     bool m_deviceRegistered; ///< @brief The DeviceHive cloud "registered" flag.
     std::vector<cloud7::Notification> m_delayedNotifications; ///< @brief The list of delayed notification.
+    std::vector<cloud7::Command> m_delayedCommandResults; ///< @brief The list of delayed command results.
+    std::vector<cloud7::Command> m_delayedCommands; ///< @brief The list of delayed commands.
 };
 
 

@@ -91,6 +91,16 @@ public:
     typedef boost::function1<void, boost::system::error_code> ConnectCallback;
 
 
+    /// @brief Is the connection open?
+    /**
+    @return `true` if connection is open.
+    */
+    bool isOpen() const
+    {
+        return m_ws->isOpen();
+    }
+
+
     /// @brief Make connection.
     /**
     @param[in] callback The callback functor.
