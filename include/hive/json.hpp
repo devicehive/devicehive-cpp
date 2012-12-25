@@ -1099,6 +1099,7 @@ public:
                             other.m_arr.begin());
 
             case TYPE_OBJECT:
+                // TODO: compare as unordered set!
                 return m_obj.size() == other.m_obj.size()
                     && std::equal(m_obj.begin(), m_obj.end(),
                             other.m_obj.begin());
@@ -1280,6 +1281,12 @@ public:
             && "not an array");
         return m_arr.end();
     }
+
+private:
+
+    /// @brief The internal **ARRAY** type.
+    typedef std::vector<Value> Array;
+
 /// @}
 #endif // array
 
@@ -1297,7 +1304,7 @@ public:
     Value const& get(String const& name, Value const& def) const
     {
         assert((isNull() || isObject()) && "not an object");
-        Object::const_iterator m = m_obj.find(name);
+        Object::const_iterator m = findMember(name);
         return (m == m_obj.end()) ? def : m->second;
     }
 
@@ -1316,7 +1323,7 @@ public:
         assert((isNull() || isObject())
             && "not an object");
 
-        Object::iterator m = m_obj.find(name);
+        Object::iterator m = findMember(name);
         if (m == m_obj.end())
         {
             if (TYPE_NULL == m_type)
@@ -1360,7 +1367,7 @@ public:
     bool hasMemeber(String const& name) const
     {
         assert((isNull() || isObject()) && "not an object");
-        Object::const_iterator m = m_obj.find(name);
+        Object::const_iterator m = findMember(name);
         return (m != m_obj.end());
     }
 
@@ -1371,9 +1378,10 @@ public:
     */
     void removeMember(String const& name)
     {
-        assert((isNull() || isObject())
-            && "not an object");
-        m_obj.erase(name);
+        assert((isNull() || isObject()) && "not an object");
+        Object::iterator m = findMember(name);
+        if (m != m_obj.end())
+            m_obj.erase(m);
     }
 
 
@@ -1381,7 +1389,7 @@ public:
     /**
     This type is used to iterate all member names on **OBJECT**.
     */
-    typedef std::map<String,Value>::const_iterator MemberIterator;
+    typedef std::vector< std::pair<String,Value> >::const_iterator MemberIterator;
 
 
     /// @brief Get the begin of **OBJECT** members.
@@ -1406,6 +1414,48 @@ public:
             && "not an object");
         return m_obj.end();
     }
+
+private:
+
+    /// @brief The internal **OBJECT** type.
+    typedef std::vector< std::pair<String,Value> > Object;
+
+
+    /// @brief Find **OBJECT** member by name.
+    /**
+    @param[in] name The memeber name.
+    @return The member iterator.
+    */
+    Object::const_iterator findMember(String const& name) const
+    {
+        const Object::const_iterator e = m_obj.end();
+        for (Object::const_iterator i = m_obj.begin(); i != e; ++i)
+        {
+            if (i->first == name)
+                return i;
+        }
+
+        return e; // not found
+    }
+
+
+    /// @brief Find **OBJECT** member by name.
+    /**
+    @param[in] name The memeber name.
+    @return The member iterator.
+    */
+    Object::iterator findMember(String const& name)
+    {
+        const Object::iterator e = m_obj.end();
+        for (Object::iterator i = m_obj.begin(); i != e; ++i)
+        {
+            if (i->first == name)
+                return i;
+        }
+
+        return e; // not found
+    }
+
 /// @}
 #endif // object
 
@@ -1418,9 +1468,6 @@ private:
         double f; ///< @brief The floating-point value.
          Int64 i; ///< @brief The signed integer value.
     } m_val; ///< @brief The %POD data holder.
-
-    typedef std::vector<Value> Array; ///< @brief The internal **ARRAY** type.
-    typedef std::map<String,Value> Object; ///< @brief The internal **OBJECT** type.
 
     // TODO: move these to union as pointers?
     String m_str; ///< @brief The **STRING** value.
