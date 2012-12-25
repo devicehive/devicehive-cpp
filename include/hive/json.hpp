@@ -19,6 +19,17 @@
 #   include <map>
 #endif // HIVE_PCH
 
+// extension: single quoted strings
+#if !defined(HIVE_JSON_SINGLE_QUOTED_STRING)
+#   define HIVE_JSON_SINGLE_QUOTED_STRING   1
+#endif // HIVE_JSON_SINGLE_QUOTED_STRING
+
+// extension: simple strings [0-9A-Za-z]
+#if !defined(HIVE_JSON_SIMPLE_STRING)
+#   define HIVE_JSON_SIMPLE_STRING          1
+#endif // HIVE_JSON_SIMPLE_STRING
+
+
 namespace hive
 {
     /// @brief The JSON module.
@@ -1929,7 +1940,7 @@ public:
         }
 
         // extension: simple strings [0-9A-Za-z] without quotes
-        else if (1)
+        else if (HIVE_JSON_SIMPLE_STRING)
         {
             String val;
             if (parseString(is, val))
@@ -2037,13 +2048,16 @@ public:
 
         switch (QUOTE)
         {
-            case '\"': return parseQuotedString(is, str);
-            case '\'': return parseQuotedString(is, str);
-            default:
-                break;
+            case '\"':  return parseQuotedString(is, str);
+#if HIVE_JSON_SINGLE_QUOTED_STRING
+            case '\'':  return parseQuotedString(is, str);
+#endif // HIVE_JSON_SINGLE_QUOTED_STRING
+#if HIVE_JSON_SIMPLE_STRING
+            default:    return parseSimpleString(is, str);
+#endif // HIVE_JSON_SIMPLE_STRING
         }
 
-        return parseSimpleString(is, str); // one word without quotes
+        return false;
     }
 
 
