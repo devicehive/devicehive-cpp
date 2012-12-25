@@ -2135,7 +2135,7 @@ public:
         OStringStream oss;
         while (is)
         {
-            Traits::int_type meta = is.get();
+            Traits::int_type meta = is.peek();
             if (Traits::eq_int_type(meta, Traits::eof()))
                 return false; // end of stream
 
@@ -2144,11 +2144,12 @@ public:
                 || ('a' <= meta && meta <= 'z'))
             {
                 oss.put(Traits::to_char_type(meta)); // just save
+                is.ignore(1);
             }
             else
             {
-                    str = oss.str();
-                    return true; // OK
+                str = oss.str();
+                return true; // OK
             }
         }
 

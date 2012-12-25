@@ -5,6 +5,7 @@
 004-simple.json
 005-simple_with_comments.json
 006-string_with_escapes.json
+007-simple_string.json
 
 500-open.json
 501-arraysep.json
