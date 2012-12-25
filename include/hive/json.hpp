@@ -1821,7 +1821,7 @@ public:
                     firstMember = false;
 
                 String memberName;
-                if (parseQuotedString(is, memberName))
+                if (parseString(is, memberName))
                 {
                     skipCommentsAndWS(is);
 
@@ -1903,7 +1903,7 @@ public:
                 throw error::SyntaxError("cannot parse integer value");
         }
 
-        // string
+        // double-quoted string
         else if (Traits::eq(cx, '\"'))
         {
             String val;
@@ -1926,6 +1926,16 @@ public:
         else if (Traits::eq(cx, 'n') && match(is, "null"))
         {
             Value().swap(jval);
+        }
+
+        // extension: simple strings [0-9A-Za-z] without quotes
+        else if (1)
+        {
+            String val;
+            if (parseString(is, val))
+                Value(val).swap(jval);
+            else
+                throw error::SyntaxError("cannot parse simple string");
         }
 
         else
@@ -2013,6 +2023,30 @@ public:
     }
 
 
+    /// @brief Parse quoted or simple string from an input stream.
+    /**
+    @param[in,out] is The input stream.
+    @param[out] str The parsed string.
+    @return `true` if string successfully parsed.
+    @throw error::SyntaxError in case of parsing error.
+    */
+    static bool parseString(IStream &is, String &str)
+    {
+        // remember the "quote" character
+        const Traits::int_type QUOTE = is.peek();
+
+        switch (QUOTE)
+        {
+            case '\"': return parseQuotedString(is, str);
+            case '\'': return parseQuotedString(is, str);
+            default:
+                break;
+        }
+
+        return parseSimpleString(is, str); // one word without quotes
+    }
+
+
     /// @brief Parse quoted string from an input stream.
     /**
     @param[in,out] is The input stream.
@@ -2088,6 +2122,40 @@ public:
     }
 
 
+    /// @brief Parse simple string from an input stream.
+    /**
+    A simple string consists of characters from the [0-9A-Za-z] set.
+    @param[in,out] is The input stream.
+    @param[out] str The parsed string.
+    @return `true` if string successfully parsed.
+    @throw error::SyntaxError in case of parsing error.
+    */
+    static bool parseSimpleString(IStream &is, String &str)
+    {
+        OStringStream oss;
+        while (is)
+        {
+            Traits::int_type meta = is.get();
+            if (Traits::eq_int_type(meta, Traits::eof()))
+                return false; // end of stream
+
+            if (('0' <= meta && meta <= '9')
+                || ('A' <= meta && meta <= 'Z')
+                || ('a' <= meta && meta <= 'z'))
+            {
+                oss.put(Traits::to_char_type(meta)); // just save
+            }
+            else
+            {
+                    str = oss.str();
+                    return true; // OK
+            }
+        }
+
+        return false;
+    }
+
+
     /// @brief Match the input with the pattern.
     /**
     @param[in,out] is The input stream.
@@ -2105,8 +2173,8 @@ public:
             const Traits::char_type ch = Traits::to_char_type(meta);
             if (!Traits::eq(ch, pattern[i]))
             {
-                //for (; 0 < i; --i) // rollback
-                //    is.putback(pattern[i-1]);
+                for (; 0 < i; --i) // rollback
+                    is.putback(pattern[i-1]);
 
                 return false; // doesn't match
             }
