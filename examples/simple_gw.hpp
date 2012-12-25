@@ -376,6 +376,48 @@ private:
     }
 
 
+    /// @brief Create device from the JSON data.
+    /**
+    @param[in] jdev The JSON device description.
+    */
+    void createDevice(json::Value const& jdev)
+    {
+        { // create device
+            const String id = jdev["id"].asString();
+            const String key = jdev["key"].asString();
+            const String name = jdev["name"].asString();
+
+            cloud6::NetworkPtr network = cloud6::Network::create(
+                m_networkName, m_networkKey, m_networkDesc);
+
+            cloud6::Device::ClassPtr deviceClass = cloud6::Device::Class::create("", "", false, DEVICE_OFFLINE_TIMEOUT);
+            cloud6::Serializer::json2deviceClass(jdev["deviceClass"], deviceClass);
+
+            m_device = cloud6::Device::create(id, name, key, deviceClass, network);
+            m_device->status = "Online";
+
+            m_delayedNotifications.clear();
+            m_deviceRegistered = false;
+        }
+
+        { // update equipment
+            json::Value const& equipment = jdev["equipment"];
+            const size_t N = equipment.size();
+            for (size_t i = 0; i < N; ++i)
+            {
+                json::Value const& eq = equipment[i];
+
+                const String id = eq["code"].asString();
+                const String name = eq["name"].asString();
+                const String type = eq["type"].asString();
+
+                m_device->equipment.push_back(cloud6::Equipment::create(id, name, type));
+            }
+        }
+    }
+
+
+
     /// @brief Handle the incomming message.
     /**
     @param[in] intent The message intent.
@@ -388,41 +430,15 @@ private:
         if (intent == gateway::INTENT_REGISTRATION_RESPONSE)
         {
             m_gw.handleRegisterResponse(data);
+            createDevice(data);
+            asyncRegisterDevice(m_device);
+        }
 
-            { // create device
-                String id = data["id"].asString();
-                String key = data["key"].asString();
-                String name = data["name"].asString();
-
-                // TODO: get network from command line
-                cloud6::NetworkPtr network = cloud6::Network::create(
-                    m_networkName, m_networkKey, m_networkDesc);
-
-                cloud6::Device::ClassPtr deviceClass = cloud6::Device::Class::create("", "", false, DEVICE_OFFLINE_TIMEOUT);
-                cloud6::Serializer::json2deviceClass(data["deviceClass"], deviceClass);
-
-                m_device = cloud6::Device::create(id, name, key, deviceClass, network);
-                m_device->status = "Online";
-
-                m_delayedNotifications.clear();
-                m_deviceRegistered = false;
-            }
-
-            { // update equipment
-                json::Value const& equipment = data["equipment"];
-                const size_t N = equipment.size();
-                for (size_t i = 0; i < N; ++i)
-                {
-                    json::Value const& eq = equipment[i];
-
-                    String id = eq["code"].asString();
-                    String name = eq["name"].asString();
-                    String type = eq["type"].asString();
-
-                    m_device->equipment.push_back(cloud6::Equipment::create(id, name, type));
-                }
-            }
-
+        else if (intent == gateway::INTENT_REGISTRATION2_RESPONSE)
+        {
+            json::Value jdev = json::fromStr(data["json"].asString());
+            m_gw.handleRegister2Response(jdev);
+            createDevice(jdev);
             asyncRegisterDevice(m_device);
         }
 

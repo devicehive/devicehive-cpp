@@ -36,6 +36,7 @@ enum MessageIntent
     INTENT_REGISTRATION_REQUEST,  ///< @brief The registration request.
     INTENT_REGISTRATION_RESPONSE, ///< @brief The registration response.
     INTENT_COMMAND_RESULT_RESPONSE, ///< @brief The command result response.
+    INTENT_REGISTRATION2_RESPONSE, ///< @brief The registration response (JSON format).
 
     INTENT_USER = 256             ///< @brief The minimum user intent.
 };
@@ -197,6 +198,18 @@ public:
     }
 
 
+    /// @brief Create "Registration 2 Response" layout.
+    /**
+    @return The new "Registration 2 Response" layout.
+    */
+    static SharedPtr createRegistration2Response()
+    {
+        SharedPtr layout = create();
+        layout->add("json", DT_STRING);
+        return layout;
+    }
+
+
     /// @brief Create "Command Result Response" layout.
     /**
     @return The new "Command Result Response" layout.
@@ -302,6 +315,7 @@ public:
     {
         registerSystemIntent(INTENT_REGISTRATION_REQUEST, Layout::createRegistrationRequest());
         registerSystemIntent(INTENT_REGISTRATION_RESPONSE, Layout::createRegistrationResponse());
+        registerSystemIntent(INTENT_REGISTRATION2_RESPONSE, Layout::createRegistration2Response());
         registerSystemIntent(INTENT_COMMAND_RESULT_RESPONSE, Layout::createCommandResultResponse());
     }
 
@@ -733,7 +747,7 @@ public:
     /// @brief Handle the basic part register response message.
     /**
     This method updates the known layouts based on information from registration response message.
-    @param[in] jval The frame paylaod data.
+    @param[in] jval The frame payload data.
     */
     void handleRegisterResponse(json::Value const& jval)
     {
@@ -796,10 +810,162 @@ public:
             String name = param["name"].asString();
             int type = param["type"].asUInt8();
 
+            // TODO: check type range
             layout->add(name, DataType(type));
         }
 
         return layout;
+    }
+
+
+    /// @brief Handle the basic part register 2 response message.
+    /**
+    This method updates the known layouts based on information from registration 2 response message.
+    @param[in] jval The frame payload data.
+    */
+    void handleRegister2Response(json::Value const& jval)
+    {
+        { // update commands
+            json::Value const& commands = jval["commands"];
+            const size_t N = commands.size();
+            for (size_t i = 0; i < N; ++i)
+            {
+                json::Value const& command = commands[i];
+
+                Layout::SharedPtr layout = gateway::Layout::create();
+                layout->add("id", gateway::DT_UINT32);
+
+                int intent = command["intent"].asUInt16();
+                String name = command["name"].asString();
+
+                if (Layout::SharedPtr params = parseCommandParamsStruct(command["params"]))
+                    layout->add("parameters", gateway::DT_OBJECT, params);
+
+                m_layouts.registerIntent(intent, layout);
+                m_commands[name] = intent;
+            }
+        }
+
+        { // update notifications
+            json::Value const& notifications = jval["notifications"];
+            const size_t N = notifications.size();
+            for (size_t i = 0; i < N; ++i)
+            {
+                json::Value const& notification = notifications[i];
+
+                int intent = notification["intent"].asUInt16();
+                String name = notification["name"].asString();
+
+                if (Layout::SharedPtr layout = parseCommandParamsStruct(notification["params"]))
+                {
+                    m_layouts.registerIntent(intent, layout);
+                    m_notifications[intent] = name;
+                }
+            }
+        }
+    }
+
+
+    /// @brief Parse the command or notification parameters (Struct in JSON format).
+    /**
+    @param[in] jval The JSON value related to structure (array of fields).
+    @return The layout related to parameter. May be NULL for empty parameter.
+    */
+    static Layout::SharedPtr parseCommandParamsStruct(json::Value const& jval)
+    {
+        if (!jval.isNull() && !jval.isObject())
+            throw std::runtime_error("invalid structure description");
+
+        if (jval.empty())
+            return Layout::SharedPtr();
+
+        Layout::SharedPtr layout = gateway::Layout::create();
+        json::Value::MemberIterator i = jval.membersBegin();
+        const json::Value::MemberIterator e = jval.membersEnd();
+        for (; i != e; ++i)
+        {
+            String const& name = i->first;
+            json::Value const& field = i->second;
+
+            layout->add(parseCommandParamsField(name, field));
+        }
+
+        return layout;
+    }
+
+
+    /// @brief Parse the command or notification parameters (Field in JSON format).
+    /**
+    @param[in] jval The JSON value related to field.
+    @return The layout element.
+    */
+    static Layout::Element::SharedPtr parseCommandParamsField(String const& name, json::Value const& jval)
+    {
+        if (jval.isNull()) // NULL as primitive type
+            return Layout::Element::create(name, DT_NULL);
+        else if (jval.isString()) // a primitive type
+        {
+            return Layout::Element::create(name,
+                parsePrimitiveDataType(jval.asString()));
+        }
+        else if (jval.isObject()) // object
+        {
+            return Layout::Element::create(name, DT_OBJECT,
+                parseCommandParamsStruct(jval));
+        }
+        else if (jval.isArray()) // array
+        {
+            if (jval.size() != 1)
+                throw std::runtime_error("invalid array field [1 element expected]");
+
+            Layout::SharedPtr layout = Layout::create();
+            layout->add(parseCommandParamsField("", jval[0]));
+
+            return Layout::Element::create(name, DT_ARRAY, layout);
+        }
+        else
+            throw std::runtime_error("unknown field type");
+    }
+
+
+    /// @brief Parse primitive data type.
+    /**
+    @param[in] type The primitive data type string.
+    @return The parsed data type.
+    @throw std::runtime_error if type is unknown.
+    */
+    static DataType parsePrimitiveDataType(String const& type)
+    {
+        if (boost::iequals(type, "bool"))
+            return DT_BOOL;
+        else if (boost::iequals(type, "u8") || boost::iequals(type, "uint8"))
+            return DT_UINT8;
+        else if (boost::iequals(type, "i8") || boost::iequals(type, "int8"))
+            return DT_INT8;
+        else if (boost::iequals(type, "u16") || boost::iequals(type, "uint16"))
+            return DT_UINT16;
+        else if (boost::iequals(type, "i16") || boost::iequals(type, "int16"))
+            return DT_INT16;
+        else if (boost::iequals(type, "u32") || boost::iequals(type, "uint32"))
+            return DT_UINT32;
+        else if (boost::iequals(type, "i32") || boost::iequals(type, "int32"))
+            return DT_INT32;
+        else if (boost::iequals(type, "u64") || boost::iequals(type, "uint64"))
+            return DT_UINT64;
+        else if (boost::iequals(type, "i64") || boost::iequals(type, "int64"))
+            return DT_INT64;
+        else if (boost::iequals(type, "f") || boost::iequals(type, "single"))
+            return DT_SINGLE;
+        else if (boost::iequals(type, "ff") || boost::iequals(type, "double"))
+            return DT_DOUBLE;
+        else if (boost::iequals(type, "uuid") || boost::iequals(type, "guid"))
+            return DT_UUID;
+        else if (boost::iequals(type, "s") || boost::iequals(type, "str") || boost::iequals(type, "string"))
+            return DT_STRING;
+        else if (boost::iequals(type, "b") || boost::iequals(type, "bin") || boost::iequals(type, "binary"))
+            return DT_BINARY;
+        else
+            throw std::runtime_error("unknown primitive type");
     }
 
 public:
@@ -1003,6 +1169,73 @@ private:
     LayoutManager m_layouts; ///< @brief The registered intents and its layouts.
     std::map<String, int> m_commands; ///< @brief The registered commands.
     std::map<int, String> m_notifications; ///< @brief The registered notifications.
+};
+
+
+class Debug
+{
+public:
+
+    /// @brief Dump the layout.
+    static void dump(Layout::SharedPtr layout, hive::OStream &os, size_t indent = 0)
+    {
+        if (!layout)
+            return;
+
+        for (Layout::ElementIterator i = layout->elementsBegin(); i != layout->elementsEnd(); ++i)
+        {
+            dump(*i, os, indent);
+            os << "\n";
+        }
+    }
+
+
+    /// @brief Dump the layout element.
+    static void dump(Layout::Element::SharedPtr elem, hive::OStream &os, size_t indent = 0)
+    {
+        if (!elem)
+            return;
+
+        json::Formatter::writeIndent(os, indent);
+
+        if (!elem->name.empty())
+        {
+            os << elem->name
+                << ": ";
+        }
+        switch (elem->dataType)
+        {
+            case DT_NULL:   os << "NULL";   break;
+            case DT_UINT8:  os << "UInt8";  break;
+            case DT_UINT16: os << "UInt16"; break;
+            case DT_UINT32: os << "UInt32"; break;
+            case DT_UINT64: os << "UInt64"; break;
+            case DT_INT8:   os << "Int8";   break;
+            case DT_INT16:  os << "Int16";  break;
+            case DT_INT32:  os << "Int32";  break;
+            case DT_INT64:  os << "Int64";  break;
+            case DT_SINGLE: os << "Float";  break;
+            case DT_DOUBLE: os << "Double"; break;
+            case DT_BOOL:   os << "Bool";   break;
+            case DT_UUID:   os << "UUID";   break;
+            case DT_STRING: os << "String"; break;
+            case DT_BINARY: os << "Binary"; break;
+
+            case DT_ARRAY:
+                os << "Array of {\n";
+                dump(elem->sublayout, os, indent+1);
+                json::Formatter::writeIndent(os, indent);
+                os << "}";
+                break;
+
+            case DT_OBJECT:
+                os << "Object {\n";
+                dump(elem->sublayout, os, indent+1);
+                json::Formatter::writeIndent(os, indent);
+                os << "}";
+                break;
+        }
+    }
 };
 
 
