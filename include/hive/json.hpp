@@ -1773,7 +1773,7 @@ Exception is thrown then input stream doesn't contain a valid JSON value.
 The following comment styles are supported:
   - bash style: `#` skip all until the end of line
   - C++ style: `//` skip all until the end of line
-  - C style: `/*` skip all until the surrounding `*``/`
+  - C style: `/``*` skip all until the surrounding `*``/`
 */
 class Parser
 {

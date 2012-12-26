@@ -834,12 +834,10 @@ public:
 
                 Layout::SharedPtr layout = gateway::Layout::create();
                 layout->add("id", gateway::DT_UINT32);
+                layout->add(parseCommandParamsField("parameters", command["params"]));
 
                 int intent = command["intent"].asUInt16();
                 String name = command["name"].asString();
-
-                if (Layout::SharedPtr params = parseCommandParamsStruct(command["params"]))
-                    layout->add("parameters", gateway::DT_OBJECT, params);
 
                 m_layouts.registerIntent(intent, layout);
                 m_commands[name] = intent;
@@ -856,11 +854,11 @@ public:
                 int intent = notification["intent"].asUInt16();
                 String name = notification["name"].asString();
 
-                if (Layout::SharedPtr layout = parseCommandParamsStruct(notification["params"]))
-                {
-                    m_layouts.registerIntent(intent, layout);
-                    m_notifications[intent] = name;
-                }
+                Layout::SharedPtr layout = gateway::Layout::create();
+                layout->add(parseCommandParamsField("parameters", notification["params"]));
+
+                m_layouts.registerIntent(intent, layout);
+                m_notifications[intent] = name;
             }
         }
     }
@@ -993,7 +991,14 @@ public:
             for (; i != e; ++i)
             {
                 const Layout::Element::SharedPtr elem = *i;
-                jval[elem->name] = bin2json(bs, elem);
+
+                if (!elem->name.empty())
+                    jval[elem->name] = bin2json(bs, elem);
+                else
+                {
+                    assert((i+1) == e && "one element expected");
+                    jval = bin2json(bs, elem);
+                }
             }
 
             return jval;
@@ -1090,7 +1095,14 @@ public:
             for (; i != e; ++i)
             {
                 const Layout::Element::SharedPtr elem = *i;
-                json2bin(jval[elem->name], bs, elem);
+
+                if (!elem->name.empty())
+                    json2bin(jval[elem->name], bs, elem);
+                else
+                {
+                    assert((i+1) == e && "one element expected");
+                    json2bin(jval, bs, elem);
+                }
             }
         }
 
