@@ -528,10 +528,12 @@ inline void main(int argc, const char* argv[])
 {
     { // configure logging
         log::Target::SharedPtr log_file = log::Target::File::create("simple_dev.log");
-        log::Logger::root().setTarget(log::Target::Tie::create(
-            log_file, log::Logger::root().getTarget()));
+        log::Target::SharedPtr log_console = log::Logger::root().getTarget();
+        log::Logger::root().setTarget(log::Target::Tie::create(log_file, log_console));
         log::Logger::root().setLevel(log::LEVEL_TRACE);
         log::Logger("/hive/http").setTarget(log_file).setLevel(log::LEVEL_DEBUG); // disable annoying messages
+        log_console->setFormat(log::Format::create("%N %L %M\n"));
+        log_console->setMinimumLevel(log::LEVEL_DEBUG);
     }
 
     Application::create(argc, argv)->run();
