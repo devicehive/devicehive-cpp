@@ -61,7 +61,7 @@ public:
         String networkKey = "";
         String networkDesc = "C++ device test network";
 
-        String baseUrl = "http://ecloud.dataart.com/ecapi6";
+        String baseUrl = "http://ecloud.dataart.com/ecapi7";
         String serialPortName = "COM33";
         UInt32 serialBaudrate = 9600;
 

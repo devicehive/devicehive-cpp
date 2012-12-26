@@ -231,7 +231,7 @@ public:
         String deviceKey = "5f5cd1fa-4455-42dd-b024-d8044d36c59e";
         String deviceName = "C++ device";
 
-        String baseUrl = "http://ecloud.dataart.com/ecapi6";
+        String baseUrl = "http://ecloud.dataart.com/ecapi7";
 
         String networkName = "C++ network";
         String networkKey = "";
