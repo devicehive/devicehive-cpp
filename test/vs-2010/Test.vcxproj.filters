@@ -96,9 +96,6 @@
     <ClInclude Include="..\..\include\DeviceHive\cloud7.hpp">
       <Filter>DeviceHive</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\examples\simple_gw2.hpp">
-      <Filter>examples</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\docs\basictools.md">

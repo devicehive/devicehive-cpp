@@ -8,7 +8,6 @@
 #include <examples/basic_app.hpp>
 #include <examples/simple_dev.hpp>
 #include <examples/simple_gw.hpp>
-#include <examples/simple_gw2.hpp>
 #include <examples/zigbee_gw.hpp>
 
 #include "test-defs.hpp"
@@ -57,8 +56,8 @@ int main(int argc, const char *argv[])
 #else                       // manual
         if (0) basic_app::main(argc, argv);
         if (0) simple_dev::main(argc, argv);
-        if (0) simple_gw::main(argc, argv);
-        if (1) simple_gw2::main(argc, argv);
+        if (0) simple_gw::main(argc, argv, false); // REST
+        if (1) simple_gw::main(argc, argv, true);  // WS
         if (0) zigbee_gw::main(argc, argv);
 
         if (0) test_defs0();

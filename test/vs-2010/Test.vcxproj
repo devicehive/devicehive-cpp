@@ -88,7 +88,6 @@
     <ClInclude Include="..\..\examples\basic_app.hpp" />
     <ClInclude Include="..\..\examples\simple_dev.hpp" />
     <ClInclude Include="..\..\examples\simple_gw.hpp" />
-    <ClInclude Include="..\..\examples\simple_gw2.hpp" />
     <ClInclude Include="..\..\examples\zigbee_gw.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\cloud7.hpp" />
