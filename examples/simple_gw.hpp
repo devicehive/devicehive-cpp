@@ -27,15 +27,15 @@ enum
 /// @brief The simple gateway application.
 class Application:
     public basic_app::Application,
-    public basic_app::ServerModule,
-    public basic_app::SerialModule
+    public cloud6::ServerModuleREST,
+    public gateway::SerialModule
 {
     typedef basic_app::Application Base; ///< @brief The base type.
 protected:
 
     /// @brief The default constructor.
     Application()
-        : ServerModule(m_ios, m_log)
+        : ServerModuleREST(m_ios, m_log)
         , SerialModule(m_ios, m_log)
         , m_deviceRegistered(false)
     {}
@@ -98,7 +98,7 @@ public:
         pthis->m_networkKey = networkKey;
         pthis->m_networkDesc = networkDesc;
 
-        pthis->initServerModule(baseUrl, pthis);
+        pthis->initServerModuleREST(baseUrl, pthis);
         pthis->initSerialModule(serialPortName, serialBaudrate, pthis);
         return pthis;
     }
@@ -132,24 +132,18 @@ protected:
     */
     virtual void stop()
     {
-        cancelServerModule();
+        cancelServerModuleREST();
         cancelSerialModule();
         asyncListenForGatewayFrames(false); // stop listening to release shared pointer
         Base::stop();
     }
 
-private: // ServerModule
+private: // ServerModuleREST
 
-    /// @brief The "register device" callback.
-    /**
-    Starts listening for commands from the server.
-
-    @param[in] err The error code.
-    @param[in] device The device.
-    */
+    /// @copydoc ServerModuleREST::onRegisterDevice()
     virtual void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr device)
     {
-        ServerModule::onRegisterDevice(err, device);
+        ServerModuleREST::onRegisterDevice(err, device);
 
         if (!err)
         {
@@ -161,15 +155,10 @@ private: // ServerModule
     }
 
 
-    /// @brief The "poll commands" callback.
-    /**
-    @param[in] err The error code.
-    @param[in] device The device.
-    @param[in] commands The list of commands.
-    */
+    /// @copydoc ServerModuleREST::onPollCommands()
     virtual void onPollCommands(boost::system::error_code err, cloud6::DevicePtr device, std::vector<cloud6::Command> const& commands)
     {
-        ServerModule::onPollCommands(err, device, commands);
+        ServerModuleREST::onPollCommands(err, device, commands);
 
         if (!err)
         {
@@ -218,10 +207,7 @@ private: // ServerModule
 
 private: // SerialModule
 
-    /// @brief The serial port is opended callback.
-    /**
-    @param[in] err The error code.
-    */
+    /// @copydoc SerialModule::onOpenSerial()
     void onOpenSerial(boost::system::error_code err)
     {
         SerialModule::onOpenSerial(err);
