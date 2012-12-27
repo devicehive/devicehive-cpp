@@ -101,13 +101,13 @@ void test_json0()
         } catch (json::error::CastError const&) {}
         try { MY_ASSERT(json::Value(-1).asUInt8()==0 && false, "can convert from -1 to unsigned integer");
         } catch (json::error::CastError const&) {}
-        try { MY_ASSERT(json::Value(5000000000).asUInt32()==0 && false, "can convert from 5000000000 to 32-bits unsigned integer");
+        try { MY_ASSERT(json::Value(UInt64(1000000000)*5).asUInt32()==0 && false, "can convert from 5000000000 to 32-bits unsigned integer");
         } catch (json::error::CastError const&) {}
         try { MY_ASSERT(json::Value(70000).asUInt16()==0 && false, "can convert from 70000 to 16-bits unsigned integer");
         } catch (json::error::CastError const&) {}
         try { MY_ASSERT(json::Value(300).asUInt8()==0 && false, "can convert from 300 to 8-bits unsigned integer");
         } catch (json::error::CastError const&) {}
-        try { MY_ASSERT(json::Value(5000000000/2).asInt32()==0 && false, "can convert from 2500000000 to 32-bits signed integer");
+        try { MY_ASSERT(json::Value(UInt64(1250000000)*2).asInt32()==0 && false, "can convert from 2500000000 to 32-bits signed integer");
         } catch (json::error::CastError const&) {}
         try { MY_ASSERT(json::Value(50000).asInt16()==0 && false, "can convert from 50000 to 16-bits signed integer");
         } catch (json::error::CastError const&) {}

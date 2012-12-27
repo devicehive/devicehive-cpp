@@ -6,7 +6,7 @@
 #ifndef __EXAMPLES_SIMPLE_DEV_HPP_
 #define __EXAMPLES_SIMPLE_DEV_HPP_
 
-#include <DeviceHive/cloud6.hpp>
+#include <DeviceHive/cloud7.hpp>
 #include "basic_app.hpp"
 
 
@@ -18,8 +18,9 @@ namespace simple_dev
 /// @brief Various contants and timeouts.
 enum
 {
-    SENSORS_UPDATE_TIMEOUT  = 1, ///< @brief Try to update temperature sensors each X seconds.
-    DEVICE_OFFLINE_TIMEOUT  = 0
+    SERVER_RECONNECT_TIMEOUT    = 10, ///< @brief Try to open server connection each X seconds.
+    SENSORS_UPDATE_TIMEOUT      = 1, ///< @brief Try to update temperature sensors each X seconds.
+    DEVICE_OFFLINE_TIMEOUT      = 0
 };
 
 
@@ -196,6 +197,8 @@ Contains any number of LED controls and temperature sensors.
 
 Updates temperature sensors every second.
 
+Uses DeviceHive REST server interface.
+
 @see @ref page_simple_dev
 */
 class Application:
@@ -203,13 +206,16 @@ class Application:
     public cloud6::ServerModuleREST
 {
     typedef basic_app::Application Base; ///< @brief The base type.
+    typedef Application This; ///< @brief The this type alias.
 protected:
 
     /// @brief The default constructor.
     Application()
         : ServerModuleREST(m_ios, m_log)
         , m_updateTimer(m_ios)
-    {}
+    {
+        HIVELOG_INFO_STR(m_log, "REST service is used");
+    }
 
 public:
 
@@ -225,7 +231,7 @@ public:
     */
     static SharedPtr create(int argc, const char* argv[])
     {
-        SharedPtr pthis(new Application());
+        SharedPtr pthis(new This());
 
         String deviceId = "82d1cfb9-43f8-4a22-b708-45bb4f68ae54";
         String deviceKey = "5f5cd1fa-4455-42dd-b024-d8044d36c59e";
@@ -321,7 +327,7 @@ public:
     */
     SharedPtr shared_from_this()
     {
-        return boost::shared_dynamic_cast<Application>(Base::shared_from_this());
+        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
     }
 
 protected:
@@ -430,7 +436,7 @@ private:
     void asyncUpdateSensors(long wait_sec)
     {
         m_updateTimer.expires_from_now(boost::posix_time::seconds(wait_sec));
-        m_updateTimer.async_wait(boost::bind(&Application::onUpdateSensors,
+        m_updateTimer.async_wait(boost::bind(&This::onUpdateSensors,
             this, boost::asio::placeholders::error));
     }
 
@@ -506,14 +512,379 @@ private:
 };
 
 
+/// @brief The simple device application.
+/**
+Contains any number of LED controls and temperature sensors.
+
+Updates temperature sensors every second.
+
+Uses DeviceHive WebSocket server interface.
+
+@see @ref page_simple_dev
+*/
+class ApplicationWS:
+    public basic_app::Application,
+    public cloud7::ServerModuleWS
+{
+    typedef basic_app::Application Base; ///< @brief The base type.
+    typedef ApplicationWS This; ///< @brief The this type alias.
+protected:
+
+    /// @brief The default constructor.
+    ApplicationWS()
+        : ServerModuleWS(m_ios, m_log)
+        , m_updateTimer(m_ios)
+    {
+        HIVELOG_INFO_STR(m_log, "WebSocket service is used");
+    }
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<ApplicationWS> SharedPtr;
+
+
+    /// @brief The factory method.
+    /**
+    @param[in] argc The number of command line arguments.
+    @param[in] argv The command line arguments.
+    @return The new application instance.
+    */
+    static SharedPtr create(int argc, const char* argv[])
+    {
+        SharedPtr pthis(new This());
+
+        String deviceId = "82d1cfb9-43f8-4a22-b708-45bb4f68ae54";
+        String deviceKey = "5f5cd1fa-4455-42dd-b024-d8044d36c59e";
+        String deviceName = "C++ device";
+
+        String baseUrl = "http://ecloud.dataart.com:8010/";
+
+        String networkName = "C++ network";
+        String networkKey = "";
+        String networkDesc = "C++ device test network";
+
+        String deviceClassName = "C++ test device";
+        String deviceClassVersion = "0.0.1";
+
+        // custom device properties
+        std::vector<cloud7::EquipmentPtr> equipment;
+        for (int i = 1; i < argc; ++i) // skip executable name
+        {
+            if (boost::algorithm::iequals(argv[i], "--help"))
+            {
+                std::cout << argv[0] << " [options]";
+                std::cout << "\t--deviceId <device identifier>\n";
+                std::cout << "\t--deviceKey <device authentication key>\n";
+                std::cout << "\t--deviceName <device name>\n";
+                std::cout << "\t--networkName <network name>\n";
+                std::cout << "\t--networkKey <network authentication key>\n";
+                std::cout << "\t--networkDesc <network description>\n";
+                std::cout << "\t--deviceClassName <device class name>\n";
+                std::cout << "\t--deviceClassVersion <device class version>\n";
+                std::cout << "\t--server <server URL>\n";
+                std::cout << "\t--led <id> <name> <file name>\n";
+                std::cout << "\t--temp <id> <name> <file name>\n";
+
+                throw std::runtime_error("STOP");
+            }
+            else if (boost::algorithm::iequals(argv[i], "--deviceId") && i+1 < argc)
+                deviceId = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--deviceName") && i+1 < argc)
+                deviceName = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--deviceKey") && i+1 < argc)
+                deviceKey = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--networkName") && i+1 < argc)
+                networkName = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--networkKey") && i+1 < argc)
+                networkKey = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--networkDesc") && i+1 < argc)
+                networkDesc = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--deviceClassName") && i+1 < argc)
+                deviceClassName = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--deviceClassVersion") && i+1 < argc)
+                deviceClassVersion = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--server") && i+1 < argc)
+                baseUrl = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--led") && i+3 < argc)
+            {
+                const String id = argv[++i];
+                const String name = argv[++i];
+                const String file = argv[++i];
+
+                equipment.push_back(LedControl::create(id,
+                    name, "Controllable LED", file));
+            }
+            else if (boost::algorithm::iequals(argv[i], "--temp") && i+3 < argc)
+            {
+                const String id = argv[++i];
+                const String name = argv[++i];
+                const String file = argv[++i];
+
+                equipment.push_back(TempSensor::create(id,
+                    name, "Temperature Sensor", file));
+            }
+        }
+
+        if (1) // create device
+        {
+            cloud7::DevicePtr device = cloud7::Device::create(deviceId, deviceName, deviceKey,
+                cloud7::Device::Class::create(deviceClassName, deviceClassVersion, false, DEVICE_OFFLINE_TIMEOUT),
+                cloud7::Network::create(networkName, networkKey, networkDesc));
+            device->status = "Online";
+
+            device->equipment.swap(equipment);
+            pthis->m_device = device;
+        }
+
+        pthis->initServerModuleWS(baseUrl, pthis);
+        return pthis;
+    }
+
+
+    /// @brief Get the shared pointer.
+    /**
+    @return The shared pointer to this instance.
+    */
+    SharedPtr shared_from_this()
+    {
+        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
+    }
+
+protected:
+
+    /// @brief Start the application.
+    /**
+    Registers the device on the server.
+    */
+    virtual void start()
+    {
+        Base::start();
+        asyncConnectToServer(0); // ASAP
+    }
+
+
+    /// @brief Stop the application.
+    /**
+    Cancels all pending HTTP requests and stops the "update" timer.
+    */
+    virtual void stop()
+    {
+        cancelServerModuleWS();
+        m_updateTimer.cancel();
+        Base::stop();
+    }
+
+private: // ServerModuleWS
+
+    /// @copydoc ServerModuleWS::onConnectedToServer()
+    virtual void onConnectedToServer(boost::system::error_code err)
+    {
+        ServerModuleWS::onConnectedToServer(err);
+
+        if (!err)
+        {
+            asyncRegisterDevice(m_device);
+        }
+        else if (!terminated())
+        {
+            // try to reconnect again
+            asyncConnectToServer(SERVER_RECONNECT_TIMEOUT);
+        }
+    }
+
+
+    /// @copydoc ServerModuleWS::onActionReceived()
+    virtual void onActionReceived(boost::system::error_code err, json::Value const& jaction)
+    {
+        ServerModuleWS::onActionReceived(err, jaction);
+
+        if (!err)
+        {
+            try
+            {
+                String const action = jaction["action"].asString();
+                handleAction(action, jaction);
+            }
+            catch (std::exception const& ex)
+            {
+                HIVELOG_ERROR(m_log,
+                    "failed to process action: "
+                    << ex.what() << "\n");
+            }
+        }
+        else if (!terminated())
+        {
+            // try to reconnect again
+            asyncConnectToServer(SERVER_RECONNECT_TIMEOUT);
+        }
+    }
+
+
+    /// @brief Handle received action.
+    /**
+    @param[in] action The action name.
+    @param[in] params The action parameters.
+    */
+    void handleAction(String const& action, json::Value const& params)
+    {
+        if (boost::iequals(action, "device/save")) // got registration
+        {
+            if (boost::iequals(params["status"].asString(), "success"))
+            {
+                resetAllLedControls("0");
+                asyncUpdateSensors(0); // ASAP
+
+                asyncSubscribeForCommands(m_device);
+            }
+            else
+                HIVELOG_ERROR(m_log, "failed to register");
+        }
+
+        else if (boost::iequals(action, "command/insert")) // new command
+        {
+            String const deviceId = params["deviceGuid"].asString();
+            if (!m_device || deviceId != m_device->id)
+                throw std::runtime_error("unknown device identifier");
+
+            cloud7::Command cmd = cloud7::Serializer::json2cmd(params["command"]);
+            bool processed = true;
+
+            try
+            {
+                String eqId = cmd.params["equipment"].asString();
+
+                cloud7::EquipmentPtr eq = m_device->findEquipmentById(eqId);
+                if (boost::iequals(cmd.name, "UpdateLedState"))
+                {
+                    if (LedControl::SharedPtr led = boost::shared_dynamic_cast<LedControl>(eq))
+                    {
+                        String state = cmd.params["state"].asString();
+                        led->setState(state);
+
+                        cmd.status = "Success";
+                        cmd.result = "Completed";
+
+                        json::Value ntf_params;
+                        ntf_params["equipment"] = led->id;
+                        ntf_params["state"] = state;
+                        asyncInsertNotification(m_device,
+                            cloud7::Notification("equipment", ntf_params));
+                    }
+                    else
+                        throw std::runtime_error("unknown equipment");
+                }
+                else
+                    throw std::runtime_error("unknown command");
+            }
+            catch (std::exception const& ex)
+            {
+                HIVELOG_ERROR(m_log, "handle command error: "
+                    << ex.what());
+
+                cmd.status = "Failed";
+                cmd.result = ex.what();
+            }
+
+            if (processed)
+                asyncUpdateCommand(m_device, cmd);
+        }
+    }
+
+private:
+
+    /// @brief Start update timer.
+    /**
+    @param[in] wait_sec The number of seconds to wait before update.
+    */
+    void asyncUpdateSensors(long wait_sec)
+    {
+        m_updateTimer.expires_from_now(boost::posix_time::seconds(wait_sec));
+        m_updateTimer.async_wait(boost::bind(&This::onUpdateSensors,
+            this, boost::asio::placeholders::error));
+    }
+
+
+    /// @brief Update all active sensors.
+    /**
+    @param[in] err The error code.
+    */
+    void onUpdateSensors(boost::system::error_code err)
+    {
+        if (!err)
+        {
+            //HIVELOG_TRACE(m_log, "update sensors");
+
+            const size_t N = m_device->equipment.size();
+            for (size_t i = 0; i < N; ++i)
+            {
+                cloud7::EquipmentPtr eq = m_device->equipment[i];
+                if (TempSensor::SharedPtr sensor = boost::shared_dynamic_cast<TempSensor>(eq))
+                {
+                    String const val = sensor->getValue();
+                    if (sensor->haveToSend(val))
+                    {
+                        json::Value ntf_params;
+                        ntf_params["equipment"] = sensor->id;
+                        ntf_params["temperature"] = val;
+                        asyncInsertNotification(m_device,
+                            cloud7::Notification("equipment", ntf_params));
+
+                        sensor->lastValue = val;
+                    }
+                }
+            }
+
+            asyncUpdateSensors(SENSORS_UPDATE_TIMEOUT); // start again
+        }
+        else if (err == boost::asio::error::operation_aborted)
+            HIVELOG_DEBUG_STR(m_log, "\"update\" timer cancelled");
+        else
+        {
+            HIVELOG_ERROR(m_log, "\"update\" timer error: ["
+                << err << "] " << err.message());
+        }
+    }
+
+
+    /// @brief Reset all LED controls.
+    /**
+    @param[in] state The LED state reset to.
+    */
+    void resetAllLedControls(String const& state)
+    {
+        const size_t N = m_device->equipment.size();
+        for (size_t i = 0; i < N; ++i)
+        {
+            cloud7::EquipmentPtr eq = m_device->equipment[i];
+            if (LedControl::SharedPtr led = boost::shared_dynamic_cast<LedControl>(eq))
+            {
+                led->setState(state);
+
+                json::Value ntf_params;
+                ntf_params["equipment"] = led->id;
+                ntf_params["state"] = state;
+                asyncInsertNotification(m_device,
+                    cloud7::Notification("equipment", ntf_params));
+            }
+        }
+    }
+
+private:
+    boost::asio::deadline_timer m_updateTimer; ///< @brief The update timer.
+    cloud7::DevicePtr m_device; ///< @brief The device.
+};
+
+
 /// @brief The simple device application entry point.
 /**
 Creates the Application instance and calls its Application::run() method.
 
 @param[in] argc The number of command line arguments.
 @param[in] argv The command line arguments.
+@param[in] useNewWS Use new websocket service flag.
 */
-inline void main(int argc, const char* argv[])
+inline void main(int argc, const char* argv[], bool useNewWS = true)
 {
     { // configure logging
         log::Target::SharedPtr log_file = log::Target::File::create("simple_dev.log");
@@ -525,7 +896,10 @@ inline void main(int argc, const char* argv[])
         log_console->setMinimumLevel(log::LEVEL_DEBUG);
     }
 
-    Application::create(argc, argv)->run();
+    if (useNewWS)
+        ApplicationWS::create(argc, argv)->run();
+    else
+        Application::create(argc, argv)->run();
 }
 
 } // simple_dev namespace

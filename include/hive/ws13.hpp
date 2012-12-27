@@ -245,6 +245,7 @@ public:
             const int f_len = bs.getUInt8();
             const bool masking = (f_len&0x80) != 0;
             const int opcode = f_ctl&0x0F;
+            (void)opcode; // mark as used
 
             assert(opcode == PayloadT::OPCODE
                 && "invalid payload opcode");
@@ -365,6 +366,7 @@ public:
             const bool masking = (f_len&0x80) != 0;
             size_t h_len = 2 + (masking?4:0);   // header length
             size_t len = f_len&0x7F;            // payload length
+            (void)f_ctl; // mark as used
 
             if (127 == len)             // UInt64 length
             {
