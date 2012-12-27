@@ -55,11 +55,12 @@ int main(int argc, const char *argv[])
         XTEST_UNIT();
 #else                       // manual
         if (1) basic_app::main(argc, argv);
-        if (0) simple_dev::main(argc, argv, false); // REST
-        if (0) simple_dev::main(argc, argv, true);  // WS
-        if (0) simple_gw::main(argc, argv, false);  // REST
-        if (0) simple_gw::main(argc, argv, true);   // WS
-        if (0) zigbee_gw::main(argc, argv);
+        if (0) simple_dev::main(argc, argv, false); // RESTful
+        if (0) simple_dev::main(argc, argv, true);  // WebSocket
+        if (0) simple_gw::main(argc, argv, false);  // RESTful
+        if (0) simple_gw::main(argc, argv, true);   // WebSocket
+        if (0) zigbee_gw::main(argc, argv, false);  // RESTful
+        if (0) zigbee_gw::main(argc, argv, true);   // WebSocket
 
         if (0) test_defs0();
         if (0) test_swab0();

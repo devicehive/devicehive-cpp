@@ -6,8 +6,6 @@
 #ifndef __EXAMPLES_BASIC_APP_HPP_
 #define __EXAMPLES_BASIC_APP_HPP_
 
-#include <DeviceHive/cloud6.hpp>
-
 #include <hive/defs.hpp>
 #include <hive/log.hpp>
 
