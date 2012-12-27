@@ -7,7 +7,7 @@
 #define __EXAMPLES_SIMPLE_GW_HPP_
 
 #include <DeviceHive/gateway.hpp>
-#include <DeviceHive/cloud6.hpp>
+#include <DeviceHive/cloud7.hpp>
 #include "basic_app.hpp"
 
 
@@ -20,25 +20,32 @@ namespace simple_gw
 enum
 {
     SERIAL_RECONNECT_TIMEOUT    = 10, ///< @brief Try to open serial port each X seconds.
+    SERVER_RECONNECT_TIMEOUT    = 10, ///< @brief Try to open server connection each X seconds.
     DEVICE_OFFLINE_TIMEOUT      = 0
 };
 
 
 /// @brief The simple gateway application.
+/**
+Uses DeviceHive REST server interface.
+*/
 class Application:
     public basic_app::Application,
-    public basic_app::ServerModule,
-    public basic_app::SerialModule
+    public cloud6::ServerModuleREST,
+    public gateway::SerialModule
 {
     typedef basic_app::Application Base; ///< @brief The base type.
+    typedef Application This; ///< @brief The this type alias.
 protected:
 
     /// @brief The default constructor.
     Application()
-        : ServerModule(m_ios, m_log)
+        : ServerModuleREST(m_ios, m_log)
         , SerialModule(m_ios, m_log)
         , m_deviceRegistered(false)
-    {}
+    {
+        HIVELOG_INFO_STR(m_log, "REST service is used");
+    }
 
 public:
 
@@ -54,7 +61,7 @@ public:
     */
     static SharedPtr create(int argc, const char* argv[])
     {
-        SharedPtr pthis(new Application());
+        SharedPtr pthis(new This());
 
         String networkName = "C++ network";
         String networkKey = "";
@@ -98,7 +105,7 @@ public:
         pthis->m_networkKey = networkKey;
         pthis->m_networkDesc = networkDesc;
 
-        pthis->initServerModule(baseUrl, pthis);
+        pthis->initServerModuleREST(baseUrl, pthis);
         pthis->initSerialModule(serialPortName, serialBaudrate, pthis);
         return pthis;
     }
@@ -110,7 +117,7 @@ public:
     */
     SharedPtr shared_from_this()
     {
-        return boost::shared_dynamic_cast<Application>(Base::shared_from_this());
+        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
     }
 
 protected:
@@ -132,24 +139,18 @@ protected:
     */
     virtual void stop()
     {
-        cancelServerModule();
+        cancelServerModuleREST();
         cancelSerialModule();
         asyncListenForGatewayFrames(false); // stop listening to release shared pointer
         Base::stop();
     }
 
-private: // ServerModule
+private: // ServerModuleREST
 
-    /// @brief The "register device" callback.
-    /**
-    Starts listening for commands from the server.
-
-    @param[in] err The error code.
-    @param[in] device The device.
-    */
+    /// @copydoc ServerModuleREST::onRegisterDevice()
     virtual void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr device)
     {
-        ServerModule::onRegisterDevice(err, device);
+        ServerModuleREST::onRegisterDevice(err, device);
 
         if (!err)
         {
@@ -161,15 +162,10 @@ private: // ServerModule
     }
 
 
-    /// @brief The "poll commands" callback.
-    /**
-    @param[in] err The error code.
-    @param[in] device The device.
-    @param[in] commands The list of commands.
-    */
+    /// @copydoc ServerModuleREST::onPollCommands()
     virtual void onPollCommands(boost::system::error_code err, cloud6::DevicePtr device, std::vector<cloud6::Command> const& commands)
     {
-        ServerModule::onPollCommands(err, device, commands);
+        ServerModuleREST::onPollCommands(err, device, commands);
 
         if (!err)
         {
@@ -218,10 +214,7 @@ private: // ServerModule
 
 private: // SerialModule
 
-    /// @brief The serial port is opended callback.
-    /**
-    @param[in] err The error code.
-    */
+    /// @copydoc SerialModule::onOpenSerial()
     void onOpenSerial(boost::system::error_code err)
     {
         SerialModule::onOpenSerial(err);
@@ -285,7 +278,7 @@ private:
         if (gateway::Frame::SharedPtr frame = m_gw.jsonToFrame(intent, data))
         {
             m_gw_api->send(frame,
-                boost::bind(&Application::onSendGatewayFrame,
+                boost::bind(&This::onSendGatewayFrame,
                     shared_from_this(), _1, _2));
             return true;
         }
@@ -328,7 +321,7 @@ private:
     void asyncListenForGatewayFrames(bool enable)
     {
         m_gw_api->recv(enable
-            ? boost::bind(&Application::onRecvGatewayFrame, shared_from_this(), _1, _2)
+            ? boost::bind(&This::onRecvGatewayFrame, shared_from_this(), _1, _2)
             : GatewayAPI::RecvFrameCallback());
     }
 
@@ -415,7 +408,6 @@ private:
             }
         }
     }
-
 
 
     /// @brief Handle the incomming message.
@@ -507,14 +499,584 @@ private:
 };
 
 
+/// @brief The simple gateway application.
+/**
+Uses DeviceHive WebSocket server interface.
+*/
+class ApplicationWS:
+    public basic_app::Application,
+    public cloud7::ServerModuleWS,
+    public gateway::SerialModule
+{
+    typedef basic_app::Application Base; ///< @brief The base type.
+    typedef ApplicationWS This; ///< @brief The this type alias.
+protected:
+
+    /// @brief The default constructor.
+    ApplicationWS()
+        : ServerModuleWS(m_ios, m_log)
+        , SerialModule(m_ios, m_log)
+        , m_deviceRegistered(false)
+    {
+        HIVELOG_INFO_STR(m_log, "WebSocket service is used");
+    }
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<ApplicationWS> SharedPtr;
+
+
+    /// @brief The factory method.
+    /**
+    @param[in] argc The number of command line arguments.
+    @param[in] argv The command line arguments.
+    @return The new application instance.
+    */
+    static SharedPtr create(int argc, const char* argv[])
+    {
+        SharedPtr pthis(new This());
+
+        String networkName = "C++ network";
+        String networkKey = "";
+        String networkDesc = "C++ device test network";
+
+        String baseUrl = "http://ecloud.dataart.com:8010/";
+        String serialPortName = "COM34";
+        UInt32 serialBaudrate = 9600;
+
+        // custom device properties
+        for (int i = 1; i < argc; ++i) // skip executable name
+        {
+            if (boost::algorithm::iequals(argv[i], "--help"))
+            {
+                std::cout << argv[0] << " [options]";
+                std::cout << "\t--networkName <network name>\n";
+                std::cout << "\t--networkKey <network authentication key>\n";
+                std::cout << "\t--networkDesc <network description>\n";
+                std::cout << "\t--server <server URL>\n";
+                std::cout << "\t--serial <serial device>\n";
+                std::cout << "\t--baudrate <serial baudrate>\n";
+
+                throw std::runtime_error("STOP");
+            }
+            else if (boost::algorithm::iequals(argv[i], "--networkName") && i+1 < argc)
+                networkName = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--networkKey") && i+1 < argc)
+                networkKey = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--networkDesc") && i+1 < argc)
+                networkDesc = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--server") && i+1 < argc)
+                baseUrl = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--serial") && i+1 < argc)
+                serialPortName = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--baudrate") && i+1 < argc)
+                serialBaudrate = boost::lexical_cast<UInt32>(argv[++i]);
+        }
+
+        pthis->m_gw_api = GatewayAPI::create(pthis->m_serial);
+        pthis->m_networkName = networkName;
+        pthis->m_networkKey = networkKey;
+        pthis->m_networkDesc = networkDesc;
+
+        pthis->initServerModuleWS(baseUrl, pthis);
+        pthis->initSerialModule(serialPortName, serialBaudrate, pthis);
+        return pthis;
+    }
+
+
+    /// @brief Get the shared pointer.
+    /**
+    @return The shared pointer to this instance.
+    */
+    SharedPtr shared_from_this()
+    {
+        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
+    }
+
+protected:
+
+    /// @brief Start the application.
+    /**
+    Tries to open serial port.
+    */
+    virtual void start()
+    {
+        Base::start();
+        asyncConnectToServer(0); // ASAP
+        asyncOpenSerial(0); // ASAP
+    }
+
+
+    /// @brief Stop the application.
+    /**
+    Stops the "open" timer.
+    */
+    virtual void stop()
+    {
+        cancelServerModuleWS();
+        cancelSerialModule();
+        asyncListenForGatewayFrames(false); // stop listening to release shared pointer
+        Base::stop();
+    }
+
+private: // ServerModuleWS
+
+    /// @copydoc ServerModuleWS::onConnectedToServer()
+    virtual void onConnectedToServer(boost::system::error_code err)
+    {
+        ServerModuleWS::onConnectedToServer(err);
+
+        if (!err)
+        {
+            sendDelayedCommandResults();
+            sendDelayedNotifications();
+
+            if (m_serial.is_open())
+                sendGatewayRegistrationRequest();
+        }
+        else if (!terminated())
+        {
+            // try to reconnect again
+            asyncConnectToServer(SERVER_RECONNECT_TIMEOUT);
+        }
+    }
+
+
+    /// @copydoc ServerModuleWS::onActionReceived()
+    virtual void onActionReceived(boost::system::error_code err, json::Value const& jaction)
+    {
+        ServerModuleWS::onActionReceived(err, jaction);
+
+        if (!err)
+        {
+            try
+            {
+                String const action = jaction["action"].asString();
+                handleAction(action, jaction);
+            }
+            catch (std::exception const& ex)
+            {
+                HIVELOG_ERROR(m_log,
+                    "failed to process action: "
+                    << ex.what() << "\n");
+            }
+        }
+        else if (!terminated())
+        {
+            // try to reconnect again
+            asyncConnectToServer(SERVER_RECONNECT_TIMEOUT);
+        }
+    }
+
+
+    /// @brief Handle received action.
+    /**
+    @param[in] action The action name.
+    @param[in] params The action parameters.
+    */
+    void handleAction(String const& action, json::Value const& params)
+    {
+        if (boost::iequals(action, "device/save")) // got registration
+        {
+            if (boost::iequals(params["status"].asString(), "success"))
+            {
+                m_deviceRegistered = true;
+
+                asyncSubscribeForCommands(m_device);
+                sendDelayedNotifications();
+            }
+            else
+                HIVELOG_ERROR(m_log, "failed to register");
+        }
+
+        else if (boost::iequals(action, "command/insert")) // new command
+        {
+            String const deviceId = params["deviceGuid"].asString();
+            if (!m_device || deviceId != m_device->id)
+                throw std::runtime_error("unknown device identifier");
+
+            cloud7::Command cmd = cloud7::Serializer::json2cmd(params["command"]);
+            if (m_serial.is_open())
+            {
+                bool processed = true;
+
+                try
+                {
+                    processed = sendGatewayCommand(cmd);
+                }
+                catch (std::exception const& ex)
+                {
+                    HIVELOG_ERROR(m_log, "handle command error: "
+                        << ex.what());
+
+                    cmd.status = "Failed";
+                    cmd.result = ex.what();
+                }
+
+                if (processed)
+                    asyncUpdateCommand(m_device, cmd);
+            }
+            else
+            {
+                HIVELOG_WARN(m_log, "no serial device connected, command delayed");
+                m_delayedCommands.push_back(cmd);
+            }
+        }
+    }
+
+
+    /// @brief Send all delayed notifications.
+    void sendDelayedNotifications()
+    {
+        const size_t N = m_delayedNotifications.size();
+        HIVELOG_INFO(m_log, "sending " << N
+            << " delayed notifications");
+
+        for (size_t i = 0; i < N; ++i)
+        {
+            cloud7::Notification ntf = m_delayedNotifications[i];
+            asyncInsertNotification(m_device, ntf);
+        }
+        m_delayedNotifications.clear();
+    }
+
+
+    /// @brief Send all delayed command results.
+    void sendDelayedCommandResults()
+    {
+        const size_t N = m_delayedCommandResults.size();
+        HIVELOG_INFO(m_log, "sending " << N
+            << " delayed command results");
+
+        for (size_t i = 0; i < N; ++i)
+        {
+            cloud7::Command cmd = m_delayedCommandResults[i];
+            asyncUpdateCommand(m_device, cmd);
+        }
+        m_delayedCommandResults.clear();
+    }
+
+
+    /// @brief Send all delayed commands.
+    void sendDelayedCommands()
+    {
+        const size_t N = m_delayedCommands.size();
+        HIVELOG_INFO(m_log, "sending " << N
+            << " delayed commands");
+
+        for (size_t i = 0; i < N; ++i)
+        {
+            cloud7::Command cmd = m_delayedCommands[i];
+            sendGatewayCommand(cmd);
+        }
+        m_delayedCommands.clear();
+    }
+
+private: // SerialModule
+
+    /// @copydoc SerialModule::onOpenSerial()
+    void onOpenSerial(boost::system::error_code err)
+    {
+        SerialModule::onOpenSerial(err);
+
+        if (!err)
+        {
+            asyncListenForGatewayFrames(true);
+            sendGatewayRegistrationRequest();
+        }
+        else
+            asyncOpenSerial(SERIAL_RECONNECT_TIMEOUT); // try to open later
+    }
+
+private:
+
+    /// @brief Send gateway registration request.
+    void sendGatewayRegistrationRequest()
+    {
+        json::Value data;
+        data["data"] = json::Value();
+
+        sendGatewayMessage(gateway::INTENT_REGISTRATION_REQUEST, data);
+    }
+
+
+    /// @brief Send the command to the device.
+    /**
+    @param[in] cmd The command to send.
+    @return `true` if command processed.
+    */
+    bool sendGatewayCommand(cloud7::Command const& cmd)
+    {
+        const int intent = m_gw.findCommandIntentByName(cmd.name);
+        if (0 <= intent)
+        {
+            HIVELOG_INFO(m_log, "command: \"" << cmd.name
+                << "\" mapped to #" << intent << " intent");
+
+            json::Value data;
+            data["id"] = cmd.id;
+            data["parameters"] = cmd.params;
+            if (!sendGatewayMessage(intent, data))
+                throw std::runtime_error("invalid command format");
+            return false; // device will report command result later!
+        }
+        else
+            throw std::runtime_error("unknown command, ignored");
+
+        return true;
+    }
+
+
+    /// @brief Send the custom gateway message.
+    /**
+    @param[in] intent The message intent.
+    @param[in] data The custom message data.
+    @return `false` for invalid command.
+    */
+    bool sendGatewayMessage(int intent, json::Value const& data)
+    {
+        if (gateway::Frame::SharedPtr frame = m_gw.jsonToFrame(intent, data))
+        {
+            m_gw_api->send(frame,
+                boost::bind(&This::onSendGatewayFrame,
+                    shared_from_this(), _1, _2));
+            return true;
+        }
+        else
+            HIVELOG_WARN_STR(m_log, "cannot convert frame to binary format");
+
+        return false;
+    }
+
+
+    /// @brief The "send frame" callback.
+    /**
+    @param[in] err The error code.
+    @param[in] frame The frame sent.
+    */
+    void onSendGatewayFrame(boost::system::error_code err, gateway::Frame::SharedPtr frame)
+    {
+        if (!err && frame)
+        {
+            HIVELOG_DEBUG(m_log, "frame successfully sent #"
+                << frame->getIntent() << ": ["
+                << m_gw_api->hexdump(frame) << "], "
+                << frame->size() << " bytes");
+        }
+        else if (err == boost::asio::error::operation_aborted)
+        {
+            HIVELOG_DEBUG_STR(m_log, "TX operation cancelled");
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log, "failed to send frame: ["
+                << err << "] " << err.message());
+            resetSerial(true);
+        }
+    }
+
+private:
+
+    /// @brief Start/stop listen for RX frames.
+    void asyncListenForGatewayFrames(bool enable)
+    {
+        m_gw_api->recv(enable
+            ? boost::bind(&This::onRecvGatewayFrame, shared_from_this(), _1, _2)
+            : GatewayAPI::RecvFrameCallback());
+    }
+
+
+    /// @brief The "recv frame" callback.
+    /**
+    @param[in] err The error code.
+    @param[in] frame The frame received.
+    */
+    void onRecvGatewayFrame(boost::system::error_code err, gateway::Frame::SharedPtr frame)
+    {
+        if (!err)
+        {
+            if (frame)
+            {
+                HIVELOG_DEBUG(m_log, "frame received #"
+                    << frame->getIntent() << ": ["
+                    << m_gw_api->hexdump(frame) << "], "
+                    << frame->size() << " bytes");
+
+                try
+                {
+                    handleGatewayMessage(frame->getIntent(),
+                        m_gw.frameToJson(frame));
+                }
+                catch (std::exception const& ex)
+                {
+                    HIVELOG_ERROR(m_log, "failed handle received frame: " << ex.what());
+                    resetSerial(true);
+                }
+            }
+            else
+                HIVELOG_DEBUG_STR(m_log, "no frame received");
+        }
+        else if (err == boost::asio::error::operation_aborted)
+        {
+            HIVELOG_DEBUG_STR(m_log, "RX operation cancelled");
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log, "failed to receive frame: ["
+                << err << "] " << err.message());
+            resetSerial(true);
+        }
+    }
+
+
+    /// @brief Create device from the JSON data.
+    /**
+    @param[in] jdev The JSON device description.
+    */
+    void createDevice(json::Value const& jdev)
+    {
+        { // create device
+            String id = jdev["id"].asString();
+            String key = jdev["key"].asString();
+            String name = jdev["name"].asString();
+
+            // TODO: get network from command line
+            cloud7::NetworkPtr network = cloud7::Network::create(
+                m_networkName, m_networkKey, m_networkDesc);
+
+            cloud7::Device::ClassPtr deviceClass = cloud7::Device::Class::create("", "", false, DEVICE_OFFLINE_TIMEOUT);
+            cloud7::Serializer::json2deviceClass(jdev["deviceClass"], deviceClass);
+
+            m_device = cloud7::Device::create(id, name, key, deviceClass, network);
+            m_device->status = "Online";
+
+            m_delayedNotifications.clear();
+            m_deviceRegistered = false;
+        }
+
+        { // update equipment
+            json::Value const& equipment = jdev["equipment"];
+            const size_t N = equipment.size();
+            for (size_t i = 0; i < N; ++i)
+            {
+                json::Value const& eq = equipment[i];
+
+                String id = eq["code"].asString();
+                String name = eq["name"].asString();
+                String type = eq["type"].asString();
+
+                m_device->equipment.push_back(cloud7::Equipment::create(id, name, type));
+            }
+        }
+    }
+
+
+    /// @brief Handle the incomming message.
+    /**
+    @param[in] intent The message intent.
+    @param[in] data The custom message data.
+    */
+    void handleGatewayMessage(int intent, json::Value const& data)
+    {
+        HIVELOG_INFO(m_log, "process intent #" << intent << " data: " << data << "\n");
+
+        if (intent == gateway::INTENT_REGISTRATION_RESPONSE)
+        {
+            m_gw.handleRegisterResponse(data);
+            createDevice(data);
+            if (m_serverAPI->isOpen())
+                asyncRegisterDevice(m_device);
+        }
+
+        else if (intent == gateway::INTENT_REGISTRATION2_RESPONSE)
+        {
+            json::Value jdev = json::fromStr(data["json"].asString());
+            m_gw.handleRegister2Response(jdev);
+            createDevice(jdev);
+            if (m_serverAPI->isOpen())
+                asyncRegisterDevice(m_device);
+        }
+
+        else if (intent == gateway::INTENT_COMMAND_RESULT_RESPONSE)
+        {
+            if (m_device)
+            {
+                HIVELOG_DEBUG(m_log, "got command result");
+
+                cloud7::Command cmd;
+                cmd.id = data["id"].asUInt();
+                cmd.status = data["status"].asString();
+                cmd.result = data["result"].asString();
+
+                if (m_deviceRegistered && m_serverAPI->isOpen())
+                    asyncUpdateCommand(m_device, cmd);
+                else
+                    m_delayedCommandResults.push_back(cmd);
+            }
+            else
+                HIVELOG_WARN_STR(m_log, "got command result before registration, ignored");
+        }
+
+        else if (intent >= gateway::INTENT_USER)
+        {
+            if (m_device)
+            {
+                String name = m_gw.findNotificationNameByIntent(intent);
+                if (!name.empty())
+                {
+                    HIVELOG_DEBUG(m_log, "got notification");
+
+                    if (m_deviceRegistered && m_serverAPI->isOpen())
+                    {
+                        asyncInsertNotification(m_device,
+                            cloud7::Notification(name, data));
+                    }
+                    else
+                    {
+                        HIVELOG_DEBUG_STR(m_log, "device is not registered, notification delayed");
+                        m_delayedNotifications.push_back(cloud7::Notification(name, data));
+                    }
+                }
+                else
+                    HIVELOG_WARN(m_log, "unknown notification: " << intent << ", ignored");
+            }
+            else
+                HIVELOG_WARN_STR(m_log, "got notification before registration, ignored");
+        }
+
+        else
+            HIVELOG_WARN(m_log, "invalid intent: " << intent << ", ignored");
+    }
+
+private:
+    String m_networkName; ///< @brief The network name.
+    String m_networkKey; ///< @brief The network key.
+    String m_networkDesc; ///< @brief The network description.
+
+private:
+    typedef gateway::API<boost::asio::serial_port> GatewayAPI; ///< @brief The gateway %API type.
+    GatewayAPI::SharedPtr m_gw_api; ///< @brief The gateway %API.
+    gateway::Engine m_gw; ///< @brief The gateway engine.
+
+private:
+    cloud7::DevicePtr m_device; ///< @brief The device.
+    bool m_deviceRegistered; ///< @brief The DeviceHive cloud "registered" flag.
+    std::vector<cloud7::Notification> m_delayedNotifications; ///< @brief The list of delayed notification.
+    std::vector<cloud7::Command> m_delayedCommandResults; ///< @brief The list of delayed command results.
+    std::vector<cloud7::Command> m_delayedCommands; ///< @brief The list of delayed commands.
+};
+
+
 /// @brief The simple gateway application entry point.
 /**
 Creates the Application instance and calls its Application::run() method.
 
 @param[in] argc The number of command line arguments.
 @param[in] argv The command line arguments.
+@param[in] useNewWS Use new websocket service flag.
 */
-inline void main(int argc, const char* argv[])
+inline void main(int argc, const char* argv[], bool useNewWS = true)
 {
     { // configure logging
         log::Target::SharedPtr log_file = log::Target::File::create("simple_gw.log");
@@ -526,7 +1088,10 @@ inline void main(int argc, const char* argv[])
         log_console->setMinimumLevel(log::LEVEL_DEBUG);
     }
 
-    Application::create(argc, argv)->run();
+    if (useNewWS)
+        ApplicationWS::create(argc, argv)->run();
+    else
+        Application::create(argc, argv)->run();
 }
 
 } // simple_gw namespace

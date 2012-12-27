@@ -208,6 +208,10 @@
 				RelativePath="..\..\include\hive\swab.hpp"
 				>
 			</File>
+			<File
+				RelativePath="..\..\include\hive\ws13.hpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="test"
@@ -236,12 +240,20 @@
 				RelativePath="..\test-swab.hpp"
 				>
 			</File>
+			<File
+				RelativePath="..\test-ws13.hpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="DeviceHive"
 			>
 			<File
 				RelativePath="..\..\include\DeviceHive\cloud6.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\DeviceHive\cloud7.hpp"
 				>
 			</File>
 			<File

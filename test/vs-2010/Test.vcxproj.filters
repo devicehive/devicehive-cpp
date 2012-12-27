@@ -84,8 +84,17 @@
     <ClInclude Include="..\..\examples\zigbee_gw.hpp">
       <Filter>examples</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\hive\ws13.hpp">
+      <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\test-ws13.hpp">
+      <Filter>test</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\include\hive\bin.hpp">
       <Filter>hive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\cloud7.hpp">
+      <Filter>DeviceHive</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

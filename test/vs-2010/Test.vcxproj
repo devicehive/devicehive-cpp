@@ -90,6 +90,7 @@
     <ClInclude Include="..\..\examples\simple_gw.hpp" />
     <ClInclude Include="..\..\examples\zigbee_gw.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp" />
+    <ClInclude Include="..\..\include\DeviceHive\cloud7.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\gateway.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\xbee.hpp" />
     <ClInclude Include="..\..\include\hive\bin.hpp" />
@@ -101,12 +102,14 @@
     <ClInclude Include="..\..\include\hive\misc.hpp" />
     <ClInclude Include="..\..\include\hive\pch.hpp" />
     <ClInclude Include="..\..\include\hive\swab.hpp" />
+    <ClInclude Include="..\..\include\hive\ws13.hpp" />
     <ClInclude Include="..\test-defs.hpp" />
     <ClInclude Include="..\test-http.hpp" />
     <ClInclude Include="..\test-json.hpp" />
     <ClInclude Include="..\test-log.hpp" />
     <ClInclude Include="..\test-dump.hpp" />
     <ClInclude Include="..\test-swab.hpp" />
+    <ClInclude Include="..\test-ws13.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\docs\basictools.md" />

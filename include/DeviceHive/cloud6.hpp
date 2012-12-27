@@ -904,6 +904,139 @@ public:
     }
 };
 
+
+/// @brief The REST Server submodule.
+/**
+This is helper class.
+
+You have to call initRestServerModule() method before use any of the class methods.
+The best place to do that is static factory method of your application.
+*/
+class ServerModuleREST
+{
+    /// @brief The this type alias.
+    typedef ServerModuleREST This;
+
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] ios The IO service.
+    @param[in] logger The logger.
+    */
+    ServerModuleREST(boost::asio::io_service &ios, log::Logger const& logger)
+        : m_httpClient(http::Client::create(ios))
+        , m_log_(logger)
+    {}
+
+
+    /// @brief The trivial destructor.
+    virtual ~ServerModuleREST()
+    {}
+
+
+    /// @brief Initialize server module.
+    /**
+    @param[in] baseUrl The server base URL.
+    @param[in] pthis The this pointer.
+    */
+    void initServerModuleREST(String const& baseUrl, boost::shared_ptr<ServerModuleREST> pthis)
+    {
+        m_serverAPI = cloud6::ServerAPI::create(m_httpClient, baseUrl);
+        m_this = pthis;
+    }
+
+
+    /// @brief Cancel all server tasks.
+    void cancelServerModuleREST()
+    {
+        m_serverAPI->cancelAll();
+    }
+
+protected:
+
+    /// @brief Register the device asynchronously.
+    /**
+    @param[in] device The device to register.
+    */
+    virtual void asyncRegisterDevice(cloud6::DevicePtr device)
+    {
+        assert(!m_this.expired() && "Application is dead or not initialized");
+
+        HIVELOG_INFO(m_log_, "register device: " << device->id);
+        m_serverAPI->asyncRegisterDevice(device,
+            boost::bind(&This::onRegisterDevice,
+                m_this.lock(), _1, _2));
+    }
+
+
+    /// @brief The "register device" callback.
+    /**
+    Starts listening for commands from the server and starts "update" timer.
+
+    @param[in] err The error code.
+    @param[in] device The device.
+    */
+    virtual void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr device)
+    {
+        if (!err)
+            HIVELOG_INFO(m_log_, "got \"register device\" response: " << device->id);
+        else
+        {
+            HIVELOG_ERROR(m_log_, "register device error: ["
+                << err << "] " << err.message());
+        }
+    }
+
+protected:
+
+    /// @brief Poll commands asynchronously.
+    /**
+    @param[in] device The device to poll commands for.
+    */
+    virtual void asyncPollCommands(cloud6::DevicePtr device)
+    {
+        assert(!m_this.expired() && "Application is dead or not initialized");
+
+        HIVELOG_INFO(m_log_, "poll commands for: " << device->id);
+        m_serverAPI->asyncPollCommands(device,
+            boost::bind(&This::onPollCommands,
+                m_this.lock(), _1, _2, _3));
+    }
+
+
+    /// @brief The "poll commands" callback.
+    /**
+    @param[in] err The error code.
+    @param[in] device The device.
+    @param[in] commands The list of commands.
+    */
+    virtual void onPollCommands(boost::system::error_code err, cloud6::DevicePtr device,
+        std::vector<cloud6::Command> const& commands)
+    {
+        if (!err)
+        {
+            HIVELOG_INFO(m_log_, "got " << commands.size()
+                << " commands for: " << device->id);
+        }
+        else if (err == boost::asio::error::operation_aborted)
+            HIVELOG_DEBUG_STR(m_log_, "poll commands operation aborted");
+        else
+        {
+            HIVELOG_ERROR(m_log_, "poll commands error: ["
+                << err << "] " << err.message());
+        }
+    }
+
+protected:
+    http::Client::SharedPtr m_httpClient; ///< @brief The HTTP client.
+    cloud6::ServerAPI::SharedPtr m_serverAPI; ///< @brief The server API.
+
+private:
+    boost::weak_ptr<This> m_this; ///< @brief The weak pointer to this.
+    log::Logger m_log_; ///< @brief The module logger.
+};
+
 } // cloud6 namespace
 
 #endif // __DEVICEHIVE_CLOUD6_HPP_
