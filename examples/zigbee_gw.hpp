@@ -69,7 +69,7 @@ public:
         String networkDesc = "C++ device test network";
 
         String baseUrl = "http://ecloud.dataart.com/ecapi7";
-        String serialPortName = "COM33";
+        String serialPortName = "";
         UInt32 serialBaudrate = 9600;
 
         // custom device properties
@@ -100,6 +100,9 @@ public:
             else if (boost::algorithm::iequals(argv[i], "--baudrate") && i+1 < argc)
                 serialBaudrate = boost::lexical_cast<UInt32>(argv[++i]);
         }
+
+        if (serialPortName.empty())
+            throw std::runtime_error("no serial port name provided");
 
         pthis->m_xbee = XBeeAPI::create(pthis->m_serial);
         pthis->m_networkName = networkName;
@@ -738,7 +741,7 @@ public:
         String networkDesc = "C++ device test network";
 
         String baseUrl = "http://ecloud.dataart.com:8010/";
-        String serialPortName = "COM33";
+        String serialPortName = "";
         UInt32 serialBaudrate = 9600;
 
         // custom device properties
@@ -769,6 +772,9 @@ public:
             else if (boost::algorithm::iequals(argv[i], "--baudrate") && i+1 < argc)
                 serialBaudrate = boost::lexical_cast<UInt32>(argv[++i]);
         }
+
+        if (serialPortName.empty())
+            throw std::runtime_error("no serial port name provided");
 
         pthis->m_xbee = XBeeAPI::create(pthis->m_serial);
         pthis->m_networkName = networkName;
