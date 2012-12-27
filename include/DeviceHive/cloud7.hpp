@@ -377,11 +377,11 @@ protected:
     /// @brief The "action received" handler.
     /**
     @param[in] err The error code.
-    @param[in] action The received action.
+    @param[in] jaction The received action.
     */
-    virtual void onActionReceived(boost::system::error_code err, json::Value const& action)
+    virtual void onActionReceived(boost::system::error_code err, json::Value const& jaction)
     {
-        HIVELOG_DEBUG(m_log_, "got action: " << json::toStrH(action));
+        HIVELOG_DEBUG(m_log_, "got action: " << json::toStrH(jaction));
     }
 
 protected:
@@ -405,7 +405,7 @@ protected:
     @param[in] err The error code.
     @param[in] action The sent action.
     */
-    virtual void onActionSent(boost::system::error_code, json::Value action)
+    virtual void onActionSent(boost::system::error_code err, json::Value action)
     {
         HIVELOG_DEBUG(m_log_, "action sent: " << json::toStrH(action));
     }
@@ -416,7 +416,6 @@ protected:
     /**
     @param[in] deviceId The device identifier.
     @param[in] deviceKey The device key.
-    @param[in] callback The optional callback functor.
     */
     void asyncAuthenticate(String const& deviceId, String const& deviceKey)
     {

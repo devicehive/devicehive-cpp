@@ -894,6 +894,7 @@ public:
 
     /// @brief Parse the command or notification parameters (Field in JSON format).
     /**
+    @param[in] name The element name.
     @param[in] jval The JSON value related to field.
     @return The layout element.
     */

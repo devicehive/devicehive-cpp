@@ -356,7 +356,7 @@ protected:
 
 private: // ServerModuleREST
 
-    /// @copydoc ServerModuleREST::onRegisterDevice()
+    /// @copydoc cloud6::ServerModuleREST::onRegisterDevice()
     virtual void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr device)
     {
         ServerModuleREST::onRegisterDevice(err, device);
@@ -370,7 +370,7 @@ private: // ServerModuleREST
     }
 
 
-    /// @copydoc ServerModuleREST::onPollCommands()
+    /// @copydoc cloud6::ServerModuleREST::onPollCommands()
     virtual void onPollCommands(boost::system::error_code err, cloud6::DevicePtr device, std::vector<cloud6::Command> const& commands)
     {
         ServerModuleREST::onPollCommands(err, device, commands);
@@ -677,7 +677,7 @@ protected:
 
 private: // ServerModuleWS
 
-    /// @copydoc ServerModuleWS::onConnectedToServer()
+    /// @copydoc cloud7::ServerModuleWS::onConnectedToServer()
     virtual void onConnectedToServer(boost::system::error_code err)
     {
         ServerModuleWS::onConnectedToServer(err);
@@ -694,7 +694,7 @@ private: // ServerModuleWS
     }
 
 
-    /// @copydoc ServerModuleWS::onActionReceived()
+    /// @copydoc cloud7::ServerModuleWS::onActionReceived()
     virtual void onActionReceived(boost::system::error_code err, json::Value const& jaction)
     {
         ServerModuleWS::onActionReceived(err, jaction);
