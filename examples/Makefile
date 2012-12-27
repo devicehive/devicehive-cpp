@@ -26,6 +26,8 @@ ifndef CROSS_COMPILE
   # try to detect CROSS_COMPILE
   ifeq '${platform}' 'arm'
     CROSS_COMPILE=arm-unknown-linux-gnueabi-
+  else ifeq '${platform}' 'arm-bb'
+    CROSS_COMPILE=arm-angstrom-linux-gnueabi-
   endif
 endif
 
