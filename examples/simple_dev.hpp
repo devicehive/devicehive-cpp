@@ -401,7 +401,7 @@ private: // ServerModuleREST
                             json::Value ntf_params;
                             ntf_params["equipment"] = led->id;
                             ntf_params["state"] = state;
-                            m_serverAPI->asyncSendNotification(device,
+                            asyncInsertNotification(device,
                                 cloud6::Notification("equipment", ntf_params));
                         }
                         else
@@ -420,7 +420,7 @@ private: // ServerModuleREST
                 }
 
                 if (processed)
-                    m_serverAPI->asyncSendCommandResult(device, cmd);
+                    asyncUpdateCommand(device, cmd);
             }
 
             asyncPollCommands(device); // start poll again
@@ -463,7 +463,7 @@ private:
                         json::Value ntf_params;
                         ntf_params["equipment"] = sensor->id;
                         ntf_params["temperature"] = val;
-                        m_serverAPI->asyncSendNotification(m_device,
+                        asyncInsertNotification(m_device,
                             cloud6::Notification("equipment", ntf_params));
 
                         sensor->lastValue = val;
@@ -500,7 +500,7 @@ private:
                 json::Value ntf_params;
                 ntf_params["equipment"] = led->id;
                 ntf_params["state"] = state;
-                m_serverAPI->asyncSendNotification(m_device,
+                asyncInsertNotification(m_device,
                     cloud6::Notification("equipment", ntf_params));
             }
         }

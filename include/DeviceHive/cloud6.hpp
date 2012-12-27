@@ -1029,6 +1029,29 @@ protected:
     }
 
 protected:
+
+    /// @brief Update command result.
+    /**
+    @param[in] device The device.
+    @param[in] command The command to update.
+    */
+    void asyncUpdateCommand(DevicePtr device, Command const& command)
+    {
+        m_serverAPI->asyncSendCommandResult(device, command);
+    }
+
+
+    /// @brief Insert notification.
+    /**
+    @param[in] device The device.
+    @param[in] notification The notification to insert.
+    */
+    void asyncInsertNotification(DevicePtr device, Notification const& notification)
+    {
+        m_serverAPI->asyncSendNotification(device, notification);
+    }
+
+protected:
     http::Client::SharedPtr m_httpClient; ///< @brief The HTTP client.
     cloud6::ServerAPI::SharedPtr m_serverAPI; ///< @brief The server API.
 

@@ -274,7 +274,7 @@ private: // ServerModuleREST
                     }
 
                     if (processed)
-                        m_serverAPI->asyncSendCommandResult(device, cmd);
+                        asyncUpdateCommand(device, cmd);
                 }
 
                 asyncPollCommands(device); // start poll again
@@ -297,8 +297,8 @@ private: // ServerModuleREST
 
         for (size_t i = 0; i < N; ++i)
         {
-            cloud6::Notification ntf = zdev->delayedNotifications[i];
-            m_serverAPI->asyncSendNotification(zdev->device, ntf);
+            asyncInsertNotification(zdev->device,
+                zdev->delayedNotifications[i]);
         }
         zdev->delayedNotifications.clear();
     }
@@ -643,7 +643,7 @@ private:
                 cmd.status = data["status"].asString();
                 cmd.result = data["result"].asString();
 
-                m_serverAPI->asyncSendCommandResult(zdev->device, cmd);
+                asyncUpdateCommand(zdev->device, cmd);
             }
             else
                 HIVELOG_WARN_STR(m_log, "got command result before registration, ignored");
@@ -660,7 +660,7 @@ private:
 
                     if (zdev->deviceRegistered)
                     {
-                        m_serverAPI->asyncSendNotification(zdev->device,
+                        asyncInsertNotification(zdev->device,
                             cloud6::Notification(name, data));
                     }
                     else
