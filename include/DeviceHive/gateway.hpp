@@ -1115,6 +1115,7 @@ public:
         */
         static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::Element::SharedPtr layoutElement)
         {
+            // TODO: more checks on data types!!!
             switch (layoutElement->dataType)
             {
                 case DT_NULL:   break;
@@ -1160,6 +1161,13 @@ public:
 
                 case DT_ARRAY:
                 {
+                    if (!jval.isArray())
+                    {
+                        OStringStream ess;
+                        ess << "\"" << layoutElement->name << "\" is not an array";
+                        throw std::runtime_error(ess.str().c_str());
+                    }
+
                     const size_t N = jval.size();
                     bs.putUInt16LE(N);
                     for (size_t i = 0; i < N; ++i)
