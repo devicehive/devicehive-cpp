@@ -26,6 +26,8 @@ ifndef CROSS_COMPILE
   # try to detect CROSS_COMPILE
   ifeq '${platform}' 'arm'
     CROSS_COMPILE=arm-unknown-linux-gnueabi-
+  else ifeq '${platform}' 'arm-bb'
+    CROSS_COMPILE=arm-angstrom-linux-gnueabi-
   endif
 endif
 
@@ -54,25 +56,25 @@ CXXFLAGS+=-fdata-sections -ffunction-sections
 LDFLAGS+=-Wl,--gc-sections -pthread -L${ex_libs}
 #LIBS+=-lboost_system
 
-examples: simple_dev simple_gw xbee_gw
+examples: simple_dev simple_gw zigbee_gw
 
 simple_dev: ${home_path}/simple_dev.cpp
 	${CROSS_COMPILE}${CXX} -o simple_dev ${home_path}/simple_dev.cpp ${CXXFLAGS} ${LDFLAGS} \
-		-lboost_system
+		${ex_libs}/libboost_system.a
 
 simple_gw: ${home_path}/simple_gw.cpp
 	${CROSS_COMPILE}${CXX} -o simple_gw ${home_path}/simple_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
-		-lboost_system
+		${ex_libs}/libboost_system.a
 
-xbee_gw: ${home_path}/xbee_gw.cpp
-	${CROSS_COMPILE}${CXX} -o xbee_gw ${home_path}/xbee_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
-		-lboost_system
+zigbee_gw: ${home_path}/zigbee_gw.cpp
+	${CROSS_COMPILE}${CXX} -o zigbee_gw ${home_path}/zigbee_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
+		${ex_libs}/libboost_system.a
 
 #########################################################
 # clean all the object files and applications
 clean:
 	@rm -rf *.o
-	@rm -f simple_dev simple_gw xbee_gw
+	@rm -f simple_dev simple_gw zigbee_gw
 	@rm -f ${PCH_objects}
 
 

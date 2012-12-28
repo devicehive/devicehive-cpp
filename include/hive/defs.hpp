@@ -74,11 +74,11 @@ void f()
 typedef boost::noncopyable NonCopyable;
 
 
-    /// @brief The input/output tools.
+    /// @brief The miscellaneous tools.
     /**
-    This namespace contains various input/output streams.
+    This namespace contains various auxiliary tools.
     */
-    namespace io
+    namespace misc
     {}
 
 
@@ -87,7 +87,7 @@ typedef boost::noncopyable NonCopyable;
 #   if defined(_MSC_VER) && 1600 <= _MSC_VER
 #       define HIVE_HAS_RVALUE_REFS
 #   endif // _MSC_VER
-    // TODO: detect HIVE_HAS_RVALUE_REFS on gcc
+// TODO: detect HIVE_HAS_RVALUE_REFS on gcc
 #endif // !defined(HIVE_HAS_RVALUE_REFS)
 #if defined(HIVE_DOXY_MODE)
 #undef HIVE_HAS_RVALUE_REFS
@@ -101,12 +101,16 @@ the execution speed for some data type by eliminating copying.
 #define HIVE_HAS_RVALUE_REFS
 #endif // defined(HIVE_DOXY_MODE)
 
+} // hive namespace
+
+#endif // __HIVE_DEFS_HPP_
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /** @page page_hive_defs Common definitions
 
-The fixed-size integers {#section_hive_defs_int}
-================================================
+The fixed-size integers
+-----------------------
 
 The fixed-size integer is very useful for binary protocols.
 See also @ref page_hive_swab page for various byte ordering functions.
@@ -124,10 +128,11 @@ The following typedefs are available for unsigned integers:
 - hive::UInt64
 
 
-String and streams {#section_hive_defs_str}
-===========================================
+String and streams
+------------------
 
-The main purpose of these typedes is possibility to use UNICODE strings and streams in the future.
+The main purpose of these typedes is possibility to use UNICODE strings
+and streams in the future.
 
 The hive::String is used as container for string data.
 
@@ -139,12 +144,8 @@ Also the following stream typedefs are available:
 - hive::IStream
 
 
-Other typedefs {#section_hive_defs_other}
-=========================================
+Other typedefs
+--------------
 
 The hive::NonCopyable interface is used as "not permitted to copy" indicator.
 */
-
-} // hive namespace
-
-#endif // __HIVE_DEFS_HPP_

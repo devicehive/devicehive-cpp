@@ -21,7 +21,6 @@
 
 
 // TODO: logger configuration from file
-// TODO: custom format
 // TODO: description & examples
 
 namespace hive
@@ -32,26 +31,29 @@ namespace hive
 
 /// @brief The logging levels.
 /**
-There are a few main levels (ordered from the less important to the most important):
-    - hive::log::LEVEL_TRACE is used to log almost everything.
-    - hive::log::LEVEL_DEBUG is used to log debug information.
-    - hive::log::LEVEL_INFO is used to log main information.
-    - hive::log::LEVEL_WARN is used to log potentially dangerous situations.
-    - hive::log::LEVEL_ERROR is used to log non-critical errors or exceptions.
-    - hive::log::LEVEL_FATAL is used to log fatal errors.
+There are a few main levels (ordered from the less important
+to the most important):
+  - hive::log::LEVEL_TRACE is used to log almost everything
+  - hive::log::LEVEL_DEBUG is used to log debug information
+  - hive::log::LEVEL_INFO is used to log main information
+  - hive::log::LEVEL_WARN is used to log potentially dangerous situations
+  - hive::log::LEVEL_ERROR is used to log non-critical errors or exceptions
+  - hive::log::LEVEL_FATAL is used to log fatal errors
 
 and a few auxiliary levels:
-    - hive::log::LEVEL_OFF no any logging at all.
-    - hive::log::LEVEL_AS_PARENT is used in loggers hierarchy.
+  - hive::log::LEVEL_ALL is used to log everything
+  - hive::log::LEVEL_OFF no any logging at all
+  - hive::log::LEVEL_AS_PARENT is used in loggers hierarchy
 */
 enum Level
 {
-    LEVEL_TRACE,    ///< @brief The TRACE level.
-    LEVEL_DEBUG,    ///< @brief The DEBUG level.
-    LEVEL_INFO,     ///< @brief The INFO level.
-    LEVEL_WARN,     ///< @brief The WARN level.
-    LEVEL_ERROR,    ///< @brief The ERROR level.
-    LEVEL_FATAL,    ///< @brief The FATAL level.
+    LEVEL_ALL,      ///< @brief Full logging.
+    LEVEL_TRACE,    ///< @brief The **TRACE** level.
+    LEVEL_DEBUG,    ///< @brief The **DEBUG** level.
+    LEVEL_INFO,     ///< @brief The **INFO** level.
+    LEVEL_WARN,     ///< @brief The **WARN** level.
+    LEVEL_ERROR,    ///< @brief The **ERROR** level.
+    LEVEL_FATAL,    ///< @brief The **FATAL** level.
     LEVEL_OFF,      ///< @brief No logging.
     LEVEL_AS_PARENT ///< @brief The same as parent.
 };
@@ -65,7 +67,8 @@ You have to deal with this class directly only if you develop
 your own log target or formatter. See hive::log::Target::send()
 and hive::log::Format::format() methods.
 
-@warning This class doesn't make any copies of strings. Be careful with strings lifetime.
+@warning This class doesn't make any copies of strings.
+Be careful with strings lifetime.
 */
 class Message
 {
@@ -94,11 +97,16 @@ public:
     @param[in] file_ The source file name.
     @param[in] line_ The source line number.
     */
-    Message(const char* loggerName_, Level level_, const char* message_, const char *prefix_, const char* file_, int line_)
-        : loggerName(loggerName_), level(level_),
-          message(message_), prefix(prefix_),
-          file(file_), line(line_),
-          timestamp(boost::posix_time::microsec_clock::universal_time())
+    Message(const char* loggerName_, Level level_,
+            const char* message_, const char *prefix_,
+            const char* file_, int line_)
+        : loggerName(loggerName_)
+        , level(level_)
+        , message(message_)
+        , prefix(prefix_)
+        , file(file_)
+        , line(line_)
+        , timestamp(boost::posix_time::microsec_clock::universal_time())
     {}
 };
 
@@ -106,14 +114,30 @@ public:
 /// @brief The log message format.
 /**
 This is base class for all log message formats.
+Derived classes should override the format() virtual method.
+
+The create() factory method should be used
+to get new instances of the Format class.
 
 By default uses simple format:
-    timestamp logger level {prefix message}
-
+~~~
+timestamp logger level prefix message
+~~~
 This format is always available through defaultFormat() static method.
 
-The getLevelName() static method may be used to convert logging level
-into the text representation.
+Also there is possible to use custom format (with `printf`-like syntax) which
+is available through customFormat() static method. For example, default format
+is equivalent to "%T %N %L %M\n". The following format options are allowed:
+
+| option | description                    |
+|--------|-------------------------------|
+| `%%T`  | the timestamp                  |
+| `%%N`  | the logger name                |
+| `%%L`  | the logging level              |
+| `%%M`  | the log message (with prefix)  |
+
+The auxiliary getLevelName() static method might be used to convert
+logging level into the text representation.
 */
 class Format
 {
@@ -121,6 +145,15 @@ protected:
 
     /// @brief The default constructor.
     Format()
+    {}
+
+
+    /// @brief The main constructor.
+    /**
+    @param[in] fmt The custom format string.
+    */
+    explicit Format(String const& fmt)
+        : m_format(fmt)
     {}
 
 public:
@@ -137,29 +170,46 @@ public:
 
     /// @brief The factory method.
     /**
-    @return The new simple format instance.
+    @param[in] fmt The custom format string.
+        Empty string for the default format.
+    @return The new format instance.
     */
-    static SharedPtr create()
+    static SharedPtr create(String const& fmt = String())
     {
-        return SharedPtr(new Format());
+        return SharedPtr(new Format(fmt));
     }
 
 public:
 
-    /// @brief %Format the log message.
+    /// @brief Get the custom format string.
     /**
-    Uses defaultFormat() method as implementation.
+    @return The custom format string.
+    Empty string means default format.
+    */
+    String const& getCustomFormat() const
+    {
+        return m_format;
+    }
+
+public:
+
+    /// @brief Do the log message formatting.
+    /**
+    Uses defaultFormat() or customFormat() method as an implementation.
 
     @param[in,out] os The output stream.
     @param[in] msg The log message to format.
     */
     virtual void format(OStream &os, Message const& msg)
     {
-        defaultFormat(os, msg);
+        if (!m_format.empty())
+            customFormat(os, msg, m_format);
+        else
+            defaultFormat(os, msg);
     }
 
 
-    /// @brief %Format the log message (simple format).
+    /// @brief %Format the log message (default format).
     /**
     @param[in,out] os The output stream.
     @param[in] msg The log message to format.
@@ -169,8 +219,8 @@ public:
         os //<< "<<<"
             << msg.timestamp << ' ';
         if (msg.loggerName)
-            os << msg.loggerName;
-        os << ' ' << getLevelName(msg.level)
+            os << msg.loggerName << ' ';
+        os << getLevelName(msg.level)
             << ' ';
         if (msg.prefix)
             os << msg.prefix;
@@ -178,6 +228,63 @@ public:
             os << msg.message;
         os //<< ">>>"
             << '\n';
+    }
+
+
+    /// @brief %Format the log message (custom format).
+    /**
+    @param[in,out] os The output stream.
+    @param[in] msg The log message to format.
+    @param[in] fmt The custom format string.
+    */
+    static void customFormat(OStream &os, Message const& msg, String const& fmt)
+    {
+        const size_t N = fmt.size();
+        for (size_t i = 0; i < N; ++i)
+        {
+            const char ch = fmt[i];
+
+            if (ch == '%' && (i+1) < N)
+            {
+                const char ext = fmt[++i];
+                // TODO: width and fill?
+
+                switch (ext)
+                {
+                    case '%':       // percent
+                        os.put(ext);
+                        break;
+
+                    case 'T':       // timestamp
+                        // TODO: advanced time formats like %Y/%m/%D %H:%M:%S
+                        os << msg.timestamp;
+                        break;
+
+                    case 'N':       // logger name
+                        if (msg.loggerName)
+                            os << msg.loggerName;
+                        break;
+
+                    case 'L':       // logging level
+                        os << getLevelName(msg.level);
+                        break;
+
+                    case 'M':       // message
+                        if (msg.prefix)
+                            os << msg.prefix;
+                        if (msg.message)
+                            os << msg.message;
+                        break;
+
+                    default:        // unknown format
+                        os.put(ch);
+                        os.put(ext);
+                        break;
+                }
+            }
+            else
+                os.put(ch);
+        }
     }
 
 public:
@@ -191,31 +298,39 @@ public:
     {
         switch (level)
         {
-            case LEVEL_TRACE:     return "TRACE";
-            case LEVEL_DEBUG:     return "DEBUG";
-            case LEVEL_INFO:      return "INFO";
-            case LEVEL_WARN:      return "WARN";
-            case LEVEL_ERROR:     return "ERROR";
-            case LEVEL_FATAL:     return "FATAL";
+            case LEVEL_TRACE:       return "TRACE";
+            case LEVEL_DEBUG:       return "DEBUG";
+            case LEVEL_INFO:        return "INFO";
+            case LEVEL_WARN:        return "WARN";
+            case LEVEL_ERROR:       return "ERROR";
+            case LEVEL_FATAL:       return "FATAL";
 
-            case LEVEL_OFF:       return "OFF";
-            case LEVEL_AS_PARENT: return "PARENT";
+            case LEVEL_ALL:         return "ALL";
+            case LEVEL_OFF:         return "OFF";
+            case LEVEL_AS_PARENT:   return "PARENT";
         }
 
         return "UNKNOWN";
     }
+
+protected:
+    String m_format; ///< @brief The custom format string.
 };
 
 
 /// @brief The log target.
 /**
 This is the base class for all log targets - endpoint for all log messages.
-Base class does nothing and works like NULL target.
+Base class does nothing and works like a **NULL** target.
 
-See also the inner classes for standard targets: Stderr, File and Tie.
+See the inner classes for standard targets: Stream, File and Tie.
 
-The target uses specified log message format (see setFormat())
+The target uses specified log message format (see setFormat() method)
 or hive::log::Format::defaultFormat() if no any format provided.
+
+There is a simple filter feature - you can provide the minimum logging level.
+All log messages with the logging level below this limit will be ignored.
+This simple message filter is disabled by default.
 */
 class Target
 {
@@ -223,6 +338,7 @@ protected:
 
     /// @brief The default constructor.
     Target()
+        : m_minimumLevel(LEVEL_ALL)
     {}
 
 public:
@@ -257,9 +373,6 @@ public:
         // do nothing by default
     }
 
-private:
-    Format::SharedPtr m_format; ///< @brief The message format.
-
 public:
 
     /// @brief Set message format.
@@ -274,19 +387,123 @@ public:
     }
 
 
-    /// @brief Get current message format.
+    /// @brief Get message format.
     /**
-    @return The current message format. May be NULL.
+    @return The message format. May be NULL.
     */
     Format::SharedPtr getFormat() const
     {
         return m_format;
     }
 
+public:
+
+    /// @brief Set the minimum level.
+    /**
+    @param[in] level The minimum logging level.
+    */
+    Target& setMinimumLevel(Level level)
+    {
+        m_minimumLevel = level;
+        return *this;
+    }
+
+
+    /// @brief Get the minimum level.
+    /**
+    @return The minimum logging level.
+    */
+    Level getMinimumLevel() const
+    {
+        return m_minimumLevel;
+    }
+
 public: // common targets
+    class Stream;
     class File;
-    class Stderr;
     class Tie;
+
+protected:
+    Format::SharedPtr m_format; ///< @brief The message format.
+    Level m_minimumLevel; ///< @brief The simple message filter.
+};
+
+
+/// @brief The "Stream" target.
+/**
+Sends log messages to an external stream, for example: `std::cerr` or `std::cout`.
+
+Note, the stream object is stored as reference. Mind the stream lifetime.
+*/
+class Target::Stream:
+    private NonCopyable,
+    public Target
+{
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] os The output stream.
+    */
+    explicit Stream(OStream &os)
+        : m_os(os)
+    {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<Stream> SharedPtr;
+
+
+    /// @brief The factory method.
+    /**
+    @param[in] os The output stream.
+    @return The new "Stream" target instance.
+    */
+    static SharedPtr create(OStream &os)
+    {
+        return SharedPtr(new Stream(os));
+    }
+
+
+    /// @brief The factory method (std::cout).
+    /**
+    Uses `std::cout` stream as a target stream.
+    @return The new "Stream" target instance.
+    */
+    static SharedPtr createStdout()
+    {
+        return create(std::cout);
+    }
+
+
+    /// @brief The factory method (std::cerr).
+    /**
+    Uses `std::cerr` stream as a target stream.
+    @return The new "Stream" target instance.
+    */
+    static SharedPtr createStderr()
+    {
+        return create(std::cerr);
+    }
+
+public:
+
+    /// @copydoc Target::send()
+    virtual void send(Message const& msg) const
+    {
+        // apply simple message filter
+        if (msg.level < getMinimumLevel())
+            return;
+
+        if (Format::SharedPtr fmt = getFormat())
+            fmt->format(m_os, msg);
+        else
+            Format::defaultFormat(m_os, msg);
+    }
+
+protected:
+    OStream & m_os; ///< @brief The output stream reference.
 };
 
 
@@ -294,14 +511,32 @@ public: // common targets
 /**
 Sends log messages to the file stream.
 
-All write operations may be automatically flushed to disk
-but of course it reduces the overal application performance.
-The "auto-flush" logging level is used to control this process.
-By default it's hive::log::LEVEL_WARN, so all WARNING, ERROR
-and FATAL message will be automatically flushed, other messages
-(INFO, DEBUG, TRACE) will not.
+All write operations may be automatically flushed to disk but of course it
+reduces the overal application performance. The "auto-flush" logging level
+is used to control this process. By default it's hive::log::LEVEL_WARN,
+so all **WARN**, **ERROR** and **FATAL** message will be automatically
+flushed, other messages (**INFO**, **DEBUG**, **TRACE**) will not.
+
+A log file size limit might be specified as long as a maximum number
+of log file backups. The file size limit isn't perfect precised and has the
+log message boundary. That means that the whole log message will be written
+although there is only one byte of free space in the log file. Once log file
+is full the "backup" procedure will be started:
+
+|   before   |    after   | comments                   |
+|------------|------------|----------------------------|
+| `my.log.4` |            | deleted (the oldest)       |
+| `my.log.3` | `my.log.4` | rename: `log.3` -> `log.4` |
+| `my.log.2` | `my.log.3` | rename: `log.2` -> `log.3` |
+| `my.log.1` | `my.log.2` | rename: `log.1` -> `log.2` |
+| `my.log.0` | `my.log.1` | rename: `log.0` -> `log.1` |
+| `my.log`   | `my.log.0` | rename: `log` -> `log.0`   |
+|            | `my.log`   | created (the newest)       |
+
+Note, it's not recommended to provide log file size limit with no backups.
+
+By default there is no any file size limit and therefore no backups.
 */
-// TODO: limit the file size and the number of backups!
 class Target::File:
     private NonCopyable,
     public Target
@@ -313,8 +548,12 @@ protected:
     @param[in] fileName The log file name.
     @param[in] autoFlushLevel The "auto-flush" logging level.
     */
-    explicit File(String const& fileName, Level autoFlushLevel)
-        : m_fileName(fileName), m_autoFlushLevel(autoFlushLevel)
+    File(String const& fileName, Level autoFlushLevel)
+        : m_fileName(fileName)
+        , m_autoFlushLevel(autoFlushLevel)
+        , m_maxFileSize(0)
+        , m_numOfBackups(0)
+        , m_needNewFile(false)
     {}
 
 public:
@@ -336,19 +575,49 @@ public:
 
 public:
 
-    /// @brief Send log message to the target.
+    /// @brief Set the log file size limit.
     /**
-    @param[in] msg The log message.
+    @param[in] maxFileSize The maximum file size in bytes.
+    @return The self reference.
     */
+    File& setMaxFileSize(size_t maxFileSize)
+    {
+        m_maxFileSize = maxFileSize;
+        return *this;
+    }
+
+
+    /// @brief Set the maximum number of backups.
+    /**
+    @param[in] N The maximum number of backups.
+    @return The self reference.
+    */
+    File& setNumberOfBackups(size_t N)
+    {
+        m_numOfBackups = N;
+        return *this;
+    }
+
+public:
+
+    /// @copydoc Target::send()
     virtual void send(Message const& msg) const
     {
-        if (!m_file.is_open() || !m_file) // try to open/reopen
+        // apply simple message filter
+        if (msg.level < getMinimumLevel())
+            return;
+
+        if (!m_file.is_open()) // try to open/reopen
         {
-            m_file.close();
-            m_file.open(m_fileName.c_str());
+            if (m_needNewFile)
+                startNewFile();
+
+            m_file.clear();
+            m_file.open(m_fileName.c_str(),
+                std::ios::app); // append!
         }
 
-        if (m_file.is_open() && m_file) // write message
+        if (m_file.is_open()) // write message
         {
             if (Format::SharedPtr fmt = getFormat())
                 fmt->format(m_file, msg);
@@ -357,58 +626,97 @@ public:
 
             if (m_autoFlushLevel <= msg.level)
                 m_file.flush();
+
+            // check the file size...
+            const std::streamsize sz = m_file.tellp();
+            if (m_maxFileSize && m_maxFileSize <= sz)
+            {
+                // restart next time!
+                m_needNewFile = true;
+                m_file.close();
+            }
         }
+    }
+
+private:
+
+    /// @brief Start new log file.
+    /**
+    Do backups and start writing to new file.
+    */
+    void startNewFile() const
+    {
+        const size_t W = getNumOfDigits();
+        const size_t N = m_numOfBackups;
+
+        if (0 < N)
+        {
+            // remove the latest one
+            String next = buildFileName(N-1, W);
+            ::remove(next.c_str());
+
+            // level-up the backups
+            for (size_t i = N-1; 0 < i; --i)
+            {
+                String prev = buildFileName(i-1, W);
+                ::rename(prev.c_str(), next.c_str());
+                next = prev;
+            }
+
+            // reset the current log file
+            ::rename(m_fileName.c_str(), next.c_str());
+        }
+        else
+        {
+            // remove the current log file
+            ::remove(m_fileName.c_str());
+        }
+    }
+
+
+    /// @brief Build backup file name.
+    /**
+    @param[in] index The backup index.
+    @param[in] width The number of backup digits.
+    @return The backup file name.
+    */
+    String buildFileName(size_t index, size_t width) const
+    {
+        OStringStream oss;
+        oss.fill('0');
+        oss << m_fileName << '.'
+            << std::setw(width)
+            << index;
+        return oss.str();
+    }
+
+
+    /// @brief Get the number of backup digits.
+    /**
+    The output is equal to `ceil(log10(m_numOfBackups))`.
+    @return The number of backup digits.
+    */
+    size_t getNumOfDigits() const
+    {
+        size_t H = 10;
+        size_t n = 1;
+        while (H < m_numOfBackups && n < 10)
+        {
+            H *= 10;
+            n += 1;
+        }
+        return n;
     }
 
 private:
     String m_fileName; ///< @brief The file name.
     Level m_autoFlushLevel; ///< @brief The "auto-flush" level.
 
+    std::streamsize m_maxFileSize; ///< @brief The maximum file size in bytes.
+    size_t m_numOfBackups; ///< @brief The maximum number of backups.
+    mutable bool m_needNewFile; ///< @brief The need new file flag.
+
     mutable std::ofstream m_file; ///< @brief The file stream.
-};
-
-
-/// @brief The "Stderr" target.
-/**
-Sends log messages to the standard error stream.
-*/
-class Target::Stderr:
-    public Target
-{
-protected:
-
-    /// @brief The default constructor.
-    explicit Stderr()
-    {}
-
-public:
-
-    /// @brief The shared pointer type.
-    typedef boost::shared_ptr<Stderr> SharedPtr;
-
-
-    /// @brief The factory method.
-    /**
-    @return The new "Stderr" target instance.
-    */
-    static SharedPtr create()
-    {
-        return SharedPtr(new Stderr());
-    }
-
-public:
-
-    /// @brief Send log message to the target.
-    /**
-    @param[in] msg The log message.
-    */
-    virtual void send(Message const& msg) const
-    {
-        if (Format::SharedPtr fmt = getFormat())
-            fmt->format(std::cerr, msg);
-        else
-            Format::defaultFormat(std::cerr, msg);
-    }
 };
 
 
@@ -417,10 +725,11 @@ public:
 Sends log messages to the several targets.
 
 You can add many child targets using add() method.
-There is no way to remove child target,
-it's only possible to remove all child targets using clear().
+There is no way to remove child target, it's only
+possible to remove all child targets using clear().
 
-The add() method returns self reference so you can combine mutiple inserts into one line:
+The add() method returns self reference so you can
+combine mutiple inserts into one line:
 
 ~~~{.cpp}
 hive::log::Target::Tie::SharedPtr tie = hive::log::Target::Tie::create();
@@ -432,6 +741,12 @@ If the number of child targets is less than five you can use create() method:
 ~~~{.cpp}
 hive::log::Target::Tie::SharedPtr tie = hive::log::Target::Tie::create(t1, t2, t3, t4);
 ~~~
+
+It is possible to specify the minimum logging level filter for each child target individually.
+That means each message will be filtered three times:
+  - Tie target filter itself
+  - Tie child filter (specified with add() method)
+  - child target filter
 */
 class Target::Tie:
     public Target
@@ -473,34 +788,38 @@ public:
 
 public:
 
-    /// @brief Send log message to the target.
-    /**
-    @param[in] msg The log message.
-    */
+    /// @copydoc Target::send()
     virtual void send(Message const& msg) const
     {
+        // apply simple message filter
+        if (msg.level < getMinimumLevel())
+            return;
+
         Container::const_iterator i = m_childs.begin();
         Container::const_iterator const e = m_childs.end();
         for (; i != e; ++i)
-            (*i)->send(msg);
-    }
+        {
+            Target::SharedPtr target = i->first;
+            Level minimumLevel = i->second;
 
-private:
-    typedef Target::SharedPtr Child; ///< @brief The child target type.
-    typedef std::vector<Child> Container; ///< @brief The list of child targets type.
-    Container m_childs; ///< @brief The list of child targets.
+            // apply simple message filter individually
+            if (minimumLevel <= msg.level)
+                target->send(msg);
+        }
+    }
 
 public:
 
     /// @brief Add child target.
     /**
     @param[in] target The child target.
+    @param[in] minimumLevel The minimum logging level.
     @return The self reference.
     */
-    Tie& add(Target::SharedPtr target)
+    Tie& add(Target::SharedPtr target, Level minimumLevel = LEVEL_ALL)
     {
         if (target)
-            m_childs.push_back(target);
+            m_childs.push_back(std::make_pair(target, minimumLevel));
         return *this;
     }
 
@@ -514,6 +833,11 @@ public:
         m_childs.clear();
         return *this;
     }
+
+protected:
+    typedef std::pair<Target::SharedPtr, Level> Child; ///< @brief The child target type.
+    typedef std::vector<Child> Container; ///< @brief The list of child targets type.
+    Container m_childs; ///< @brief The list of child targets.
 };
 
 
@@ -521,8 +845,9 @@ public:
 /**
 This is the main class of the logging tools.
 
-All loggers organized into tree hierarchy. The root logger available through root() static method.
-By default root() logger send messages to the standard error stream at the hive::log::LEVEL_WARN level.
+All loggers organized into tree hierarchy. The root logger available
+through root() static method. By default root() logger send messages
+to the standard error stream at the **WARN** level.
 */
 class Logger
 {
@@ -542,12 +867,12 @@ private:
 
         /// @brief The default constructor.
         /**
-        @param[in] log_name The logger name.
-        @param[in] log_level The logging level.
+        @param[in] name_ The logger name.
+        @param[in] level_ The logging level.
         */
-        Impl(String const& log_name, Level log_level)
-            : level(log_level),
-              name(log_name)
+        Impl(String const& name_, Level level_)
+            : level(level_)
+            , name(name_)
         {}
 
     public:
@@ -578,10 +903,6 @@ private:
         }
     };
 
-
-    /// @brief The implementation data.
-    Impl::SharedPtr m_impl;
-
 public:
 
     /// @brief The main constructor.
@@ -598,7 +919,7 @@ private:
     /**
     Is used for "root" logger.
 
-    The log level is WARN and the target is "Stderr" by default.
+    The log level is **WARN** and the target is `std::cerr` stream by default.
     */
     Logger()
         : m_impl(getRootImpl())
@@ -635,7 +956,7 @@ public:
     */
     bool isEnabledFor(Level level) const
     {
-        boost::shared_ptr<Impl> i = m_impl;
+        Impl::SharedPtr i = m_impl;
 
         while (i)
         {
@@ -672,13 +993,48 @@ public:
 
     /// @brief Set the target.
     /**
-    @param[in] target The target.
+    @param[in] target The new target.
     @return The self reference.
     */
     Logger& setTarget(Target::SharedPtr target)
     {
         m_impl->target = target;
         return *this;
+    }
+
+public:
+
+    /// @brief Get the root logger.
+    /**
+    @return The root logger reference.
+    */
+    static Logger& root()
+    {
+        // empty name
+        static Logger L;
+        return L;
+    }
+
+public:
+
+    /// @brief Send log message to the target.
+    /**
+    If there is no appropriate target found then the log message is ignored.
+
+    @param[in] level The logging level.
+    @param[in] message The log message.
+    @param[in] prefix The log message prefix (optional).
+    @param[in] file The source file name (optional).
+    @param[in] line The source line number.
+    */
+    void send(Level level, const char* message, const char *prefix, const char* file, int line) const
+    {
+        if (Target::SharedPtr target = getAppropriateTarget())
+        {
+            Message msg(getName().c_str(), level,
+                message, prefix, file, line);
+            target->send(msg);
+        }
     }
 
 private:
@@ -691,7 +1047,7 @@ private:
     */
     Target::SharedPtr getAppropriateTarget() const
     {
-        boost::shared_ptr<Impl> i = m_impl;
+        Impl::SharedPtr i = m_impl;
 
         while (i)
         {
@@ -716,7 +1072,7 @@ private:
     {
         const char SEP = '/'; // name separator
 
-        boost::shared_ptr<Impl> impl = root().m_impl;
+        Impl::SharedPtr impl = root().m_impl;
         String new_name; //new_name.reserve(name.size());
 
         for (size_t t = 0; ;) // tokinizer position
@@ -756,60 +1112,12 @@ private:
     static Impl::SharedPtr getRootImpl()
     {
         Impl::SharedPtr impl(new Impl(String(), LEVEL_WARN));
-        impl->target = Target::Stderr::create();
+        impl->target = Target::Stream::createStderr();
         return impl;
     }
 
-public:
-
-    /// @brief Get the root logger.
-    /**
-    @return The root logger reference.
-    */
-    static Logger& root()
-    {
-        // empty name
-        static Logger L;
-        return L;
-    }
-
-public:
-
-    /// @brief Send log message to the target.
-    /**
-    If there is no appropriate targets found then the log message is ignored.
-
-    @param[in] level The logging level.
-    @param[in] message The log message.
-    @param[in] prefix The log message prefix (optional).
-    @param[in] file The source file name.
-    @param[in] line The source line number.
-    */
-    void send(Level level, String const& message, const char* prefix = 0, const char* file = 0, int line = 0) const
-    {
-        send(level, message.c_str(), prefix, file, line);
-    }
-
-
-    /// @brief Send log message to the target.
-    /**
-    If there is no appropriate targets found then the log message is ignored.
-
-    @param[in] level The logging level.
-    @param[in] message The log message.
-    @param[in] prefix The log message prefix (optional).
-    @param[in] file The source file name.
-    @param[in] line The source line number.
-    */
-    void send(Level level, const char* message, const char *prefix = 0, const char* file = 0, int line = 0) const
-    {
-        if (Target::SharedPtr target = getAppropriateTarget())
-        {
-            Message msg(getName().c_str(), level,
-                message, prefix, file, line);
-            target->send(msg);
-        }
-    }
+private:
+    Impl::SharedPtr m_impl; ///< @brief The implementation.
 };
 
 
@@ -819,8 +1127,8 @@ public:
 /// @brief The code block logging.
 /**
 Is used to log method calls or other code blocks.
-At construction sends "Enter" log message.
-At destruction sends "Leave" log message.
+At construction sends *ENTER* log message.
+At destruction sends *LEAVE* log message.
 
 For example:
 
@@ -832,6 +1140,8 @@ void f()
     // function body
 }
 ~~~
+
+Cannot be used with temporary strings.
 */
 class Block
 {
@@ -839,7 +1149,7 @@ public:
 
     /// @brief The main constructor.
     /**
-    Sends the "Enter" log message.
+    Sends the *ENTER* log message.
 
     @param[in] logger The logger.
     @param[in] level The logging level.
@@ -848,7 +1158,11 @@ public:
     @param[in] line The line number.
     */
     Block(Logger const& logger, Level level, const char* message, const char* file, int line)
-        : m_logger(logger), m_level(level), m_message(message), m_file(file), m_line(line)
+        : m_logger(logger)
+        , m_level(level)
+        , m_message(message)
+        , m_file(file)
+        , m_line(line)
     {
         if (m_logger.isEnabledFor(m_level))
         {
@@ -860,7 +1174,7 @@ public:
 
     /// @brief The destructor.
     /**
-    Sends the "Leave" log message.
+    Sends the *LEAVE* log message.
     */
     ~Block()
     {
@@ -881,75 +1195,6 @@ private:
 
         } // impl namespace
     } // log namespace
-
-
-///////////////////////////////////////////////////////////////////////////////
-/** @page page_hive_log Logging tools
-
-This page is under construction!!!
-
-If your log message contains only static string (i.e. no additional parameters)
-it's better to use `_STR` macroses.
-
-Disable logging at compile time {#section_hive_log_disable}
-===========================================================
-
-You can define the following macroses before include hive/log.hpp:
-    - #HIVELOG_DISABLE_FATAL
-    - #HIVELOG_DISABLE_ERROR
-    - #HIVELOG_DISABLE_WARN
-    - #HIVELOG_DISABLE_INFO
-    - #HIVELOG_DISABLE_DEBUG
-    - #HIVELOG_DISABLE_TRACE
-
-Log levels are depend on the parent level. So if you disable INFO level,
-the DEBUG and TRACE will be disabled automatically.
-
-It's reasonable to disable DEBUG and TRACE logging for release builds.
-
-
-Targets {#section_hive_log_target}
-======================================
-
-hive::log::Target is the base class for all targets.
-There are a few standard targets:
-    - hive::log::Target::File sends log messages to the text file.
-    - hive::log::Target::Stderr sends log messages to the standard error stream.
-    - hive::log::Target::Tie sends log messages to the several child targets.
-
-The instances of these classes should be created with corresponding create() factory methods.
-
-Each target may be binded with custom message format which will be used for all log messages.
-
-
-Formats {#section_hive_log_format}
-==================================
-
-Currently the only one simple format is supported: hive::log::Format::defaultFormat().
-
-
-Loggers {#section_hive_log_logger}
-==================================
-
-Logger is used to separate different log streams. For each logger it's possible to
-specify custom name, and logging level.
-
-All loggers are organized in tree hierarchy (logger name based).
-
-For example if you create the following loggers:
-    hive::log::Logger a("/myapp/test/A");
-    hive::log::Logger b("/myapp/test/B");
-
-The hiearachy will be:
-    - "" (the root logger hive::log::Logger::root())
-        - "myapp"
-            - "test"
-                - "A"
-                - "B"
-
-All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
-*/
-
 } // hive namespace
 
 
@@ -960,7 +1205,7 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 /**
 @param[in] logger The logger.
 @param[in] message The log message.
-@param[in] level The logging level shortcut.
+@param[in] level The logging level.
 @hideinitializer
 */
 #define IMPL_HIVELOG_BODY(logger, message, level)               \
@@ -970,7 +1215,7 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
             hive::OStringStream oss;                            \
             oss << message;                                     \
             (logger).send(hive::log::level,                     \
-                oss.str(), 0, __FILE__, __LINE__);              \
+                oss.str().c_str(), 0, __FILE__, __LINE__);      \
         }                                                       \
     } while (0)
 
@@ -978,8 +1223,8 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 /// @brief Send simple log string.
 /**
 @param[in] logger The logger.
-@param[in] message The log message.
-@param[in] level The logging level shortcut.
+@param[in] message The log message (C-string).
+@param[in] level The logging level.
 @hideinitializer
 */
 #define IMPL_HIVELOG_STR_BODY(logger, message, level)           \
@@ -992,11 +1237,11 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
     } while (0)
 
 
-/// @brief Define "enter/leave" log block.
+/// @brief Define *ENTER/LEAVE* log block.
 /**
 @param[in] logger The logger.
-@param[in] message The log message.
-@param[in] level The logging level shortcut.
+@param[in] message The log message (C-string).
+@param[in] level The logging level.
 @hideinitializer
 */
 #define IMPL_HIVELOG_BLOCK_BODY(logger, message, level)         \
@@ -1043,11 +1288,11 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 /// @name Compile-time logging control
 /// @{
 #define HIVELOG_DISABLE_FATAL ///< @brief Define this macro to disable all logging at compile time.
-#define HIVELOG_DISABLE_ERROR ///< @brief Define this macro to disable ERROR and below logging at compile time.
-#define HIVELOG_DISABLE_WARN  ///< @brief Define this macro to disable WARN and below logging at compile time.
-#define HIVELOG_DISABLE_INFO  ///< @brief Define this macro to disable INFO and below logging at compile time.
-#define HIVELOG_DISABLE_DEBUG ///< @brief Define this macro to disable DEBUG and below logging at compile time.
-#define HIVELOG_DISABLE_TRACE ///< @brief Define this macro to disable TRACE and below logging at compile time.
+#define HIVELOG_DISABLE_ERROR ///< @brief Define this macro to disable **ERROR** and below logging at compile time.
+#define HIVELOG_DISABLE_WARN  ///< @brief Define this macro to disable **WARN** and below logging at compile time.
+#define HIVELOG_DISABLE_INFO  ///< @brief Define this macro to disable **INFO** and below logging at compile time.
+#define HIVELOG_DISABLE_DEBUG ///< @brief Define this macro to disable **DEBUG** and below logging at compile time.
+#define HIVELOG_DISABLE_TRACE ///< @brief Define this macro to disable **TRACE** and below logging at compile time.
 /// @}
 #endif // HIVE_DOXY_MODE
 
@@ -1060,26 +1305,29 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 /// @name TRACE logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at TRACE level.
+/// @brief Send a log message at **TRACE** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_TRACE(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at TRACE level.
+/// @brief Send a log string at **TRACE** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_TRACE_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Define "enter/leave" block at TRACE level.
+/// @brief Define *ENTER/LEAVE* block at **TRACE** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The block name.
+@hideinitializer
 */
 #define HIVELOG_TRACE_BLOCK(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1107,26 +1355,29 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 /// @name DEBUG logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at DEBUG level.
+/// @brief Send a log message at **DEBUG** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_DEBUG(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at DEBUG level.
+/// @brief Send a log string at **DEBUG** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_DEBUG_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Define "enter/leave" block at DEBUG level.
+/// @brief Define *ENTER/LEAVE* block at **DEBUG** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The block name.
+@hideinitializer
 */
 #define HIVELOG_DEBUG_BLOCK(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1154,26 +1405,29 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 /// @name INFO logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at INFO level.
+/// @brief Send a log message at **INFO** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_INFO(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at INFO level.
+/// @brief Send a log string at **INFO** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_INFO_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Define "enter/leave" block at INFO level.
+/// @brief Define *ENTER/LEAVE* block at **INFO** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The block name.
+@hideinitializer
 */
 #define HIVELOG_INFO_BLOCK(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1200,18 +1454,20 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 /// @name WARN logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at WARN level.
+/// @brief Send a log message at **WARN** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_WARN(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at WARN level.
+/// @brief Send a log string at **WARN** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_WARN_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1235,18 +1491,20 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 /// @name ERROR logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at ERROR level.
+/// @brief Send a log message at **ERROR** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_ERROR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at ERROR level.
+/// @brief Send a log string at **ERROR** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_ERROR_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1270,18 +1528,20 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 /// @name FATAL logging
 /// @{
 
-/// @hideinitializer @brief Send a log message at FATAL level.
+/// @brief Send a log message at **FATAL** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log message.
+@hideinitializer
 */
 #define HIVELOG_FATAL(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
 
-/// @hideinitializer @brief Send a log string at FATAL level.
+/// @brief Send a log string at **FATAL** level.
 /**
 @param[in] logger The logger instance.
 @param[in] message The log string.
+@hideinitializer
 */
 #define HIVELOG_FATAL_STR(logger, message) \
     IMPL_HIVELOG_DISABLED(logger, message)
@@ -1298,3 +1558,104 @@ All loggers have the hive::log::LEVEL_AS_PARENT logging level by default.
 #endif // defined(HIVELOG_DISABLE_FATAL)
 
 #endif // macro magic
+
+
+///////////////////////////////////////////////////////////////////////////////
+/** @page page_hive_log Logging tools
+
+The following logging levels are defined (in order from the most important
+to the less important):
+
+|   level   |     enum constant      | macro to log message                                          | macro to disable at compile time |
+|-----------|------------------------|---------------------------------------------------------------|----------------------------------|
+| **FATAL** | hive::log::LEVEL_FATAL | #HIVELOG_FATAL \n #HIVELOG_FATAL_STR                          | #HIVELOG_DISABLE_FATAL           |
+| **ERROR** | hive::log::LEVEL_ERROR | #HIVELOG_ERROR \n #HIVELOG_ERROR_STR                          | #HIVELOG_DISABLE_ERROR           |
+| **WARN**  | hive::log::LEVEL_WARN  | #HIVELOG_WARN  \n #HIVELOG_WARN_STR                           | #HIVELOG_DISABLE_WARN            |
+| **INFO**  | hive::log::LEVEL_INFO  | #HIVELOG_INFO  \n #HIVELOG_INFO_STR  \n #HIVELOG_INFO_BLOCK   | #HIVELOG_DISABLE_INFO            |
+| **DEBUG** | hive::log::LEVEL_DEBUG | #HIVELOG_DEBUG \n #HIVELOG_DEBUG_STR \n #HIVELOG_DEBUG_BLOCK  | #HIVELOG_DISABLE_DEBUG           |
+| **TRACE** | hive::log::LEVEL_TRACE | #HIVELOG_TRACE \n #HIVELOG_TRACE_STR \n #HIVELOG_TRACE_BLOCK  | #HIVELOG_DISABLE_TRACE           |
+
+If your log message contains only static string (i.e. no additional parameters)
+it's better to use corresponding `_STR` macro for overall application performance.
+`_BLOCK` macro is used to track function calls - it produces *ENTER* and *LEAVE*
+log messages.
+
+You could disable any logging level at compile time. Note, that logging level
+depends on the underlying level. For example, if you disable **INFO** level,
+the **DEBUG** and **TRACE** will be disabled automatically.
+
+It's reasonable to disable **DEBUG** and **TRACE** logging levels
+for the release builds.
+
+
+Targets
+-------
+
+The log target is an endpoint for all log messages. hive::log::Target is the
+base class of all log targets. It also works like a **NULL** target -
+all messages just disappear.
+
+There are a few standard targets:
+  - hive::log::Target::Stream sends log messages to the external stream like `std::cerr`.
+  - hive::log::Target::File sends log messages to the text file.
+  - hive::log::Target::Tie sends log messages to the several child targets.
+
+It is easy to create new log target by overriding
+hive::log::Target::send() virtual method.
+
+Each target may be binded with custom message format
+hive::log::Target::setFormat() which will be used for all log messages.
+
+It is possible to filter log messages by hive::log::Target::setMinimumLevel().
+All messages with logging level less than that limit will disappear (i.e. won't
+be written). Note, for hive::log::Target::Tie instances it's possible to
+specify minimum logging level for each child target individually.
+
+
+Formats
+-------
+
+How the log messages are written to the target is controlled by
+a hive::log::Format class instance. This instance is bound to
+the corresponding log target via hive::log::Target::setFormat() method.
+
+There is simple format which is used by default:
+~~~
+timestamp logger level message
+~~~
+
+But it is easy to customize formatting:
+  - by overriding hive::log::Format::format() virtual method
+  - or by using custom format string with the `printf`-like syntax.
+
+Have a look at the hive::log::Format class documentation for more details.
+
+
+Loggers
+-------
+
+Loggers are used to separate different log streams. For each logger it's
+possible to specify custom name, log target and logging level.
+
+It's very easy to create logger instances, just provide the custom name:
+
+~~~{.cpp}
+hive::log::Logger a("/app/test/A");
+hive::log::Logger b("/app/test/B");
+~~~
+
+All loggers are organized in tree hierarchy (name based with '/' separator).
+The root of hierarhy is special hive::log::Logger::root() logger instance
+which is also available via empty name.
+For example above the loggerhiearachy will be:
+  - the root logger hive::log::Logger::root()
+    - `"app"`
+      - `"test"`
+        - `"A"`
+        - `"B"`
+
+All loggers except for hive::log::Logger::root() have
+the hive::log::LEVEL_AS_PARENT logging level by default.
+While logging this level is checked first,
+then the target minimum logging level.
+*/

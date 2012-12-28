@@ -4,15 +4,12 @@
     <Filter Include="hive">
       <UniqueIdentifier>{a589313a-b121-4e02-ab63-1e9e3911fc6f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Examples">
-      <UniqueIdentifier>{71b9b444-3acb-4492-9ee1-25a6fd10f55c}</UniqueIdentifier>
-    </Filter>
     <Filter Include="DeviceHive">
       <UniqueIdentifier>{c3a3ad6e-ef5d-4187-a7fa-ee60314b2da3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\hive\bstream.hpp">
+    <ClInclude Include="..\..\include\hive\bin.hpp">
       <Filter>hive</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\hive\defs.hpp">
@@ -42,16 +39,10 @@
     <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp">
       <Filter>DeviceHive</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\DeviceHive\binary.hpp">
-      <Filter>DeviceHive</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\DeviceHive\gateway.hpp">
-      <Filter>DeviceHive</Filter>
-    </ClInclude>
     <ClInclude Include="..\basic_app.hpp" />
-    <ClInclude Include="..\simple_gw.hpp" />
+    <ClInclude Include="..\simple_dev.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\simple_gw.cpp" />
+    <ClCompile Include="..\simple_dev.cpp" />
   </ItemGroup>
 </Project>

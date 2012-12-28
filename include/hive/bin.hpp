@@ -1,34 +1,811 @@
 /** @file
-@brief The binary transceiver prototype (experimental).
+@brief The binary tools.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
-#ifndef __DEVICEHIVE_BINARY_HPP_
-#define __DEVICEHIVE_BINARY_HPP_
+#ifndef __HIVE_BIN_HPP_
+#define __HIVE_BIN_HPP_
 
-#include <hive/bstream.hpp>
-#include <hive/swab.hpp>
-#include <hive/dump.hpp>
-#include <hive/log.hpp>
+#include "swab.hpp"
+#include "dump.hpp"
+#include "log.hpp"
 
 #if !defined(HIVE_PCH)
 #   include <boost/shared_ptr.hpp>
 #   include <boost/asio.hpp>
+#   include <istream>
+#   include <ostream>
 #   include <vector>
 #   include <deque>
 #endif // HIVE_PCH
 
 
-/// @brief The binary transceiver prototype (experimental).
-namespace binary
+namespace hive
 {
-    using namespace hive;
+    /// @brief The binary tools.
+    namespace bin
+    {
+
+/// @brief The binary output stream.
+/**
+Writes binary formatted data to an external output stream.
+*/
+// TODO: check errors!
+class OStream
+{
+public:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] stream The external stream.
+    */
+    explicit OStream(hive::OStream &stream)
+        : m_stream(stream)
+    {}
+
+
+    /// @brief Get the external stream.
+    /**
+    @return The external stream reference.
+    */
+    hive::OStream& getStream()
+    {
+        return m_stream;
+    }
+
+#if 1
+/// @name Fixed-size integers (host byte order)
+/// @{
+public:
+
+    /// @brief Write unsigned 8-bits integer.
+    /**
+    @param[in] val The value to write.
+    */
+    void putUInt8(UInt8 val)
+    {
+        putIntX(val);
+    }
+
+
+    /// @brief Write signed 8-bits integer.
+    /**
+    @param[in] val The value to write.
+    */
+    void putInt8(Int8 val)
+    {
+        putIntX(val);
+    }
+
+
+    /// @brief Write unsigned 16-bits integer.
+    /**
+    @param[in] val The value to write.
+    */
+    void putUInt16(UInt16 val)
+    {
+        putIntX(val);
+    }
+
+
+    /// @brief Write signed 16-bits integer.
+    /**
+    @param[in] val The value to write.
+    */
+    void putInt16(Int16 val)
+    {
+        putIntX(val);
+    }
+
+
+    /// @brief Write unsigned 32-bits integer.
+    /**
+    @param[in] val The value to write.
+    */
+    void putUInt32(UInt32 val)
+    {
+        putIntX(val);
+    }
+
+
+    /// @brief Write signed 32-bits integer.
+    /**
+    @param[in] val The value to write.
+    */
+    void putInt32(Int32 val)
+    {
+        putIntX(val);
+    }
+
+
+    /// @brief Write unsigned 64-bits integer.
+    /**
+    @param[in] val The value to write.
+    */
+    void putUInt64(UInt64 val)
+    {
+        putIntX(val);
+    }
+
+
+    /// @brief Write signed 64-bits integer.
+    /**
+    @param[in] val The value to write.
+    */
+    void putInt64(Int64 val)
+    {
+        putIntX(val);
+    }
+/// @}
+#endif // fixed-size integers (host byte order)
+
+#if 1
+/// @name Fixed-size integers (little-endian)
+/// @{
+public:
+
+    /// @copydoc putUInt16()
+    void putUInt16LE(UInt16 val)
+    {
+        putIntX(misc::le2h_16(val));
+    }
+
+
+    /// @copydoc putInt16()
+    void putInt16LE(Int16 val)
+    {
+        putIntX(misc::le2h_16(val));
+    }
+
+
+    /// @copydoc putUInt32()
+    void putUInt32LE(UInt32 val)
+    {
+        putIntX(misc::le2h_32(val));
+    }
+
+
+    /// @copydoc putInt32()
+    void putInt32LE(Int32 val)
+    {
+        putIntX(misc::le2h_32(val));
+    }
+
+
+    /// @copydoc putUInt64()
+    void putUInt64LE(UInt64 val)
+    {
+        putIntX(misc::le2h_64(val));
+    }
+
+
+    /// @copydoc putInt64()
+    void putInt64LE(Int64 val)
+    {
+        putIntX(misc::le2h_64(val));
+    }
+
+/// @}
+#endif // fixed-size integers (little-endian)
+
+#if 1
+/// @name Fixed-size integers (big-endian)
+/// @{
+public:
+
+    /// @copydoc putUInt16()
+    void putUInt16BE(UInt16 val)
+    {
+        putIntX(misc::be2h_16(val));
+    }
+
+
+    /// @copydoc putInt16()
+    void putInt16BE(Int16 val)
+    {
+        putIntX(misc::be2h_16(val));
+    }
+
+
+    /// @copydoc putUInt32()
+    void putUInt32BE(UInt32 val)
+    {
+        putIntX(misc::be2h_32(val));
+    }
+
+
+    /// @copydoc putInt32()
+    void putInt32BE(Int32 val)
+    {
+        putIntX(misc::be2h_32(val));
+    }
+
+
+    /// @copydoc putUInt64()
+    void putUInt64BE(UInt64 val)
+    {
+        putIntX(misc::be2h_64(val));
+    }
+
+
+    /// @copydoc putInt64()
+    void putInt64BE(Int64 val)
+    {
+        putIntX(misc::be2h_64(val));
+    }
+
+/// @}
+#endif // fixed-size integers (big-endian)
+
+#if 1
+/// @name Variable-size integers
+/// @{
+public:
+
+    /// @brief Write unsigned 32-bits integer in variable size format.
+    /**
+    @param[in] val The value to write.
+    */
+    void putUInt32V(UInt32 val)
+    {
+        putIntXV(val);
+    }
+
+
+    /// @brief Write unsigned 64-bits integer in variable size format.
+    /**
+    @param[in] val The value to write.
+    */
+    void putUInt64V(UInt64 val)
+    {
+        putIntXV(val);
+    }
+
+
+    /// @brief Write signed 32-bits integer in variable size format (*zig-zag* mode).
+    /**
+    @param[in] val The value to write.
+    */
+    void putInt32VZ(Int32 val)
+    {
+        putUInt32V((val<<1) ^ (val>>31));
+    }
+
+
+    /// @brief Write signed 64-bits integer in variable size format (*zig-zag* mode).
+    /**
+    @param[in] val The value to write.
+    */
+    void putInt64VZ(Int64 val)
+    {
+        putUInt64V((val<<1) ^ (val>>63));
+    }
+
+/// @}
+#endif // variable-size integers
+
+/// @name String and custom data buffer
+/// @{
+public:
+
+    /// @brief Write the custom string.
+    /**
+    Writes length and raw data. No encoding changes.
+
+    @param[in] val The value to write.
+    */
+    void putString(String const& val)
+    {
+        putUInt32V(UInt32(val.size()));
+        m_stream.write(val.data(), val.size());
+    }
+
+
+    /// @brief Write custom data buffer.
+    /**
+    @param[in] buf The buffer to write.
+    @param[in] len The buffer length in bytes.
+    */
+    void putBuffer(const void *buf, size_t len)
+    {
+        m_stream.write(static_cast<const char*>(buf), len);
+    }
+/// @}
+
+private:
+
+    /// @brief Write custom integer.
+    /**
+    @param[in] val The value to write.
+    */
+    template<typename IntX>
+    void putIntX(IntX val)
+    {
+        // The RAW converter.
+        union Val2Raw
+        {
+            char raw[sizeof(IntX)]; // The RAW bytes.
+            IntX val;               // The integer.
+        };
+
+        Val2Raw buf;
+        buf.val = val;
+
+        //static_assert(sizeof(val) == sizeof(buf))
+        m_stream.write(buf.raw, sizeof(Val2Raw));
+    }
+
+
+    /// @brief Write custom integer in variable size format.
+    /**
+    @param[in] val The value to write.
+    */
+    template<typename UIntX>
+    void putIntXV(UIntX val)
+    {
+        // go through all bytes, LSB-first
+        for (size_t b = 0; b < sizeof(UIntX); ++b)
+        {
+            // data (7 bits)
+            const int d = int(val)&0x7F;
+            val >>= 7;
+
+            // 'continue' flag
+            const int f = (0 != val);
+
+            m_stream.put((f<<7) | d);
+            if (!f)
+                break;
+        }
+    }
+
+private:
+    hive::OStream &m_stream; ///< @brief The external output stream.
+};
+
+
+/// @brief The binary input stream.
+/**
+Reads binary formatted data from an external input stream.
+*/
+// TODO: check errors!!!
+class IStream
+{
+public:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] stream The external stream.
+    */
+    explicit IStream(hive::IStream &stream)
+        : m_stream(stream)
+    {}
+
+
+    /// @brief Get the external stream.
+    /**
+    @return The external stream reference.
+    */
+    hive::IStream& getStream()
+    {
+        return m_stream;
+    }
+
+#if 1
+/// @name Fixed-size integers (host byte order)
+/// @{
+public:
+
+    /// @brief Read unsigned 8-bits integer.
+    /**
+    @return The read value.
+    */
+    UInt8 getUInt8()
+    {
+        return getIntX<UInt8>();
+    }
+
+
+    /// @brief Read signed 8-bits integer.
+    /**
+    @return The read value.
+    */
+    Int8 getInt8()
+    {
+        return getIntX<Int8>();
+    }
+
+
+    /// @brief Read unsigned 16-bits integer.
+    /**
+    @return The read value.
+    */
+    UInt16 getUInt16()
+    {
+        return getIntX<UInt16>();
+    }
+
+
+    /// @brief Read signed 16-bits integer.
+    /**
+    @return The read value.
+    */
+    Int16 getInt16()
+    {
+        return getIntX<Int16>();
+    }
+
+
+    /// @brief Read unsigned 32-bits integer.
+    /**
+    @return The read value.
+    */
+    UInt32 getUInt32()
+    {
+        return getIntX<UInt32>();
+    }
+
+
+    /// @brief Read signed 32-bits integer.
+    /**
+    @return The read value.
+    */
+    Int32 getInt32()
+    {
+        return getIntX<Int32>();
+    }
+
+
+    /// @brief Read unsigned 64-bits integer.
+    /**
+    @return The read value.
+    */
+    UInt64 getUInt64()
+    {
+        return getIntX<UInt64>();
+    }
+
+
+    /// @brief Read signed 64-bits integer.
+    /**
+    @return The read value.
+    */
+    Int64 getInt64()
+    {
+        return getIntX<Int64>();
+    }
+
+/// @}
+#endif // fixed-size integers (host byte order)
+
+#if 1
+/// @name Fixed-size integers (little-endian)
+/// @{
+public:
+
+    /// @copydoc getUInt16()
+    UInt16 getUInt16LE()
+    {
+        return misc::h2le_16(getIntX<UInt16>());
+    }
+
+
+    /// @copydoc getInt16()
+    Int16 getInt16LE()
+    {
+        return misc::h2le_16(getIntX<Int16>());
+    }
+
+
+    /// @copydoc getUInt32()
+    UInt32 getUInt32LE()
+    {
+        return misc::h2le_32(getIntX<UInt32>());
+    }
+
+
+    /// @copydoc getInt32()
+    Int32 getInt32LE()
+    {
+        return misc::h2le_32(getIntX<Int32>());
+    }
+
+
+    /// @copydoc getUInt64()
+    UInt64 getUInt64LE()
+    {
+        return misc::h2le_64(getIntX<UInt64>());
+    }
+
+
+    /// @copydoc getInt64()
+    Int64 getInt64LE()
+    {
+        return misc::h2le_64(getIntX<Int64>());
+    }
+
+/// @}
+#endif // fixed-size integers (little-endian)
+
+#if 1
+/// @name Fixed-size integers (big-endian)
+/// @{
+public:
+
+    /// @copydoc getUInt16()
+    UInt16 getUInt16BE()
+    {
+        return misc::h2be_16(getIntX<UInt16>());
+    }
+
+
+    /// @copydoc getInt16()
+    Int16 getInt16BE()
+    {
+        return misc::h2be_16(getIntX<Int16>());
+    }
+
+
+    /// @copydoc getUInt32()
+    UInt32 getUInt32BE()
+    {
+        return misc::h2be_32(getIntX<UInt32>());
+    }
+
+
+    /// @copydoc getInt32()
+    Int32 getInt32BE()
+    {
+        return misc::h2be_32(getIntX<Int32>());
+    }
+
+
+    /// @copydoc getUInt64()
+    UInt64 getUInt64BE()
+    {
+        return misc::h2be_64(getIntX<UInt64>());
+    }
+
+
+    /// @copydoc getInt64()
+    Int64 getInt64BE()
+    {
+        return misc::h2be_64(getIntX<Int64>());
+    }
+
+/// @}
+#endif // fixed-size integers (big-endian)
+
+#if 1
+/// @name Variable-size integers
+/// @{
+public:
+
+    /// @brief Read unsigned 32-bits integer in variable size format.
+    /**
+    @return The read value.
+    */
+    UInt32 getUInt32V()
+    {
+        return getIntXV<UInt32>();
+    }
+
+
+    /// @brief Read unsigned 64-bits integer in variable size format.
+    /**
+    @return The read value.
+    */
+    UInt64 getUInt64V()
+    {
+        return getIntXV<UInt64>();
+    }
+
+
+    /// @brief Read signed 32-bits integer in variable size format (*zig-zag* mode).
+    /**
+    @return The read value.
+    */
+    Int32 getInt32VZ()
+    {
+        const UInt32 val = getUInt32V();
+        return (val>>1) ^ -Int32(val&1);
+    }
+
+
+    /// @brief Read signed 64-bits integer in variable size format (*zig-zag* mode).
+    /**
+    @return The read value.
+    */
+    Int64 getInt64VZ()
+    {
+        const UInt64 val = getUInt64V();
+        return (val>>1) ^ -Int64(val&1);
+    }
+/// @}
+#endif // variable-size integers
+
+/// @name String and custom data buffer
+/// @{
+public:
+
+    /// @brief Read the custom string.
+    /**
+    @return The read value.
+    */
+    String getString()
+    {
+        size_t len = size_t(getUInt32V());
+        String res; res.reserve(len);
+
+        char buf[64]; // "read" buffer
+        while (0 < len)
+        {
+            const size_t n = (len < sizeof(buf))
+                ? len : sizeof(buf); // minimum
+
+            m_stream.read(buf, n);
+            res.append(buf, buf+n);
+
+            len -= n;
+        }
+
+        return res;
+    }
+
+
+    /// @brief Read custom data buffer.
+    /**
+    @param[in] buf The buffer read to.
+    @param[in] len The buffer length in bytes.
+    */
+    void getBuffer(void *buf, size_t len)
+    {
+        m_stream.read(static_cast<char*>(buf), len);
+    }
+/// @}
+
+private:
+
+    /// @brief Read custom integer.
+    /**
+    @return The read value.
+    */
+    template<typename IntX>
+    IntX getIntX()
+    {
+        // The RAW converter.
+        union Val2Raw
+        {
+            char raw[sizeof(IntX)]; // The RAW bytes.
+            IntX val;               // The integer.
+        };
+
+        Val2Raw buf;
+
+        // static_assert(sizeof(val) == sizeof(buf))
+        buf.val = 0; // default value
+        m_stream.read(buf.raw, sizeof(Val2Raw));
+        return buf.val;
+    }
+
+
+    /// @brief Read custom integer in variable size format.
+    /**
+    @return The read value.
+    */
+    template<typename UIntX>
+    UIntX getIntXV()
+    {
+        UIntX val = 0;
+
+        // go through all bytes, LSB-first
+        for (size_t i = 0; i < sizeof(UIntX); ++i)
+        {
+            // 'continue' flag and data (7 bits)
+            int f_d = m_stream.get();
+
+            // data (7 bits)
+            val |= UIntX(f_d&0x7F) << (i*7);
+
+            // 'continue'
+            if (!(f_d&0x80))
+                break;
+        }
+
+        return val;
+    }
+
+private:
+    hive::IStream &m_stream; ///< @brief The external input stream.
+};
+
+
+/// @brief The binary frame content.
+/**
+This is auxiliary base class for all binary frame formats.
+
+This class holds the whole frame content incuding header, payload, and checksum.
+The empty frame doesn't contain any data.
+*/
+class FrameContent
+{
+public:
+
+    /// @brief The default constructor.
+    /**
+    Constructs the empty frame.
+    */
+    FrameContent()
+    {}
+
+public:
+
+    /// @brief The binary content type.
+    typedef std::vector<UInt8> Content;
+
+
+    /// @brief Get the frame content.
+    /**
+    @return The frame content.
+    */
+    Content const& getContent() const
+    {
+        return m_content;
+    }
+
+
+    /// @brief Is the frame empty?
+    /**
+    @return `true` if the frame is empty.
+    */
+    bool empty() const
+    {
+        return m_content.empty();
+    }
+
+
+    /// @brief Get the frame size.
+    /**
+    This size includes the header size, frame payload and checksum.
+    @return The frame size in bytes.
+    */
+    size_t size() const
+    {
+        return m_content.size();
+    }
+
+public:
+
+    /// @brief The constant iterator type.
+    typedef Content::const_iterator Iterator;
+
+
+    /// @brief Get the begin of frame content.
+    /**
+    @return The begin of frame content.
+    */
+    Iterator begin() const
+    {
+        return m_content.begin();
+    }
+
+
+    /// @brief Get the end of frame content.
+    /**
+    @return The end of frame content.
+    */
+    Iterator end() const
+    {
+        return m_content.end();
+    }
+
+protected:
+    Content m_content; ///< @brief The frame content.
+};
+
 
 /// @brief The simple frame example.
 /**
 The main aim of this class is to demonstrate frame prototype for all other formats.
-
-This class holds the whole frame content incuding header, payload, and checksum.
-The empty frame doesn't contain any data.
 
 The frame format is quite simple:
 
@@ -40,7 +817,8 @@ The frame format is quite simple:
 |   payload | N
 |  checksum | 1
 */
-class SimpleFrame
+class SimpleFrame:
+    public FrameContent
 {
 public:
 
@@ -212,16 +990,6 @@ public:
         return frame;
     }
 
-
-    /// @brief Get the frame content.
-    /**
-    @return The frame content.
-    */
-    std::vector<UInt8> const& getContent() const
-    {
-        return m_content;
-    }
-
 public:
 
     /// @brief Get the frame intent.
@@ -241,28 +1009,6 @@ public:
         }
 
         return -1; // unknown
-    }
-
-public:
-
-    /// @brief Is the frame empty?
-    /**
-    @return `true` if the frame is empty.
-    */
-    bool empty() const
-    {
-        return m_content.empty();
-    }
-
-
-    /// @brief Get the frame size.
-    /**
-    This size includes the header size, frame payload and checksum.
-    @return The frame size in bytes.
-    */
-    size_t size() const
-    {
-        return m_content.size();
     }
 
 protected:
@@ -311,9 +1057,6 @@ protected:
             m_content.begin(),
             m_content.end()));
     }
-
-protected:
-    std::vector<UInt8> m_content; ///< @brief The frame content.
 };
 
 
@@ -512,7 +1255,7 @@ private:
                 << " bytes, RX buffer: ["
                 << hexdump(m_rx_buf) << "]");
 
-            while (1) // try to parse frames
+            while (0 < m_rx_buf.size()) // try to parse frames
             {
                 typename Frame::ParseResult result = Frame::RESULT_SUCCESS;
                 if (FrameSPtr frame = Frame::parseFrame(m_rx_buf, &result))
@@ -733,6 +1476,27 @@ protected:
     log::Logger m_log; ///< @brief The logger instance.
 };
 
-} // binary namespace
+    } // bin namespace
+} // hive namespace
 
-#endif // __DEVICEHIVE_BINARY_HPP_
+#endif // __HIVE_BIN_HPP_
+
+
+///////////////////////////////////////////////////////////////////////////////
+/** @page page_hive_bin Binary tools
+
+This page is under construction!
+================================
+
+Binary streams
+--------------
+
+Binary formats. hive::bin::OStream and hive::bin::IStream should
+be used with std::stringstream or boost::asio::streambuf.
+
+Variable size format for unsigned integers.
+
+Zig-Zag format for signed integers.
+
+Examples.
+*/

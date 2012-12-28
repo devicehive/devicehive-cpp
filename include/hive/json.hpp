@@ -2,10 +2,6 @@
 @brief The JSON classes.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 
-Some implementation is based on http://jsoncpp.sourceforge.net/ library by Baptiste Lepilleur.
-
-See also RFC-4627 http://tools.ietf.org/html/rfc4627
-
 @see @ref page_hive_json
 */
 #ifndef __HIVE_JSON_HPP_
@@ -23,11 +19,23 @@ See also RFC-4627 http://tools.ietf.org/html/rfc4627
 #   include <map>
 #endif // HIVE_PCH
 
+// extension: single quoted strings
+#if !defined(HIVE_JSON_SINGLE_QUOTED_STRING)
+#   define HIVE_JSON_SINGLE_QUOTED_STRING   1
+#endif // HIVE_JSON_SINGLE_QUOTED_STRING
+
+// extension: simple strings [0-9A-Za-z]
+#if !defined(HIVE_JSON_SIMPLE_STRING)
+#   define HIVE_JSON_SIMPLE_STRING          1
+#endif // HIVE_JSON_SIMPLE_STRING
+
+
 namespace hive
 {
     /// @brief The JSON module.
     /**
     This namespace contains classes and functions related to JSON data processing.
+    @see @ref page_hive_json
     */
     namespace json
     {
@@ -151,46 +159,40 @@ public:
 
 /// @brief The JSON value.
 /**
-The JSON value may be one of the following:
-    - NULL
-    - boolean
-    - integer
-    - double
-    - string
-    - array
-    - object
+The JSON value is a variant type, which may be one of the following:
+  - **NULL**
+  - **BOOLEAN**
+  - **INTEGER**
+  - **DOUBLE**
+  - **STRING**
+  - **ARRAY**
+  - **OBJECT**
 
-JSON conversions {#hive_json_value_conv}
-========================================
+UNDER CONSTRUCTION!
+-------------------
 
-Some of JSON values may be converted to the another. There is the conversion table:
-    - to boolean:
-        - from NULL is always converted as `false`
-        - zero integers as `false`, non-zero as `true`
-        - zero floating-point as `false`, non-zero as `true`
-        - empty string as `false`
-        - "false" string as `false`
-        - "true" string as `true`
-    - to integer:
-        - from NULL as `0`
-        - from boolean as `0` or `1`
-        - empty string as `0`
-        - from string parsed value
-    - to double:
-        - from NULL as `0.0`
-        - from boolean as `0.0` or `1.0`
-        - from integers
-        - empty string as `0.0`
-        - from string parsed value
-    - to string:
-        - from NULL as empty string
-        - from boolean as `"true"` or `"false"`
-        - from integers
-        - from floating-point
-    - to array:
-        - from NULL as empty array
-    - to object:
-        - from NULL as empty object
+There are some automatic conversions:
+  - **NULL** to **ARRAY**
+  - **NULL** to **OBJECT**
+
+| type          | type check    | conversion check          | conversion    |
+|---------------|---------------|---------------------------|---------------|
+| **NULL**      | isNull()      |                           |               |
+| **BOOLEAN**   | isBool()      | isConvertibleToBool()     | asBool()      |
+| **INTEGER**   | isInteger()   | isConvertibleToInteger()  | asInt()       |
+| **DOUBLE**    | isDouble()    | isConvertibleToDouble()   | asDouble()    |
+| **STRING**    | isString()    | isConvertibleToString()   | asString()    |
+| **ARRAY**     | isArray()     |                           |               |
+| **OBJECT**    | isObject()    |                           |               |
+
+There are also a lot of fixed-size integer conversions (with value range check):
+
+| integer   | unsigned                  | signed                |
+|-----------|---------------------------|-----------------------|
+| 64-bits   | asUInt64() \n asUInt()    | asInt64() \n asInt()  |
+| 32-bits   | asUInt32()                | asInt32()             |
+| 16-bits   | asUInt16()                | asInt16()             |
+| 8-bits    | asUInt8()                 | asInt8()              |
 */
 class Value
 {
@@ -199,112 +201,48 @@ public:
     /// @brief The value type.
     enum Type
     {
-        TYPE_NULL,    ///< @brief The NULL value.
-        TYPE_BOOLEAN, ///< @brief The boolean value.
-        TYPE_INTEGER, ///< @brief The integer value.
-        TYPE_DOUBLE,  ///< @brief The floating-point value.
-        TYPE_STRING,  ///< @brief The string value.
-        TYPE_ARRAY,   ///< @brief The array value.
-        TYPE_OBJECT   ///< @brief The object value.
+        TYPE_NULL,    ///< @brief The **NULL** value type.
+        TYPE_BOOLEAN, ///< @brief The **BOOLEAN** value type.
+        TYPE_INTEGER, ///< @brief The **INTEGER** value type.
+        TYPE_DOUBLE,  ///< @brief The **DOUBLE** value type.
+        TYPE_STRING,  ///< @brief The **STRING** value type.
+        TYPE_ARRAY,   ///< @brief The **ARRAY** value type.
+        TYPE_OBJECT   ///< @brief The **OBJECT** value type.
     };
 
-/// @name Constructors
+#if 1
+/// @name Main constructors
 /// @{
 public:
 
     /// @brief The default constructor.
     /**
-    This constructor may be used to make empty arrays or objects.
-
-    @param[in] type The value type (NULL by default).
+    This constructor creates the **NULL** value by default.
+    But it's possible to construct default value of any type,
+    especially empty **ARRAY** or **OBJECT** values.
+    @param[in] type The value type.
     */
     explicit Value(Type type = TYPE_NULL)
         : m_type(type)
     {
-        m_val.u = 0;
+        m_val.i = 0; // avoid garbage
     }
 
 
-    /// @brief Construct the boolean value.
+    /// @brief Construct the **BOOLEAN** value.
     /**
-    @param[in] val The boolean value.
+    @param[in] val The value.
     */
     /*explicit*/ Value(bool val)
         : m_type(TYPE_BOOLEAN)
     {
-        m_val.u = val?1:0;
+        m_val.i = val?1:0;
     }
 
 
-    /// @brief Construct the integer value (8 bits).
+    /// @brief Construct the **INTEGER** value.
     /**
-    @param[in] val The signed integer value.
-    */
-    /*explicit*/ Value(Int8 val)
-        : m_type(TYPE_INTEGER)
-    {
-        m_val.i = val;
-    }
-
-
-    /// @brief Construct the integer value (8 bits).
-    /**
-    @param[in] val The unsigned integer value.
-    */
-    /*explicit*/ Value(UInt8 val)
-        : m_type(TYPE_INTEGER)
-    {
-        m_val.u = val;
-    }
-
-
-    /// @brief Construct the integer value (16 bits).
-    /**
-    @param[in] val The signed integer value.
-    */
-    /*explicit*/ Value(Int16 val)
-        : m_type(TYPE_INTEGER)
-    {
-        m_val.i = val;
-    }
-
-
-    /// @brief Construct the integer value (16 bits).
-    /**
-    @param[in] val The unsigned integer value.
-    */
-    /*explicit*/ Value(UInt16 val)
-        : m_type(TYPE_INTEGER)
-    {
-        m_val.u = val;
-    }
-
-
-    /// @brief Construct the integer value (32 bits).
-    /**
-    @param[in] val The signed integer value.
-    */
-    /*explicit*/ Value(Int32 val)
-        : m_type(TYPE_INTEGER)
-    {
-        m_val.i = val;
-    }
-
-
-    /// @brief Construct the integer value (32 bits).
-    /**
-    @param[in] val The unsigned integer value.
-    */
-    /*explicit*/ Value(UInt32 val)
-        : m_type(TYPE_INTEGER)
-    {
-        m_val.u = val;
-    }
-
-
-    /// @brief Construct the integer value (64 bits).
-    /**
-    @param[in] val The signed integer value.
+    @param[in] val The value.
     */
     /*explicit*/ Value(Int64 val)
         : m_type(TYPE_INTEGER)
@@ -313,20 +251,9 @@ public:
     }
 
 
-    /// @brief Construct the integer value (64 bits).
+    /// @brief Construct the **DOUBLE** value.
     /**
-    @param[in] val The unsigned integer value.
-    */
-    /*explicit*/ Value(UInt64 val)
-        : m_type(TYPE_INTEGER)
-    {
-        m_val.u = val;
-    }
-
-
-    /// @brief Construct the floating-point value.
-    /**
-    @param[in] val The floating-point value.
+    @param[in] val The value.
     */
     /*explicit*/ Value(double val)
         : m_type(TYPE_DOUBLE)
@@ -335,9 +262,105 @@ public:
     }
 
 
-    /// @brief Construct the floating-point value.
+    /// @brief Construct the **STRING** value.
     /**
-    @param[in] val The floating-point value.
+    @param[in] val The value.
+    */
+    /*explicit*/ Value(String const& val)
+        : m_type(TYPE_STRING)
+        , m_str(val)
+    {
+        m_val.i = 0; // avoid garbage
+    }
+/// @}
+#endif // main constructors
+
+#if 1
+/// @name Auxiliary constructors
+/// @{
+public:
+
+    /// @brief Construct the **INTEGER** value (unsigned 64 bits).
+    /**
+    @param[in] val The value.
+    */
+    /*explicit*/ Value(UInt64 val)
+        : m_type(TYPE_INTEGER)
+    {
+        m_val.i = val;
+        // TODO: check for signed overflow (m_val.i < 0)?
+    }
+
+
+    /// @brief Construct the **INTEGER** value (unsigned 32 bits).
+    /**
+    @param[in] val The value.
+    */
+    /*explicit*/ Value(UInt32 val)
+        : m_type(TYPE_INTEGER)
+    {
+        m_val.i = val;
+    }
+
+
+    /// @brief Construct the **INTEGER** value (signed 32 bits).
+    /**
+    @param[in] val The value.
+    */
+    /*explicit*/ Value(Int32 val)
+        : m_type(TYPE_INTEGER)
+    {
+        m_val.i = val;
+    }
+
+
+    /// @brief Construct the **INTEGER** value (unsigned 16 bits).
+    /**
+    @param[in] val The value.
+    */
+    /*explicit*/ Value(UInt16 val)
+        : m_type(TYPE_INTEGER)
+    {
+        m_val.i = val;
+    }
+
+
+    /// @brief Construct the **INTEGER** value (signed 16 bits).
+    /**
+    @param[in] val The value.
+    */
+    /*explicit*/ Value(Int16 val)
+        : m_type(TYPE_INTEGER)
+    {
+        m_val.i = val;
+    }
+
+
+    /// @brief Construct the **INTEGER** value (unsigned 8 bits).
+    /**
+    @param[in] val The value.
+    */
+    /*explicit*/ Value(UInt8 val)
+        : m_type(TYPE_INTEGER)
+    {
+        m_val.i = val;
+    }
+
+
+    /// @brief Construct the **INTEGER** value (signed 8 bits).
+    /**
+    @param[in] val The value.
+    */
+    /*explicit*/ Value(Int8 val)
+        : m_type(TYPE_INTEGER)
+    {
+        m_val.i = val;
+    }
+
+
+    /// @brief Construct the **DOUBLE** value (float).
+    /**
+    @param[in] val The value.
     */
     /*explicit*/ Value(float val)
         : m_type(TYPE_DOUBLE)
@@ -346,31 +369,20 @@ public:
     }
 
 
-    /// @brief Construct the string value.
+    /// @brief Construct the **STRING** value (C-string).
     /**
-    @param[in] val The string value.
+    @param[in] val The value.
     */
     /*explicit*/ Value(const char* val)
         : m_type(TYPE_STRING)
         , m_str(val)
     {
-        m_val.u = 0; // avoid garbage
-    }
-
-
-    /// @brief Constring the string value.
-    /**
-    @param[in] val The string value.
-    */
-    /*explicit*/ Value(String const& val)
-        : m_type(TYPE_STRING)
-        , m_str(val)
-    {
-        m_val.u = 0; // avoid garbage
+        m_val.i = 0; // avoid garbage
     }
 /// @}
+#endif // auxiliary constructors
 
-
+#if 1
 /// @name Copy, move and swap
 /// @{
 public:
@@ -395,8 +407,7 @@ public:
     */
     Value& operator=(Value const& other)
     {
-        Value tmp(other);
-        swap(tmp);
+        Value(other).swap(*this);
         return *this;
     }
 
@@ -445,22 +456,22 @@ public:
 
 #endif // defined(HIVE_HAS_RVALUE_REFS)
 /// @}
+#endif // copy, move and swap
 
 public:
 
-    /// @brief Get the NULL value.
+    /// @brief Get the **NULL** value.
     /**
-    This static value is used to indicate the NULL value references.
-
-    @return The NULL value static reference.
+    This static value is used to indicate the **NULL** values.
+    @return The static **NULL** value reference.
     */
     static Value const& null()
     {
-        static Value N;
+        static Value N(TYPE_NULL);
         return N;
     }
 
-
+#if 1
 /// @name Type checks
 /// @{
 public:
@@ -475,9 +486,9 @@ public:
     }
 
 
-    /// @brief Is the value NULL?
+    /// @brief Is the value **NULL**?
     /**
-    @return `true` if the value is NULL.
+    @return `true` if the value is **NULL**.
     */
     bool isNull() const
     {
@@ -492,9 +503,9 @@ public:
     }
 
 
-    /// @brief Is the value boolean?
+    /// @brief Is the value **BOOLEAN**?
     /**
-    @return `true` if the value is boolean.
+    @return `true` if the value is **BOOLEAN**.
     */
     bool isBool() const
     {
@@ -502,9 +513,9 @@ public:
     }
 
 
-    /// @brief Is the value integer?
+    /// @brief Is the value **INTEGER**?
     /**
-    @return `true` if the value is integer.
+    @return `true` if the value is **INTEGER**.
     */
     bool isInteger() const
     {
@@ -512,9 +523,9 @@ public:
     }
 
 
-    /// @brief Is the value floating-point?
+    /// @brief Is the value **DOUBLE**?
     /**
-    @return `true` if the value if floating-point.
+    @return `true` if the value if **DOUBLE**.
     */
     bool isDouble() const
     {
@@ -522,9 +533,9 @@ public:
     }
 
 
-    /// @brief Is the value string?
+    /// @brief Is the value **STRING**?
     /**
-    @return `true` if the value is string.
+    @return `true` if the value is **STRING**.
     */
     bool isString() const
     {
@@ -532,132 +543,74 @@ public:
     }
 
 
-    /// @brief Is the value array or NULL?
+    /// @brief Is the value **ARRAY**?
     /**
-    @return `true` if the value is array or NULL.
+    @return `true` if the value is **ARRAY**.
     */
     bool isArray() const
     {
-        return (TYPE_NULL == m_type) || (TYPE_ARRAY == m_type);
+        return (TYPE_ARRAY == m_type);
     }
 
 
-    /// @brief Is the value object or NULL?
+    /// @brief Is the value **OBJECT**?
     /**
-    @return `true` if the value is object or NULL.
+    @return `true` if the value is **OBJECT**.
     */
     bool isObject() const
     {
-        return (TYPE_NULL == m_type) || (TYPE_OBJECT == m_type);
+        return (TYPE_OBJECT == m_type);
     }
+/// @}
+#endif // type checks
 
+#if 1
+/// @name Main conversions
+/// @{
+public:
 
-    /// @brief Is the value convertible to the other type?
+    /// @brief Is the value convertible to **BOOLEAN**?
     /**
-    See @ref hive_json_value_conv for all possible conversions.
-
-    @param[in] type The type convert to.
     @return `true` if the value is convertible.
     @see asBool()
-    @see asInt()
-    @see asUInt()
-    @see asDouble()
-    @see asString()
     */
-    bool isConvertibleTo(Type type) const
+    bool isConvertibleToBool() const
     {
         switch (m_type)
         {
-            case TYPE_NULL: // NULL -> ...
+            case TYPE_NULL:
+            case TYPE_BOOLEAN:
+            case TYPE_INTEGER:
+            case TYPE_DOUBLE:
                 return true;
 
-            case TYPE_BOOLEAN: // boolean -> ...
-                return (TYPE_NULL == type && !m_val.u)
-                    || (TYPE_BOOLEAN == type)
-                    || (TYPE_INTEGER == type)
-                    || (TYPE_DOUBLE == type)
-                    || (TYPE_STRING == type);
+            case TYPE_STRING:
+                return m_str.empty()
+                    || m_str=="false"
+                    || m_str=="true";
 
-            case TYPE_INTEGER: // integer -> ...
-                return (TYPE_NULL == type &&  !m_val.u)
-                    || (TYPE_BOOLEAN == type)
-                    || (TYPE_INTEGER == type)
-                    || (TYPE_DOUBLE == type)
-                    || (TYPE_STRING == type);
-
-            case TYPE_DOUBLE: // double -> ...
-                return (TYPE_NULL == type && m_val.f != 0.0)
-                    || (TYPE_BOOLEAN == type)
-                    || (TYPE_INTEGER == type)
-                    || (TYPE_DOUBLE == type)
-                    || (TYPE_STRING == type);
-
-            case TYPE_STRING: // string -> ...
-                if (TYPE_BOOLEAN == type) // -> boolean
-                {
-                    return m_str.empty()
-                        || m_str=="false"
-                        || m_str=="true";
-                }
-                else if (TYPE_INTEGER == type) // -> integer
-                {
-                    const size_t N = m_str.size();
-                    if (0 < N)
-                    {
-                        size_t i = 0;
-
-                        // ignore leading '+' or '-'
-                        if ('+'==m_str[i] || '-'==m_str[i])
-                        {
-                            if (N == ++i)
-                                return false; // one sign isn't allowed
-                        }
-
-                        for (; i < N; ++i)
-                            if (!misc::is_digit(m_str[i]))
-                                return false;
-                    }
-
-                    return true;
-                }
-                else if (TYPE_DOUBLE == type) // -> double
-                {
-                    const size_t N = m_str.size();
-                    if (0 < N)
-                    {
-                        // TODO: check m_str is double
-                        IStringStream iss(m_str);
-                        double val = 0.0;
-                        if (!(iss >> val))
-                            return false;
-                    }
-
-                    return true;
-                }
-                else
-                    return (TYPE_NULL == type && m_str.empty())
-                        || (TYPE_STRING == type);
-
-            case TYPE_ARRAY:
-                return (TYPE_NULL == type && m_arr.empty())
-                    || (TYPE_ARRAY == type);
-
-            case TYPE_OBJECT:
-                return (TYPE_NULL == type && m_obj.empty())
-                    || (TYPE_OBJECT == type);
+            default: // no conversion
+                return false;
         }
-
-        return false; // no conversion
     }
-/// @}
 
-public:
 
-    /// @brief Convert value to the boolean.
+    /// @brief Get the value as **BOOLEAN**.
     /**
-    @return The boolean value.
-    @throw error::CastError if cannot convert.
-    @see @ref hive_json_value_conv
+    The conversion rules are the following:
+
+    | current type | conversion                                                                 |
+    |--------------|----------------------------------------------------------------------------|
+    |    **NULL**  | always `false`                                                             |
+    |  **BOOLEAN** | as is                                                                      |
+    |  **INTEGER** | zero as `false`, non-zero as `true`                                        |
+    |  **DOUBLE**  | zero as `false`, non-zero as `true`                                        |
+    |  **STRING**  | "true" as `true` \n "false"  or "" as `false` \n otherwise no conversion   |
+    |   **ARRAY**  | no conversion                                                              |
+    |  **OBJECT**  | no conversion                                                              |
+
+    @return The **BOOLEAN** value.
+    @throw error::CastError if no conversion available.
     */
     bool asBool() const
     {
@@ -668,7 +621,7 @@ public:
 
             case TYPE_BOOLEAN:
             case TYPE_INTEGER: // true as non-zero
-                return (0 != m_val.u);
+                return (0 != m_val.i);
 
             case TYPE_DOUBLE: // true as non-zero
                 return (0.0 != m_val.f); // exactly!
@@ -682,6 +635,7 @@ public:
                         return false;
                     else
                         break; // will throw
+                    // TODO: maybe convert to integer?
                 }
                 else
                     return false; // false if empty
@@ -695,14 +649,58 @@ public:
         throw error::CastError("cannot convert to boolean");
     }
 
+public:
 
-    /// @brief Convert value to the signed integer.
+    /// @brief Is the value convertible to **INTEGER**?
     /**
-    @return The signed integer value.
-    @throw error::CastError if cannot convert.
-    @see @ref hive_json_value_conv
+    @return `true` if the value is convertible.
+    @see asInt()
     */
-    Int64 asInt() const
+    bool isConvertibleToInteger() const
+    {
+        switch (m_type)
+        {
+            case TYPE_NULL:
+            case TYPE_BOOLEAN:
+            case TYPE_INTEGER:
+            case TYPE_DOUBLE:
+                return true;
+
+            case TYPE_STRING:
+                if (!m_str.empty())
+                {
+                    IStringStream iss(m_str);
+                    Int64 tmp_val = 0;
+                    return ((iss >> tmp_val)
+                        && (iss >> std::ws).eof());
+                }
+                else
+                    return true; // empty as zero
+
+            default: // no conversion
+                return false;
+        }
+    }
+
+
+    /// @brief Get the value as **INTEGER**.
+    /**
+    The conversion rules are the following:
+
+    | current type | conversion                                                                 |
+    |--------------|----------------------------------------------------------------------------|
+    |    **NULL**  | always `0`                                                                 |
+    |  **BOOLEAN** | `false` as `0`, `true` as `1`                                              |
+    |  **INTEGER** | as is                                                                      |
+    |  **DOUBLE**  | rounded to lowest!                                                         |
+    |  **STRING**  | empty string as `0` \n parsed integer if valid \n otherwise no conversion  |
+    |   **ARRAY**  | no conversion                                                              |
+    |  **OBJECT**  | no conversion                                                              |
+
+    @return The **INTEGER** value.
+    @throw error::CastError if no conversion available.
+    */
+    Int64 asInteger() const
     {
         switch (m_type)
         {
@@ -714,22 +712,20 @@ public:
                 return m_val.i;
 
             case TYPE_DOUBLE:
-                return Int64(m_val.f);
+                return Int64(m_val.f); // floor
 
             case TYPE_STRING:
             {
                 if (!m_str.empty())
                 {
-                    if (isConvertibleTo(TYPE_INTEGER))
-                    {
-                        IStringStream iss(m_str);
-                        Int64 val = 0;
-                        if (iss >> val)
-                            return val;
-                    }
+                    IStringStream iss(m_str);
+                    Int64 val = 0;
+                    if ((iss >> val) && (iss >> std::ws).eof())
+                        return val;
+                    // else no conversion
                 }
                 else
-                    return 0;
+                    return 0; // empty as zero
             } break;
 
             case TYPE_ARRAY:
@@ -741,65 +737,63 @@ public:
         throw error::CastError("cannot convert to integer");
     }
 
+public:
 
-    /// @brief Convert value to the unsigned integer.
+    /// @brief Is the value convertible to **DOUBLE**?
     /**
-    @return The unsigned integer value.
-    @throw error::CastError if cannot convert.
-    @see @ref hive_json_value_conv
+    @return `true` if the value is convertible.
+    @see asDouble()
     */
-    UInt64 asUInt() const
+    bool isConvertibleToDouble() const
     {
         switch (m_type)
         {
             case TYPE_NULL:
-                return 0; // NULL as zero
-
             case TYPE_BOOLEAN:
             case TYPE_INTEGER:
-                return m_val.u;
-
             case TYPE_DOUBLE:
-                return UInt64(m_val.f);
+                return true;
 
             case TYPE_STRING:
-            {
                 if (!m_str.empty())
                 {
-                    if (isConvertibleTo(TYPE_INTEGER))
-                    {
-                        IStringStream iss(m_str);
-                        Int64 val = 0;
-                        if (iss >> val)
-                            return val;
-                    }
+                    IStringStream iss(m_str);
+                    double tmp_val = 0.0;
+                    return ((iss >> tmp_val)
+                        && (iss >> std::ws).eof());
                 }
                 else
-                    return 0;
-            } break;
+                    return true; // empty as zero
 
-            case TYPE_ARRAY:
-            case TYPE_OBJECT:
-                break; // no conversion
+            default: // no conversion
+                return false;
         }
-
-        // TODO: detail information about value type?
-        throw error::CastError("cannot convert to integer");
     }
 
 
-    /// @brief Convert value to the floating-point.
+    /// @brief Get the value as **DOUBLE**.
     /**
-    @return The floating-point value.
-    @throw error::CastError if cannot convert.
-    @see @ref hive_json_value_conv
+    The conversion rules are the following:
+
+    | current type | conversion                                                                 |
+    |--------------|----------------------------------------------------------------------------|
+    |    **NULL**  | always `0.0`                                                               |
+    |  **BOOLEAN** | `false` as `0.0`, `true` as `1.0`                                          |
+    |  **INTEGER** | as is                                                                      |
+    |  **DOUBLE**  | as is                                                                      |
+    |  **STRING**  | empty string as `0.0` \n parsed double if valid \n otherwise no conversion |
+    |   **ARRAY**  | no conversion                                                              |
+    |  **OBJECT**  | no conversion                                                              |
+
+    @return The **DOUBLE** value.
+    @throw error::CastError if no conversion available.
     */
     double asDouble() const
     {
         switch (m_type)
         {
             case TYPE_NULL:
-                return 0.0;
+                return 0.0; // NULL as zero
 
             case TYPE_BOOLEAN:
             case TYPE_INTEGER:
@@ -814,11 +808,12 @@ public:
                 {
                     IStringStream iss(m_str);
                     double val = 0.0;
-                    if (iss >> val)
+                    if ((iss >> val) && (iss >> std::ws).eof())
                         return val;
+                    // else no conversion
                 }
                 else
-                    return 0.0;
+                    return 0.0; // empty as zero
             } break;
 
             case TYPE_ARRAY:
@@ -827,15 +822,49 @@ public:
         }
 
         // TODO: detail information about value type?
-        throw error::CastError("cannot convert to floating-point");
+        throw error::CastError("cannot convert to double");
+    }
+
+public:
+
+    /// @brief Is the value convertible to **STRING**?
+    /**
+    @return `true` if the value is convertible.
+    @see asString()
+    */
+    bool isConvertibleToString() const
+    {
+        switch (m_type)
+        {
+            case TYPE_NULL:
+            case TYPE_BOOLEAN:
+            case TYPE_INTEGER:
+            case TYPE_DOUBLE:
+            case TYPE_STRING:
+                return true;
+
+            default: // no conversion
+                return false;
+        }
     }
 
 
-    /// @brief Convert value to the string.
+    /// @brief Get the value as **STRING**.
     /**
-    @return The floating-point value.
-    @throw error::CastError if cannot convert.
-    @see @ref hive_json_value_conv
+    The conversion rules are the following:
+
+    | current type | conversion                            |
+    |--------------|---------------------------------------|
+    |    **NULL**  | always empty string                   |
+    |  **BOOLEAN** | `false` as "false", `true` as "true"  |
+    |  **INTEGER** | as `printf("%d")`                     |
+    |  **DOUBLE**  | as `printf("%g")`                     |
+    |  **STRING**  | as is                                 |
+    |   **ARRAY**  | no conversion                         |
+    |  **OBJECT**  | no conversion                         |
+
+    @return The **STRING** value.
+    @throw error::CastError if no conversion available.
     */
     String asString() const
     {
@@ -845,7 +874,7 @@ public:
                 return String(); // NULL as empty string
 
             case TYPE_BOOLEAN:
-                return m_val.u ? "true" : "false";
+                return m_val.i ? "true" : "false";
 
             case TYPE_INTEGER:
             {
@@ -857,7 +886,7 @@ public:
             case TYPE_DOUBLE:
             {
                 OStringStream oss;
-                oss << m_val.f; // default format
+                oss << m_val.f;
                 return oss.str();
             }
 
@@ -872,6 +901,176 @@ public:
         // TODO: detail information about value type?
         throw error::CastError("cannot convert to string");
     }
+
+public:
+
+    /// @brief Is the value convertible to the other type?
+    /**
+    @param[in] type The type convert to.
+    @return `true` if the value is convertible.
+    */
+    bool isConvertibleTo(Type type) const
+    {
+        switch (type)
+        {
+            case TYPE_NULL:     return isNull();
+            case TYPE_BOOLEAN:  return isConvertibleToBool();
+            case TYPE_INTEGER:  return isConvertibleToInteger();
+            case TYPE_DOUBLE:   return isConvertibleToDouble();
+            case TYPE_STRING:   return isConvertibleToString();
+            case TYPE_ARRAY:    return isNull() || isArray();
+            case TYPE_OBJECT:   return isNull() || isObject();
+        }
+
+        return false; // no conversion
+    }
+
+/// @}
+#endif // Main conversions
+
+#if 1
+/// @name Auxiliary conversions
+/// @{
+public:
+
+    /// @copydoc asUInt64()
+    UInt64 asUInt() const
+    {
+        return asUInt64();
+    }
+
+
+    /// @copydoc asInt64()
+    Int64 asInt() const
+    {
+        return asInt64();
+    }
+
+
+    /// @brief Get the value as unsigned **INTEGER** (64 bits).
+    /**
+    @return The unsigned **INTEGER** value.
+    @throw error::CastError if no conversion available.
+    @see asInteger()
+    */
+    UInt64 asUInt64() const
+    {
+        const Int64 val = asInteger();
+        if (val < 0)
+            throw error::CastError("is negative");
+        return val;
+    }
+
+
+    /// @brief Get the value as signed **INTEGER** (64 bits).
+    /**
+    @return The signed **INTEGER** value.
+    @throw error::CastError if no conversion available.
+    @see asInteger()
+    */
+    Int64 asInt64() const
+    {
+        return asInteger();
+    }
+
+
+    /// @brief Get the value as unsigned **INTEGER** (32 bits).
+    /**
+    @return The unsigned **INTEGER** value.
+    @throw error::CastError if no conversion available.
+    @see asInteger()
+    */
+    UInt32 asUInt32() const
+    {
+        const Int64 val = asInteger();
+        const UInt32 res = UInt32(val);
+        if (val != Int64(res))
+            throw error::CastError("out of range");
+        return res;
+    }
+
+
+    /// @brief Get the value as signed **INTEGER** (32 bits).
+    /**
+    @return The signed **INTEGER** value.
+    @throw error::CastError if no conversion available.
+    @see asInteger()
+    */
+    Int32 asInt32() const
+    {
+        const Int64 val = asInteger();
+        const Int32 res = Int32(val);
+        if (val != Int64(res))
+            throw error::CastError("out of range");
+        return res;
+    }
+
+
+    /// @brief Get the value as unsigned **INTEGER** (16 bits).
+    /**
+    @return The unsigned **INTEGER** value.
+    @throw error::CastError if no conversion available.
+    @see asInteger()
+    */
+    UInt16 asUInt16() const
+    {
+        const Int64 val = asInteger();
+        const UInt16 res = UInt16(val);
+        if (val != Int64(res))
+            throw error::CastError("out of range");
+        return res;
+    }
+
+
+    /// @brief Get the value as signed **INTEGER** (16 bits).
+    /**
+    @return The signed **INTEGER** value.
+    @throw error::CastError if no conversion available.
+    @see asInteger()
+    */
+    Int16 asInt16() const
+    {
+        const Int64 val = asInteger();
+        const Int16 res = Int16(val);
+        if (val != Int64(res))
+            throw error::CastError("out of range");
+        return res;
+    }
+
+
+    /// @brief Get the value as unsigned **INTEGER** (8 bits).
+    /**
+    @return The unsigned **INTEGER** value.
+    @throw error::CastError if no conversion available.
+    @see asInteger()
+    */
+    UInt8 asUInt8() const
+    {
+        const Int64 val = asInteger();
+        const UInt8 res = UInt8(val);
+        if (val != Int64(res))
+            throw error::CastError("out of range");
+        return res;
+    }
+
+
+    /// @brief Get the value as signed **INTEGER** (8 bits).
+    /**
+    @return The signed **INTEGER** value.
+    @throw error::CastError if no conversion available.
+    @see asInteger()
+    */
+    Int8 asInt8() const
+    {
+        const Int64 val = asInteger();
+        const Int8 res = Int8(val);
+        if (val != Int64(res))
+            throw error::CastError("out of range");
+        return res;
+    }
+
+/// @}
+#endif // auxiliary conversions
 
 public:
 
@@ -897,7 +1096,7 @@ public:
 
             case TYPE_BOOLEAN:
             case TYPE_INTEGER:
-                return m_val.u == other.m_val.u;
+                return m_val.i == other.m_val.i;
 
             case TYPE_DOUBLE:
                 return m_val.f == other.m_val.f;
@@ -911,26 +1110,31 @@ public:
                             other.m_arr.begin());
 
             case TYPE_OBJECT:
+                // TODO: compare as unordered set!
                 return m_obj.size() == other.m_obj.size()
                     && std::equal(m_obj.begin(), m_obj.end(),
                             other.m_obj.begin());
-        }
 
-        return false;
+            default:
+                return false;
+        }
     }
 
 public: // array & object
 
-    /// @brief Get the number of elements in array or object.
+    /// @brief Get the number of elements in **ARRAY** or **OBJECT**.
     /**
     For all other types returns zero.
-
-    @return The number of array elements or the number of members.
+    @return The number of array elements for **ARRAY**
+        or the number of members for **OBJECT**.
     */
     size_t size() const
     {
         switch (m_type)
         {
+            //case TYPE_STRING:
+            //    return m_str.size();
+
             case TYPE_ARRAY:
                 return m_arr.size();
 
@@ -938,16 +1142,14 @@ public: // array & object
                 return m_obj.size();
 
             default:
-                break;
+                return 0;
         }
-
-        return 0; // otherwise
     }
 
 
-    /// @brief Is value empty?
+    /// @brief Is the **ARRAY** or **OBJECT** empty?
     /**
-    @return `true` if array is empty, object is empty, or value is NULL.
+    @return `true` if **ARRAY** is empty, **OBJECT** is empty, or value is **NULL**.
     */
     bool empty() const
     {
@@ -966,14 +1168,12 @@ public: // array & object
                 return m_obj.empty();
 
             default:
-                break;
+                return false;
         }
-
-        return false; // otherwise
     }
 
 
-    /// @brief Remove all object members or array elements.
+    /// @brief Remove all **OBJECT** members or **ARRAY** elements.
     void clear()
     {
         switch (m_type)
@@ -995,29 +1195,31 @@ public: // array & object
         }
     }
 
+#if 1
 /// @name Array
 /// @{
 public:
 
-    /// @brief Resize the array.
+    /// @brief Resize the **ARRAY**.
     /**
-    This method changes value type to TYPE_ARRAY.
+    This method changes value type to **ARRAY** if current type is **NULL**.
 
-    New array elements initialized to @a def values, NULL by default.
+    New array elements are initialized by @a def value, **NULL** by default.
 
     @param[in] size The new array size.
     @param[in] def The default value to fill array.
     */
     void resize(size_t size, Value const& def = Value())
     {
-        assert(isArray() && "not an array");
+        assert((isNull() || isArray())
+            && "not an array");
         if (m_type != TYPE_ARRAY)
             m_type = TYPE_ARRAY;
         m_arr.resize(size, def);
     }
 
 
-    /// @brief Get an array element.
+    /// @brief Get an **ARRAY** element.
     /**
     @param[in] index The zero-based element index.
     @return The array element reference.
@@ -1031,7 +1233,7 @@ public:
     }
 
 
-    /// @brief Get an array element (read-only).
+    /// @brief Get an **ARRAY** element (read-only).
     /**
     @param[in] index The zero-based element index.
     @return The array element reference.
@@ -1045,56 +1247,66 @@ public:
     }
 
 
-    /// @brief Append value to array at the end.
+    /// @brief Append value to **ARRAY** at the end.
     /**
-    This method changes value type to TYPE_ARRAY.
+    This method changes value type to **ARRAY** if current type is **NULL**.
 
-    @param[in] jval The JSON value to append.
+    @param[in] val The value to append.
     */
-    void append(Value const& jval)
+    void append(Value const& val)
     {
-        assert(isArray() && "not an array");
+        assert((isNull() || isArray())
+            && "not an array");
         if (m_type != TYPE_ARRAY)
             m_type = TYPE_ARRAY;
-        m_arr.push_back(jval);
+        m_arr.push_back(val);
     }
 
 
-    /// @brief The array elements iterator.
+    /// @brief The **ARRAY** elements iterator type.
     /**
-    This type is used to iterate all elements in array JSON value.
+    This type is used to iterate all elements in **ARRAY**.
     */
     typedef std::vector<Value>::const_iterator ElementIterator;
 
 
-    /// @brief Get the begin of array.
+    /// @brief Get the begin of **ARRAY**.
     /**
-    @return The begin of array.
+    @return The begin of **ARRAY**.
     */
     ElementIterator elementsBegin() const
     {
-        assert(isArray() && "not an array");
+        assert((isNull() || isArray())
+            && "not an array");
         return m_arr.begin();
     }
 
 
-    /// @brief Get the end of array.
+    /// @brief Get the end of **ARRAY**.
     /**
-    @return The end of array.
+    @return The end of **ARRAY**.
     */
     ElementIterator elementsEnd() const
     {
-        assert(isArray() && "not an array");
+        assert((isNull() || isArray())
+            && "not an array");
         return m_arr.end();
     }
+
+private:
+
+    /// @brief The internal **ARRAY** type.
+    typedef std::vector<Value> Array;
+
 /// @}
+#endif // array
 
-
+#if 1
 /// @name Object
 /// @{
 public:
 
-    /// @brief Get the member by name.
+    /// @brief Get the **OBJECT** member by name.
     /**
     @param[in] name The member name.
     @param[in] def The default value if no member with such name exists.
@@ -1102,27 +1314,27 @@ public:
     */
     Value const& get(String const& name, Value const& def) const
     {
-        assert(isObject() && "not an object");
-
-        Object::const_iterator m = m_obj.find(name);
+        assert((isNull() || isObject()) && "not an object");
+        Object::const_iterator m = findMember(name);
         return (m == m_obj.end()) ? def : m->second;
     }
 
 
     /// @brief Get the member by name or create new one.
     /**
-    This method changes value type to TYPE_OBJECT.
+    This method changes value type to **OBJECT** if current type is **NULL**.
 
-    NULL member value created if no member with such name exists.
+    **NULL** member value created if no member with such name exists.
 
     @param[in] name The member name.
     @return The member value.
     */
     Value& get(String const& name)
     {
-        assert(isObject() && "not an object");
+        assert((isNull() || isObject())
+            && "not an object");
 
-        Object::iterator m = m_obj.find(name);
+        Object::iterator m = findMember(name);
         if (m == m_obj.end())
         {
             if (TYPE_NULL == m_type)
@@ -1134,7 +1346,7 @@ public:
     }
 
 
-    /// @brief Get the member by name.
+    /// @brief Get the **OBJECT** member by name.
     /**
     @param[in] name The member name.
     @return The member value or null().
@@ -1145,9 +1357,9 @@ public:
     }
 
 
-    /// @brief Get the member by name or create new.
+    /// @brief Get the **OBJECT** member by name or create new.
     /**
-    NULL member value created if no member with such name exists.
+    **NULL** member value created if no member with such name exists.
 
     @param[in] name The member name.
     @return The member value.
@@ -1158,59 +1370,105 @@ public:
     }
 
 
-    /// @brief Is member value exists?
+    /// @brief Is **OBJECT** member value exists?
     /**
     @param[in] name The member name.
     @return `true` if member with such name exists.
     */
     bool hasMemeber(String const& name) const
     {
-        assert(isObject() && "not an object");
-
-        Object::const_iterator m = m_obj.find(name);
+        assert((isNull() || isObject()) && "not an object");
+        Object::const_iterator m = findMember(name);
         return (m != m_obj.end());
     }
 
 
-    /// @brief Remove member.
+    /// @brief Remove **OBJECT** member.
     /**
     @param[in] name The member name to remove.
     */
     void removeMember(String const& name)
     {
-        assert(isObject() && "not an object");
-        m_obj.erase(name);
+        assert((isNull() || isObject()) && "not an object");
+        Object::iterator m = findMember(name);
+        if (m != m_obj.end())
+            m_obj.erase(m);
     }
 
 
-    /// @brief The members iterator.
+    /// @brief The **OBJECT** members iterator type.
     /**
-    This type is used to iterate all member names on object JSON value.
+    This type is used to iterate all member names on **OBJECT**.
     */
-    typedef std::map<String,Value>::const_iterator MemberIterator;
+    typedef std::vector< std::pair<String,Value> >::const_iterator MemberIterator;
 
 
-    /// @brief Get the begin of object's members.
+    /// @brief Get the begin of **OBJECT** members.
     /**
-    @return The begin of object's members.
+    @return The begin of **OBJECT** members.
     */
     MemberIterator membersBegin() const
     {
-        assert(isObject() && "not an object");
+        assert((isNull() || isObject())
+            && "not an object");
         return m_obj.begin();
     }
 
 
-    /// @brief Get the end of object's members.
+    /// @brief Get the end of **OBJECT** members.
     /**
-    @return The end of object's members.
+    @return The end of **OBJECT** members.
     */
     MemberIterator membersEnd() const
     {
-        assert(isObject() && "not an object");
+        assert((isNull() || isObject())
+            && "not an object");
         return m_obj.end();
     }
+
+private:
+
+    /// @brief The internal **OBJECT** type.
+    typedef std::vector< std::pair<String,Value> > Object;
+
+
+    /// @brief Find **OBJECT** member by name.
+    /**
+    @param[in] name The memeber name.
+    @return The member iterator.
+    */
+    Object::const_iterator findMember(String const& name) const
+    {
+        const Object::const_iterator e = m_obj.end();
+        for (Object::const_iterator i = m_obj.begin(); i != e; ++i)
+        {
+            if (i->first == name)
+                return i;
+        }
+
+        return e; // not found
+    }
+
+
+    /// @brief Find **OBJECT** member by name.
+    /**
+    @param[in] name The memeber name.
+    @return The member iterator.
+    */
+    Object::iterator findMember(String const& name)
+    {
+        const Object::iterator e = m_obj.end();
+        for (Object::iterator i = m_obj.begin(); i != e; ++i)
+        {
+            if (i->first == name)
+                return i;
+        }
+
+        return e; // not found
+    }
+
 /// @}
+#endif // object
 
 private:
     Type m_type; ///< @brief The value type.
@@ -1219,17 +1477,13 @@ private:
     union POD
     {
         double f; ///< @brief The floating-point value.
-        UInt64 u; ///< @brief The unsigned integer value.
          Int64 i; ///< @brief The signed integer value.
     } m_val; ///< @brief The %POD data holder.
 
-    typedef std::vector<Value> Array; ///< @brief The array type.
-    typedef std::map<String,Value> Object; ///< @brief The object type.
-
     // TODO: move these to union as pointers?
-    String m_str; ///< @brief The string value.
-    Array  m_arr; ///< @brief The array value.
-    Object m_obj; ///< @brief The object value.
+    String m_str; ///< @brief The **STRING** value.
+    Array  m_arr; ///< @brief The **ARRAY** value.
+    Object m_obj; ///< @brief The **OBJECT** value.
 };
 
 
@@ -1255,33 +1509,35 @@ inline bool operator==(Value const& a, Value const& b)
 */
 inline bool operator!=(Value const& a, Value const& b)
 {
-    return !(a == b);
+    return !a.equal(b);
 }
 
 
-
-/// @brief The basic JSON formatter.
+/// @brief The JSON formatter.
 /**
-description is under construction.
+This class writes JSON value to an output stream.
 
-Writes JSON value in compact format without spaces and new lines.
+There are two formats available:
+  - *human-friendly* - with spaces, new lines and indents
+  - *simple* - without any spaces and new lines
 */
 class Formatter
 {
 public:
 
-    /// @brief Write the JSON value to the output stream.
+    /// @brief Write JSON value to an output stream.
     /**
-    In "human friendly" format there also the line feeds and indents in the output.
-    Otherwise no any indents or spaces are used.
+    Both formats *simple* and *human-fiendly* are supported.
 
     @param[in,out] os The output stream.
-    @param[in] jval The JSON value.
-    @param[in] humanFriendly The human fiendly format flag.
-    @param[in] indent The first line indent. Used for human friendly format.
+    @param[in] jval The JSON value to write.
+    @param[in] humanFriendly The *human-fiendly* format flag.
+    @param[in] indent The first line indent.
+        Is used for *human-friendly* format.
     @return The output stream.
     */
-    static OStream& write(OStream &os, Value const& jval, bool humanFriendly, size_t indent = 0)
+    static OStream& write(OStream &os, Value const& jval,
+        bool humanFriendly, size_t indent = 0)
     {
         switch (jval.getType())
         {
@@ -1337,7 +1593,7 @@ public:
             case Value::TYPE_OBJECT:
             {
                 os << '{';
-                Value::MemberIterator b = jval.membersBegin();
+                const Value::MemberIterator b = jval.membersBegin();
                 const Value::MemberIterator e = jval.membersEnd();
                 if (b != e)
                 {
@@ -1378,7 +1634,7 @@ public:
 
 public:
 
-    /// @brief Write indent.
+    /// @brief Write indent to an output stream.
     /**
     This method writes the `2*indent` spaces to the output stream.
 
@@ -1395,8 +1651,11 @@ public:
     }
 
 
-    /// @brief Write quoted string.
+    /// @brief Write quoted string to an output stream.
     /**
+    This method writes the string in queted format.
+    All special and UNICODE characters are escaped.
+
     @param[in,out] os The output stream.
     @param[in] str The string to write.
     @return The output stream.
@@ -1445,14 +1704,14 @@ public:
                     break;
 
                 default:
-                    if (!(misc::is_char(ch) && !misc::is_ctl(ch)))
+                    if (!misc::is_char(ch) || misc::is_ctl(ch))
                     {
                         os.put('\\');
                         os.put('u');
-                        os.put(misc::int2hex((ch>>12)&0x0f));
-                        os.put(misc::int2hex((ch>>8)&0x0f));
-                        os.put(misc::int2hex((ch>>4)&0x0f));
-                        os.put(misc::int2hex((ch>>0)&0x0f));
+                        os.put(misc::int2hex((ch>>12)&0x0F));
+                        os.put(misc::int2hex((ch>>8)&0x0F));
+                        os.put(misc::int2hex((ch>>4)&0x0F));
+                        os.put(misc::int2hex((ch>>0)&0x0F));
                     }
                     else
                         os.put(ch);
@@ -1466,11 +1725,12 @@ public:
 };
 
 
-/// @brief Write JSON value to the output stream.
+/// @brief Write JSON value to an output stream.
 /** @relates Value
 @param[in,out] os The output stream.
 @param[in] jval The JSON value.
 @return The output stream.
+@see Formatter
 */
 inline OStream& operator<<(OStream &os, const Value &jval)
 {
@@ -1480,11 +1740,11 @@ inline OStream& operator<<(OStream &os, const Value &jval)
 
 
 /// @brief Convert JSON value to string.
-/**
+/** @relates Value
 @param[in] jval The JSON value.
 @return The JSON string.
 */
-inline String json2str(Value const& jval)
+inline String toStr(Value const& jval)
 {
     OStringStream oss;
     Formatter::write(oss, jval, false);
@@ -1492,12 +1752,12 @@ inline String json2str(Value const& jval)
 }
 
 
-/// @brief Convert JSON value to human friendly string.
-/**
+/// @brief Convert JSON value to *human-friendly* string.
+/** @relates Value
 @param[in] jval The JSON value.
 @return The JSON string.
 */
-inline String json2hstr(Value const& jval)
+inline String toStrH(Value const& jval)
 {
     OStringStream oss;
     Formatter::write(oss, jval, true);
@@ -1507,7 +1767,13 @@ inline String json2hstr(Value const& jval)
 
 /// @brief The JSON parser.
 /**
-description is under construction.
+This class parses JSON values from an input stream.
+Exception is thrown then input stream doesn't contain a valid JSON value.
+
+The following comment styles are supported:
+  - bash style: `#` skip all until the end of line
+  - C++ style: `//` skip all until the end of line
+  - C style: `/``*` skip all until the surrounding `*``/`
 */
 class Parser
 {
@@ -1515,8 +1781,11 @@ class Parser
     typedef String::traits_type Traits;
 public:
 
-    /// @brief Parse the JSON value from the input stream.
+    /// @brief Parse the JSON value from an input stream.
     /**
+    This method parses the first JSON value from the input stream.
+    All comments are ignored.
+
     @param[in,out] is The input stream.
     @param[out] jval The parsed JSON value.
     @return The input stream.
@@ -1563,7 +1832,7 @@ public:
                     firstMember = false;
 
                 String memberName;
-                if (parseQuotedString(is, memberName))
+                if (parseString(is, memberName))
                 {
                     skipCommentsAndWS(is);
 
@@ -1591,7 +1860,7 @@ public:
             Value(Value::TYPE_ARRAY).swap(jval);
             bool firstElement = true;
 
-            while (1)
+            while (is)
             {
                 skipCommentsAndWS(is);
 
@@ -1645,7 +1914,7 @@ public:
                 throw error::SyntaxError("cannot parse integer value");
         }
 
-        // string
+        // double-quoted string
         else if (Traits::eq(cx, '\"'))
         {
             String val;
@@ -1670,6 +1939,16 @@ public:
             Value().swap(jval);
         }
 
+        // extension: simple strings [0-9A-Za-z] without quotes
+        else if (HIVE_JSON_SIMPLE_STRING)
+        {
+            String val;
+            if (parseString(is, val))
+                Value(val).swap(jval);
+            else
+                throw error::SyntaxError("cannot parse simple string");
+        }
+
         else
         {
             throw error::SyntaxError("no valid JSON value");
@@ -1680,8 +1959,10 @@ public:
 
 public:
 
-    /// @brief Skip whitespaces and comments
+    /// @brief Skip comments and whitespaces.
     /**
+    This method ignores all comments and whitespaces.
+
     @param[in,out] is The input stream.
     @return `false` if end of stream.
     @throw error::SyntaxError in case of invalid comment style
@@ -1724,7 +2005,7 @@ public:
                 else if (Traits::eq(cx, '*')) // C style: /* ... */
                 {
                     is.ignore(1); // ignore '*'
-                    while (1) // search for "*/"
+                    while (is) // search for "*/"
                     {
                         // skip all until '*'
                         is.ignore(UP_TO_END, '*');
@@ -1753,7 +2034,34 @@ public:
     }
 
 
-    /// @brief Parse quoted string from the input stream.
+    /// @brief Parse quoted or simple string from an input stream.
+    /**
+    @param[in,out] is The input stream.
+    @param[out] str The parsed string.
+    @return `true` if string successfully parsed.
+    @throw error::SyntaxError in case of parsing error.
+    */
+    static bool parseString(IStream &is, String &str)
+    {
+        // remember the "quote" character
+        const Traits::int_type QUOTE = is.peek();
+
+        switch (QUOTE)
+        {
+            case '\"':  return parseQuotedString(is, str);
+#if HIVE_JSON_SINGLE_QUOTED_STRING
+            case '\'':  return parseQuotedString(is, str);
+#endif // HIVE_JSON_SINGLE_QUOTED_STRING
+#if HIVE_JSON_SIMPLE_STRING
+            default:    return parseSimpleString(is, str);
+#endif // HIVE_JSON_SIMPLE_STRING
+        }
+
+        return false;
+    }
+
+
+    /// @brief Parse quoted string from an input stream.
     /**
     @param[in,out] is The input stream.
     @param[out] str The parsed string.
@@ -1800,11 +2108,19 @@ public:
 
                     case 'u':
                     {
-                        throw error::SyntaxError("unicode not implemented yet");
-                        //unsigned int unicode;
-                        //if ( !decodeUnicodeCodePoint( is, unicode ) )
-                        //    return false;
-                        //oss << codePointToUTF8(unicode);
+                        const int a = misc::hex2int(is.get());
+                        const int b = misc::hex2int(is.get());
+                        const int c = misc::hex2int(is.get());
+                        const int d = misc::hex2int(is.get());
+
+                        if (a<0 || b<0 || c<0 || d<0)
+                            throw error::SyntaxError("invalid UNICODE codepoint");
+
+                        const int code = (a<<12) | (b<<8) | (c<<4) | d;
+
+                        if (256 <= code)
+                            throw error::SyntaxError("UNICODE not fully implemented yet");
+                        oss.put(code); // TODO: convert to UTF-8 charset!!!
                     } break;
 
                     default:
@@ -1814,6 +2130,41 @@ public:
 
             else
                 oss.put(ch); // just save
+        }
+
+        return false;
+    }
+
+
+    /// @brief Parse simple string from an input stream.
+    /**
+    A simple string consists of characters from the [0-9A-Za-z] set.
+    @param[in,out] is The input stream.
+    @param[out] str The parsed string.
+    @return `true` if string successfully parsed.
+    @throw error::SyntaxError in case of parsing error.
+    */
+    static bool parseSimpleString(IStream &is, String &str)
+    {
+        OStringStream oss;
+        while (is)
+        {
+            Traits::int_type meta = is.peek();
+            if (Traits::eq_int_type(meta, Traits::eof()))
+                return false; // end of stream
+
+            if (('0' <= meta && meta <= '9')
+                || ('A' <= meta && meta <= 'Z')
+                || ('a' <= meta && meta <= 'z'))
+            {
+                oss.put(Traits::to_char_type(meta)); // just save
+                is.ignore(1);
+            }
+            else
+            {
+                str = oss.str();
+                return true; // OK
+            }
         }
 
         return false;
@@ -1837,8 +2188,8 @@ public:
             const Traits::char_type ch = Traits::to_char_type(meta);
             if (!Traits::eq(ch, pattern[i]))
             {
-                //for (; 0 < i; --i) // rollback
-                //    is.putback(pattern[i-1]);
+                for (; 0 < i; --i) // rollback
+                    is.putback(pattern[i-1]);
 
                 return false; // doesn't match
             }
@@ -1851,7 +2202,7 @@ public:
 };
 
 
-/// @brief Parse JSON value from the input stream.
+/// @brief Parse JSON value from an input stream.
 /** @relates Value
 @param[in,out] is The input stream.
 @param[in,out] jval The JSON value.
@@ -1864,38 +2215,39 @@ inline IStream& operator>>(IStream &is, Value &jval)
 }
 
 
-/// @brief Convert string to JSON value.
-/**
+/// @brief Parse JSON value from string.
+/** @relates Value
 @param[in] str The JSON string.
 @return The parsed JSON value.
 @throw error::SyntaxError in case of parsing error.
 */
-inline Value str2json(String const& str)
+inline Value fromStr(String const& str)
 {
     Value jval;
     IStringStream iss(str);
     Parser::parse(iss, jval);
-    (iss >> std::ws).peek();
-    if (!iss.eof()) // check is 'str' if fully parsed
+    if (!(iss >> std::ws).eof()) // check is 'str' if fully parsed
         throw error::SyntaxError("partially parsed");
     return jval;
 }
 
     } // json namespace
+} // hive namespace
+
+#endif // __HIVE_JSON_HPP_
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /** @page page_hive_json JSON module
 
-This module provides support for JSON data.
+This page is under construction!
+================================
 
-this page is under construction.
+[RFC-4627](http://tools.ietf.org/html/rfc4627)
+
+This module provides support for JSON data.
 
 hive::json namespace
 
 hive::json::Value is the key class.
 */
-
-} // hive namespace
-
-#endif // __HIVE_JSON_HPP_

@@ -5,12 +5,7 @@
 #ifndef __DEVICEHIVE_XBEE_HPP_
 #define __DEVICEHIVE_XBEE_HPP_
 
-#include <hive/bstream.hpp>
-#include <hive/swab.hpp>
-#include <hive/dump.hpp>
-#include <hive/log.hpp>
-
-#include "binary.hpp"
+#include <hive/bin.hpp>
 
 #if !defined(HIVE_PCH)
 #   include <boost/enable_shared_from_this.hpp>
@@ -47,7 +42,8 @@ There are a few payloads:
     - ZBTransmitStatus
     - ZBReceivePacket
 */
-class Frame
+class Frame:
+    public bin::FrameContent
 {
 public:
 
@@ -114,7 +110,7 @@ public:
     static SharedPtr create(PayloadT const& payload)
     {
         OStringStream oss;
-        io::BinaryOStream bs(oss);
+        bin::OStream bs(oss);
         payload.format(bs);
 
         SharedPtr pthis(new Frame());
@@ -140,7 +136,7 @@ public:
                 m_content.begin()+HEADER_LEN, // skip signature and length
                 m_content.end()-FOOTER_LEN);  // skip checksum
             IStringStream iss(pdata);
-            io::BinaryIStream bs(iss);
+            bin::IStream bs(iss);
             return payload.parse(bs);
         }
 
@@ -239,16 +235,6 @@ public:
         return frame;
     }
 
-
-    /// @brief Get the frame content.
-    /**
-    @return The frame content.
-    */
-    std::vector<UInt8> const& getContent() const
-    {
-        return m_content;
-    }
-
 public:
 
     /// @brief Get the frame intent (or command identifier).
@@ -261,27 +247,6 @@ public:
             return m_content[HEADER_LEN];
 
         return -1; // unknown
-    }
-
-public:
-
-    /// @brief Is the frame empty?
-    /**
-    @return `true` if the frame is empty.
-    */
-    bool empty() const
-    {
-        return m_content.empty();
-    }
-
-
-    /// @brief Get the frame size.
-    /**
-    @return The frame size in bytes.
-    */
-    size_t size() const
-    {
-        return m_content.size();
     }
 
 protected:
@@ -327,9 +292,6 @@ protected:
             checksum(payload.begin(),
                 payload.end()));
     }
-
-private:
-    std::vector<UInt8> m_content; ///< @brief The frame content.
 };
 
 
@@ -350,7 +312,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {}
 
 
@@ -359,7 +321,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         return true;
     }
@@ -373,7 +335,7 @@ protected:
     @param[in,out] bs The input binary stream.
     @return The parsed data.
     */
-    static String getAll(io::BinaryIStream & bs)
+    static String getAll(bin::IStream & bs)
     {
         String data;
         while (!bs.getStream().eof())
@@ -420,7 +382,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ATCOMMAND_REQUEST);
         bs.putUInt8(frameId);
@@ -434,7 +396,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ATCOMMAND_REQUEST)
             return false; // bad frame type
@@ -471,7 +433,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ATCOMMAND_RESPONSE);
         bs.putUInt8(frameId);
@@ -488,7 +450,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ATCOMMAND_RESPONSE)
             return false; // bad frame type
@@ -557,12 +519,12 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_TRANSMIT_REQUEST);
         bs.putUInt8(frameId);
-        bs.putUInt64(misc::h2be(dstAddr64));
-        bs.putUInt16(misc::h2be(dstAddr16));
+        bs.putUInt64BE(dstAddr64);
+        bs.putUInt16BE(dstAddr16);
         bs.putUInt8(bcastRadius);
         bs.putUInt8(options);
         bs.putBuffer(data.data(),
@@ -575,14 +537,14 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ZB_TRANSMIT_REQUEST)
             return false;
 
         frameId = bs.getUInt8();
-        dstAddr64 = misc::be2h(bs.getUInt64());
-        dstAddr16 = misc::be2h(bs.getUInt16());
+        dstAddr64 = bs.getUInt64BE();
+        dstAddr16 = bs.getUInt16BE();
         bcastRadius = bs.getUInt8();
         options = bs.getUInt8();
         data = getAll(bs);
@@ -620,11 +582,11 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_TRANSMIT_STATUS);
         bs.putUInt8(frameId);
-        bs.putUInt16(misc::h2be(dstAddr16));
+        bs.putUInt16BE(dstAddr16);
         bs.putUInt8(retryCount);
         bs.putUInt8(deliveryStatus);
         bs.putUInt8(discoveryStatus);
@@ -636,13 +598,13 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ZB_TRANSMIT_STATUS)
             return false;
 
         frameId = bs.getUInt8();
-        dstAddr16 = misc::be2h(bs.getUInt16());
+        dstAddr16 = bs.getUInt16BE();
         retryCount = bs.getUInt8();
         deliveryStatus = bs.getUInt8();
         discoveryStatus = bs.getUInt8();
@@ -677,11 +639,11 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(io::BinaryOStream & bs) const
+    void format(bin::OStream & bs) const
     {
         bs.putUInt8(Frame::ZB_RECEIVE_PACKET);
-        bs.putUInt64(misc::h2be(srcAddr64));
-        bs.putUInt16(misc::h2be(srcAddr16));
+        bs.putUInt64BE(srcAddr64);
+        bs.putUInt16BE(srcAddr16);
         bs.putUInt8(options);
         bs.putBuffer(data.data(),
             data.size());
@@ -693,13 +655,13 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(io::BinaryIStream & bs)
+    bool parse(bin::IStream & bs)
     {
         if (bs.getUInt8() != Frame::ZB_RECEIVE_PACKET)
             return false;
 
-        srcAddr64 = misc::be2h(bs.getUInt64());
-        srcAddr16 = misc::be2h(bs.getUInt16());
+        srcAddr64 = bs.getUInt64BE();
+        srcAddr16 = bs.getUInt16BE();
         options = bs.getUInt8();
         data = getAll(bs);
 
@@ -710,6 +672,152 @@ public:
 #endif // payloads
 
 
+/// @brief The XBee debug interface.
+class Debug
+{
+public:
+
+    /// @brief Dump the AT command request to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ATCommandRequest const& payload)
+    {
+        OStringStream oss;
+
+        oss << "frameId=" << int(payload.frameId) << " "
+            "command=\"" << payload.command << "\"";
+
+        return oss.str();
+    }
+
+
+    /// @brief Dump the AT command response to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ATCommandResponse const& payload)
+    {
+        OStringStream oss;
+
+        oss << "frameId=" << int(payload.frameId)
+            << " command=\"" << payload.command << "\""
+            << " status=" << dump::hex(payload.status)
+            << " result=[" << dump::hex(payload.result) << "]";
+
+        return oss.str();
+    }
+
+
+    /// @brief Dump the ZB transmit request to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ZBTransmitRequest const& payload)
+    {
+        OStringStream oss;
+
+        oss << "frameId=" << int(payload.frameId)
+            << " DA64=" << dump::hex(payload.dstAddr64)
+            << " DA16=" << dump::hex(payload.dstAddr16)
+            << " bcastRadius=" << int(payload.bcastRadius)
+            << " options=" << dump::hex(payload.options)
+            << " data=[" << dump::hex(payload.data)
+            << "] (ascii:\"" << dump::ascii(payload.data) << "\")";
+
+        return oss.str();
+    }
+
+
+    /// @brief Dump the ZB transmit status to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ZBTransmitStatus const& payload)
+    {
+        OStringStream oss;
+
+        oss << "frameId=" << int(payload.frameId)
+            << " DA16=" << dump::hex(payload.dstAddr16)
+            << " retryCount=" << int(payload.retryCount)
+            << " delivery=" << dump::hex(payload.deliveryStatus)
+            << " discovery=" << dump::hex(payload.discoveryStatus);
+
+        return oss.str();
+    }
+
+
+    /// @brief Dump the ZB receive packet to string.
+    /**
+    @param[in] payload The payload to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::ZBReceivePacket const& payload)
+    {
+        OStringStream oss;
+
+        oss << "SA64=" << dump::hex(payload.srcAddr64)
+            << " SA16=" << dump::hex(payload.srcAddr16)
+            << " options=" << dump::hex(payload.options)
+            << " data=[" << dump::hex(payload.data)
+            << "] (ascii:\"" << dump::ascii(payload.data) << "\")";
+
+        return oss.str();
+    }
+
+public:
+
+    /// @brief Dump the frame to string.
+    /**
+    @param[in] frame The frame to dump.
+    @return The dump information.
+    */
+    static String dump(Frame::SharedPtr frame)
+    {
+        OStringStream oss;
+
+        if (frame)
+        switch (frame->getIntent())
+        {
+            case Frame::ATCOMMAND_REQUEST:      tdump<Frame::ATCommandRequest>(oss, frame, "ATCOMMAND_REQUEST");    break;
+            case Frame::ATCOMMAND_RESPONSE:     tdump<Frame::ATCommandResponse>(oss, frame, "ATCOMMAND_RESPONSE");  break;
+            case Frame::ZB_TRANSMIT_REQUEST:    tdump<Frame::ZBTransmitRequest>(oss, frame, "ZB_TRANSMIT_REQUEST"); break;
+            case Frame::ZB_TRANSMIT_STATUS:     tdump<Frame::ZBTransmitStatus>(oss, frame, "ZB_TRANSMIT_STATUS");   break;
+            case Frame::ZB_RECEIVE_PACKET:      tdump<Frame::ZBReceivePacket>(oss, frame, "ZB_RECEIVE_PACKET");     break;
+
+            default:
+                oss << "unknown frame type: " << frame->getIntent();
+                break;
+        }
+
+        return oss.str();
+    }
+
+private:
+
+    /// @brief Dump the custom payload.
+    /**
+    @param[in,out] oss The output stream.
+    @param[in] frame The frame content.
+    @param[in] title The payload title.
+    */
+    template<typename PayloadT>
+    static void tdump(OStream &oss, Frame::SharedPtr frame, const char *title)
+    {
+        oss << title << ": ";
+        PayloadT payload;
+        if (frame->getPayload(payload))
+            oss << dump(payload);
+        else
+            oss << "bad format";
+    }
+};
+
+
 /// @brief The XBee interface.
 /**
 Uses external stream object to communicate with XBee device.
@@ -717,10 +825,10 @@ Application is responsible to open and setup serial device.
 */
 template<typename StreamT>
 class API:
-    public binary::Transceiver<StreamT, Frame>
+    public bin::Transceiver<StreamT, Frame>
 {
     /// @brief The base type.
-    typedef binary::Transceiver<StreamT, Frame> Base;
+    typedef bin::Transceiver<StreamT, Frame> Base;
 
     /// @brief The type alias.
     typedef API<StreamT> This;

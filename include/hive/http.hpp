@@ -79,7 +79,7 @@ The following format of URL is expected:
     http://user:password@host:port/path/file?query#fragment
 
 
-Now supports `http`, `https` and `ftp` protocols.
+Now supports `http`, `https`, `ftp`, `ws` and `wss` protocols.
 
 The URL encoding/decoding functions are provided as static methods.
 
@@ -199,6 +199,8 @@ public:
     |     http | 80
     |    https | 443
     |      ftp | 21
+    |       ws | 80
+    |      wss | 443
 
     @return The port number as integer.
     */
@@ -212,6 +214,10 @@ public:
                 return 443;
             else if (boost::iequals(m_proto, "ftp"))
                 return 21;
+            else if (boost::iequals(m_proto, "ws"))
+                return 80;
+            else if (boost::iequals(m_proto, "wss"))
+                return 443;
             else
                 return 0; // unknown
         }
@@ -765,22 +771,23 @@ private:
 
         /// @brief The HTTP headers.
         /**
-            This namespace contains definition of common HTTP headers.
+        This namespace contains definition of common HTTP headers.
         */
         namespace header
         {
 
-const char Host[]             = "Host";             ///< @hideinitializer @brief The "Host" header name.
-const char Allow[]            = "Allow";            ///< @hideinitializer @brief The "Allow" header name.
-const char Accept[]           = "Accept";           ///< @hideinitializer @brief The "Accept" header name.
-const char Connection[]       = "Connection";       ///< @hideinitializer @brief The "Connection" header name.
-const char Content_Encoding[] = "Content-Encoding"; ///< @hideinitializer @brief The "Content-Encoding" header name.
-const char Content_Length[]   = "Content-Length";   ///< @hideinitializer @brief The "Content-Length" header name.
-const char Content_Type[]     = "Content-Type";     ///< @hideinitializer @brief The "Content-Type" header name.
-const char Expires[]          = "Expires";          ///< @hideinitializer @brief The "Expires" header name.
-const char Last_Modified[]    = "Last-Modified";    ///< @hideinitializer @brief The "Last-Modified" header name.
-const char User_Agent[]       = "User-Agent";       ///< @hideinitializer @brief The "User-Agent" header name.
-const char Location[]         = "Location";         ///< @hideinitializer @brief The "Location" header name.
+const char Host[]               = "Host";               ///< @hideinitializer @brief The "Host" header name.
+const char Allow[]              = "Allow";              ///< @hideinitializer @brief The "Allow" header name.
+const char Accept[]             = "Accept";             ///< @hideinitializer @brief The "Accept" header name.
+const char Connection[]         = "Connection";         ///< @hideinitializer @brief The "Connection" header name.
+const char Content_Encoding[]   = "Content-Encoding";   ///< @hideinitializer @brief The "Content-Encoding" header name.
+const char Content_Length[]     = "Content-Length";     ///< @hideinitializer @brief The "Content-Length" header name.
+const char Content_Type[]       = "Content-Type";       ///< @hideinitializer @brief The "Content-Type" header name.
+const char Expires[]            = "Expires";            ///< @hideinitializer @brief The "Expires" header name.
+const char Last_Modified[]      = "Last-Modified";      ///< @hideinitializer @brief The "Last-Modified" header name.
+const char User_Agent[]         = "User-Agent";         ///< @hideinitializer @brief The "User-Agent" header name.
+const char Location[]           = "Location";           ///< @hideinitializer @brief The "Location" header name.
+const char Upgrade[]            = "Upgrade";            ///< @hideinitializer @brief The "Upgrade" header name.
 
         // TODO: add more headers here
 
@@ -1418,6 +1425,8 @@ public:
     typedef boost::system::error_code ErrorCode; ///< @brief The error code type.
     typedef boost::asio::ip::tcp::resolver Resolver; ///< @brief The resolver type.
     typedef boost::asio::streambuf StreamBuf; ///< @brief The stream buffer type.
+    typedef boost::asio::mutable_buffers_1 MutableBuffers; ///< @brief The mutable buffers.
+    typedef boost::asio::const_buffers_1 ConstBuffers; ///< @brief The constant buffers.
 
 public:
 
@@ -1440,14 +1449,6 @@ public:
     virtual ~Connection()
     {}
 
-private:
-
-    /// @brief The stream buffer.
-    /**
-    This buffer may be used for read/write operations.
-    */
-    StreamBuf m_buffer;
-
 public:
 
     /// @brief Get the stream buffer.
@@ -1461,6 +1462,21 @@ public:
 
 public:
 
+    /// @brief Get the IO service.
+    /**
+    @return The corresponding IO service.
+    */
+    virtual IOService& get_io_service() = 0;
+
+
+    /// @brief Close the connection.
+    /**
+        Cancels all asynchronous operations.
+    */
+    virtual void close() = 0;
+
+public:
+
     /// @brief The "connect" operation callback type.
     typedef boost::function1<void, ErrorCode> ConnectCallback;
 
@@ -1470,8 +1486,7 @@ public:
     @param[in] epi The endpoint iterator.
     @param[in] callback The callback functor.
     */
-    virtual void asyncConnect(Resolver::iterator epi, ConnectCallback callback) = 0;
-
+    virtual void async_connect(Resolver::iterator epi, ConnectCallback callback) = 0;
 
 public:
 
@@ -1484,7 +1499,7 @@ public:
     @param[in] type The handshake type.
     @param[in] callback The callback functor.
     */
-    virtual void asyncHandshake(int type, HandshakeCallback callback) = 0;
+    virtual void async_handshake(int type, HandshakeCallback callback) = 0;
 
 public:
 
@@ -1494,10 +1509,10 @@ public:
 
     /// @brief Start asynchronous "write" operation.
     /**
-    @param[in] sbuf The stream buffer to send.
+    @param[in] bufs The buffers to send.
     @param[in] callback The callback functor.
     */
-    virtual void asyncWriteAll(StreamBuf &sbuf, WriteCallback callback) = 0;
+    virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback) = 0;
 
 public:
 
@@ -1505,29 +1520,20 @@ public:
     typedef boost::function2<void, ErrorCode, size_t> ReadCallback;
 
 
-    /// @brief Start asynchronous "read until" operation.
-    /**
-    @param[in] sbuf The stream buffer read to.
-    @param[in] delim The delimiter string.
-    @param[in] callback The callback functor.
-    */
-    virtual void asyncReadUntil(StreamBuf &sbuf, String const& delim, ReadCallback callback) = 0;
-
-
     /// @brief Start asynchronous "read some" operation.
     /**
-    @param[in] sbuf The stream buffer read to.
+    @param[in] bufs The buffers to read to.
     @param[in] callback The callback functor.
     */
-    virtual void asyncReadSome(StreamBuf &sbuf, ReadCallback callback) = 0;
+    virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback) = 0;
 
-public:
+private:
 
-    /// @brief Close the connection.
+    /// @brief The stream buffer.
     /**
-        Cancels all asynchronous operations.
+    This buffer may be used for read/write operations.
     */
-    virtual void close() = 0;
+    StreamBuf m_buffer;
 };
 
 
@@ -1541,6 +1547,16 @@ class Connection::Simple:
     typedef Connection Base; ///< @brief The base type.
 public:
     typedef boost::asio::ip::tcp::socket TcpSocket; ///< @brief The TCP socket type.
+
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] ios The IO service.
+    */
+    explicit Simple(IOService & ios)
+        : m_socket(ios)
+    {}
 
 public:
 
@@ -1557,21 +1573,6 @@ public:
     {
         return SharedPtr(new Simple(ios));
     }
-    
-protected:
-
-    /// @brief The main constructor.
-    /**
-    @param[in] ios The IO service.
-    */
-    explicit Simple(IOService & ios)
-        : m_socket(ios)
-    {}
-
-private:
-
-    /// @brief The socket.
-    TcpSocket m_socket;
 
 public:
 
@@ -1584,61 +1585,14 @@ public:
         return m_socket;
     }
 
-public:
+public: // Connection
 
-    /// @copydoc Connection::asyncConnect()
-    virtual void asyncConnect(Resolver::iterator epi, ConnectCallback callback)
+    /// @copydoc Connection::get_io_service()
+    virtual IOService& get_io_service()
     {
-        // attempt a connection to each endpoint in the list
-        boost::asio::async_connect(
-            getSocket(), epi, boost::bind(callback,
-                boost::asio::placeholders::error));
+        return m_socket.get_io_service();
     }
 
-public:
-
-    /// @copydoc Connection::asyncHandshake()
-    /**
-    Does nothing for simple HTTP connections.
-    */
-    virtual void asyncHandshake(int type, HandshakeCallback callback)
-    {
-        // handshake is always successful
-        getSocket().get_io_service().post(
-            boost::bind(callback, ErrorCode()));
-    }
-
-public:
-
-    /// @copydoc Connection::asyncWriteAll()
-    virtual void asyncWriteAll(StreamBuf &sbuf, WriteCallback callback)
-    {
-        boost::asio::async_write(getSocket(), sbuf,
-            boost::bind(callback, boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-    }
-
-public:
-
-    /// @copydoc Connection::asyncReadUntil()
-    virtual void asyncReadUntil(StreamBuf &sbuf, String const& delim, ReadCallback callback)
-    {
-        boost::asio::async_read_until(getSocket(), sbuf, delim,
-            boost::bind(callback, boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-    }
-
-
-    /// @copydoc Connection::asyncReadSome()
-    virtual void asyncReadSome(StreamBuf &sbuf, ReadCallback callback)
-    {
-        boost::asio::async_read(getSocket(), sbuf,
-            boost::asio::transfer_at_least(1),
-            boost::bind(callback, boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-    }
-
-public:
 
     /// @copydoc Connection::close()
     virtual void close()
@@ -1651,6 +1605,48 @@ public:
         m_socket.close(terr);
         // ignore error code?
     }
+
+
+    /// @copydoc Connection::async_connect()
+    virtual void async_connect(Resolver::iterator epi, ConnectCallback callback)
+    {
+        // attempt a connection to each endpoint in the list
+        boost::asio::async_connect(
+            getSocket(), epi, boost::bind(callback,
+                boost::asio::placeholders::error));
+    }
+
+
+    /// @copydoc Connection::async_handshake()
+    /**
+    Does nothing for simple HTTP connections.
+    */
+    virtual void async_handshake(int type, HandshakeCallback callback)
+    {
+        // handshake is always successful, just call the callback
+        get_io_service().post(boost::bind(callback, ErrorCode()));
+    }
+
+
+    /// @copydoc Connection::async_write_some()
+    virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback)
+    {
+        getSocket().async_write_some(bufs,
+            boost::bind(callback, boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+
+
+    /// @copydoc Connection::async_read_some()
+    virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback)
+    {
+        getSocket().async_read_some(bufs,
+            boost::bind(callback, boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+
+private:
+    TcpSocket m_socket; ///< @brief The socket.
 };
 
 
@@ -1669,6 +1665,17 @@ public:
     typedef boost::asio::ssl::stream<TcpSocket> SslStream; ///< @brief The SSL stream type.
     typedef boost::asio::ssl::context SslContext; ///< @brief The SSL context type.
 
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] ios The IO service.
+    @param[in] context The SSL context.
+    */
+    Secure(IOService & ios, SslContext & context)
+        : m_stream(ios, context)
+    {}
+
 public:
 
     /// @brief The shared pointer type.
@@ -1685,22 +1692,6 @@ public:
     {
         return SharedPtr(new Secure(ios, context));
     }
-    
-protected:
-
-    /// @brief The main constructor.
-    /**
-    @param[in] ios The IO service.
-    @param[in] context The SSL context.
-    */
-    Secure(IOService & ios, SslContext & context)
-        : m_stream(ios, context)
-    {}
-
-private:
-
-    /// @brief The SSL stream.
-    SslStream m_stream;
 
 public:
 
@@ -1713,57 +1704,14 @@ public:
         return m_stream;
     }
 
-public:
+public: // Connection
 
-    /// @copydoc Connection::asyncConnect()
-    virtual void asyncConnect(Resolver::iterator epi, ConnectCallback callback)
+    /// @copydoc Connection::get_io_service()
+    virtual IOService& get_io_service()
     {
-        // attempt a connection to each endpoint in the list
-        boost::asio::async_connect(getStream().lowest_layer(), epi,
-            boost::bind(callback, boost::asio::placeholders::error));
+        return m_stream.get_io_service();
     }
 
-public:
-
-    /// @copydoc Connection::asyncHandshake()
-    virtual void asyncHandshake(int type, HandshakeCallback callback)
-    {
-        getStream().async_handshake(
-            boost::asio::ssl::stream_base::handshake_type(type),
-            boost::bind(callback, boost::asio::placeholders::error));
-    }
-
-public:
-
-    /// @copydoc Connection::asyncWriteAll()
-    virtual void asyncWriteAll(StreamBuf &sbuf, WriteCallback callback)
-    {
-        boost::asio::async_write(getStream(), sbuf,
-            boost::bind(callback, boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-    }
-
-public:
-
-    /// @copydoc Connection::asyncReadUntil()
-    virtual void asyncReadUntil(StreamBuf &sbuf, String const& delim, ReadCallback callback)
-    {
-        boost::asio::async_read_until(getStream(), sbuf, delim,
-            boost::bind(callback, boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-    }
-
-
-    /// @copydoc Connection::asyncReadSome()
-    virtual void asyncReadSome(StreamBuf &sbuf, ReadCallback callback)
-    {
-        boost::asio::async_read(getStream(), sbuf,
-            boost::asio::transfer_at_least(1),
-            boost::bind(callback, boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-    }
-
-public:
 
     /// @copydoc Connection::close()
     virtual void close()
@@ -1776,6 +1724,45 @@ public:
         getStream().lowest_layer().close(terr);
         // ignore error code?
     }
+
+
+    /// @copydoc Connection::async_connect()
+    virtual void async_connect(Resolver::iterator epi, ConnectCallback callback)
+    {
+        // attempt a connection to each endpoint in the list
+        boost::asio::async_connect(getStream().lowest_layer(), epi,
+            boost::bind(callback, boost::asio::placeholders::error));
+    }
+
+
+    /// @copydoc Connection::async_handshake()
+    virtual void async_handshake(int type, HandshakeCallback callback)
+    {
+        getStream().async_handshake(
+            boost::asio::ssl::stream_base::handshake_type(type),
+            boost::bind(callback, boost::asio::placeholders::error));
+    }
+
+
+    /// @copydoc Connection::async_write_some()
+    virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback)
+    {
+        getStream().async_write_some(bufs,
+            boost::bind(callback, boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+
+
+    /// @copydoc Connection::async_read_some()
+    virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback)
+    {
+        getStream().async_read_some(bufs,
+            boost::bind(callback, boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+
+private:
+    SslStream m_stream; ///< @brief The SSL stream.
 };
 
 #endif // HIVE_DISABLE_SSL
@@ -1880,13 +1867,17 @@ public:
     The callback signature should be the following:
 
     ~~~{.cpp}
-    void cb(boost::system::error_code err, http::Request::SharedPtr request, http::Response::SharedPtr response)
+    void cb(boost::system::error_code err,
+        http::Request::SharedPtr request,
+        http::Response::SharedPtr response,
+        http::Connection::SharedPtr connection)
     ~~~
 
     Note that response may be NULL!
     */
-    typedef boost::function3<void, ErrorCode,
-        Request::SharedPtr, Response::SharedPtr> Callback;
+    typedef boost::function4<void, ErrorCode,
+        Request::SharedPtr, Response::SharedPtr,
+            Connection::SharedPtr> Callback2;
 
 
     /// @brief Send request asynchronously.
@@ -1896,7 +1887,7 @@ public:
     @param[in] timeout_ms The request timeout, milliseconds.
         If it's zero, no any deadline timers will be started.
     */
-    void send(Request::SharedPtr request, Callback callback, size_t timeout_ms)
+    void send2(Request::SharedPtr request, Callback2 callback, size_t timeout_ms)
     {
         HIVELOG_TRACE_BLOCK(m_log, "send()");
         assert(request && "no request");
@@ -1911,7 +1902,8 @@ public:
                 HIVELOG_ERROR(m_log, "cannot start deadline timer: ["
                     << err << "] " << err.message());
                 m_ios.post(boost::bind(callback, err,
-                    request, Response::SharedPtr()));
+                    request, Response::SharedPtr(),
+                        Connection::SharedPtr()));
                 return; // no task started
             }
 
@@ -1930,6 +1922,35 @@ public:
 
         m_tasks.push_back(task);
         asyncResolve(task);
+    }
+
+
+    /// @brief The callback type.
+    /**
+    The callback signature should be the following:
+
+    ~~~{.cpp}
+    void cb(boost::system::error_code err,
+        http::Request::SharedPtr request,
+        http::Response::SharedPtr response)
+    ~~~
+
+    Note that response may be NULL!
+    */
+    typedef boost::function3<void, ErrorCode,
+        Request::SharedPtr, Response::SharedPtr> Callback;
+
+
+    /// @brief Send request asynchronously.
+    /**
+    @param[in] request The HTTP request to send.
+    @param[in] callback The response callback function.
+    @param[in] timeout_ms The request timeout, milliseconds.
+        If it's zero, no any deadline timers will be started.
+    */
+    void send(Request::SharedPtr request, Callback callback, size_t timeout_ms)
+    {
+        send2(request, boost::bind(callback, _1, _2, _3), timeout_ms);
     }
 
 
@@ -1962,7 +1983,7 @@ private:
         Request::SharedPtr  request;  ///< @brief The request object.
         Response::SharedPtr response; ///< @brief The response object.
 
-        Callback callback; ///< @brief The callback method.
+        Callback2 callback; ///< @brief The callback method.
 
         bool timer_started; ///< @brief The timer "started" flag.
         Timer timer;    ///< @brief The deadline timer.
@@ -1981,11 +2002,14 @@ private:
         @param[in] req The request.
         @param[in] cb The callback.
         */
-        Task(IOService &ios, Request::SharedPtr req, Callback cb)
-            : request(req), callback(cb),
-              timer_started(false), timer(ios),
-              resolver(ios), cancelled(false),
-              rx_len(std::numeric_limits<size_t>::max())
+        Task(IOService &ios, Request::SharedPtr req, Callback2 cb)
+            : request(req)
+            , callback(cb)
+            , timer_started(false)
+            , timer(ios)
+            , resolver(ios)
+            , cancelled(false)
+            , rx_len(0)
         {}
 
     public:
@@ -2066,8 +2090,9 @@ private:
 
             // callback will be called later, outside this method
             m_ios.post(boost::bind(task->callback,
-                err, task->request, task->response));
-            task->callback = Callback();
+                err, task->request, task->response,
+                    task->connection));
+            task->callback = Callback2();
         }
 
         m_tasks.remove(task);
@@ -2234,7 +2259,7 @@ private:
         HIVELOG_DEBUG(m_log, "{" << task.get()
             << "} start async connection");
 
-        task->connection->asyncConnect(epi,
+        task->connection->async_connect(epi,
             boost::bind(&Client::onConnected, shared_from_this(),
                 task, boost::asio::placeholders::error));
     }
@@ -2286,7 +2311,7 @@ private:
         // send whole request
         HIVELOG_DEBUG(m_log, "{" << task.get()
             << "} start async handshake");
-        task->connection->asyncHandshake(
+        task->connection->async_handshake(
 #if !defined(HIVE_DISABLE_SSL)
             boost::asio::ssl::stream_base::client,
 #else
@@ -2366,7 +2391,7 @@ private:
         // send whole request
         HIVELOG_DEBUG(m_log, "{" << task.get()
             << "} start async request sending");
-        task->connection->asyncWriteAll(sbuf,
+        boost::asio::async_write(*task->connection, sbuf,
             boost::bind(&Client::onRequestWritten,
                 shared_from_this(), task, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
@@ -2417,9 +2442,10 @@ private:
 
         HIVELOG_DEBUG(m_log, "{" << task.get()
             << "} start async status line receiving");
-        task->connection->asyncReadUntil(task->connection->getBuffer(),
-            impl::CRLF, boost::bind(&Client::onStatusRead,
-                shared_from_this(), task, boost::asio::placeholders::error,
+        boost::asio::async_read_until(*task->connection,
+            task->connection->getBuffer(), impl::CRLF,
+            boost::bind(&Client::onStatusRead, shared_from_this(),
+                task, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
 
@@ -2494,9 +2520,10 @@ private:
         // start "header" reading
         HIVELOG_DEBUG(m_log, "{" << task.get()
             << "} start async headers receiving");
-        task->connection->asyncReadUntil(task->connection->getBuffer(),
-            impl::CRLFx2, boost::bind(&Client::onHeadersRead,
-                shared_from_this(), task, boost::asio::placeholders::error,
+        boost::asio::async_read_until(*task->connection,
+            task->connection->getBuffer(), impl::CRLFx2,
+            boost::bind(&Client::onHeadersRead, shared_from_this(),
+                task, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
 
@@ -2569,8 +2596,9 @@ private:
         // start "content" reading
         HIVELOG_DEBUG(m_log, "{" << task.get()
             << "} start async content receiving");
-        task->connection->asyncReadSome(
+        boost::asio::async_read(*task->connection,
             task->connection->getBuffer(),
+            boost::asio::transfer_at_least(1),
             boost::bind(&Client::onContentRead,
                 shared_from_this(), task, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
@@ -2867,6 +2895,193 @@ typedef   Response::SharedPtr   ResponsePtr;  ///< @brief The HTTP response shar
 typedef Connection::SharedPtr ConnectionPtr;  ///< @brief The HTTP connection shared pointer type.
 typedef     Client::SharedPtr     ClientPtr;  ///< @brief The HTTP client shared pointer type.
 
+
+/// @name Base64 encoding
+/// @{
+
+/// @brief Encode the custom binary buffer.
+/**
+The output buffer should be 4/3 times big than input buffer.
+
+@param[in] first The begin of input buffer.
+@param[in] last The end of output buffer.
+@param[in] out The begin of output buffer.
+@return The end of output buffer.
+*/
+template<typename In, typename Out>
+Out base64_encode(In first, In last, Out out)
+{
+    const char TABLE[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
+    // [xxxxxxxx][yyyyyyyy][zzzzzzzz] => [aaaaaa][bbbbbb][cccccc][dddddd]
+    while (first != last)
+    {
+        const int x = UInt8(*first++);          // byte #0
+
+        int a = (x>>2) & 0x3F;      // [xxxxxx--] => [00xxxxxx]
+        int b = (x<<4) & 0x3F;      // [------xx] => [00xx0000]
+        int c = 64;                 // '=' by default
+        int d = 64;                 // '=' by default
+
+        if (first != last)
+        {
+            const int y = UInt8(*first++);      // byte #1
+
+            b |= (y>>4) & 0x0F;     // [yyyy----] => [00xxyyyy]
+            c  = (y<<2) & 0x3F;     // [----yyyy] => [00yyyy00]
+
+            if (first != last)
+            {
+                const int z = UInt8(*first++);   // byte #2
+
+                c |= (z>>6) & 0x03; // [zz------] => [00yyyyzz]
+                d  =  z     & 0x3F; // [--zzzzzz] => [00zzzzzz]
+            }
+        }
+
+        *out++ = TABLE[a];
+        *out++ = TABLE[b];
+        *out++ = TABLE[c];
+        *out++ = TABLE[d];
+    }
+
+    return out;
+}
+
+
+/// @brief Decode the custom binary buffer.
+/**
+The output buffer should be 4/3 times less than input buffer.
+
+@param[in] first The begin of input buffer.
+@param[in] last The end of output buffer.
+@param[in] out The begin of output buffer.
+@return The end of output buffer.
+@throw std::runtime_error on invalid data.
+*/
+template<typename In, typename Out>
+Out base64_decode(In first, In last, Out out)
+{
+    const Int8 TABLE[] =
+    {
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,62,  -1,-1,-1,63,
+        52,53,54,55,  56,57,58,59,  60,61,-1,-1,  -1,-1,-1,-1,
+        -1, 0, 1, 2,   3, 4, 5, 6,   7, 8, 9,10,  11,12,13,14,
+        15,16,17,18,  19,20,21,22,  23,24,25,-1,  -1,-1,-1,-1,
+        -1,26,27,28,  29,30,31,32,  33,34,35,36,  37,38,39,40,
+        41,42,43,44,  45,46,47,48,  49,50,51, 1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
+        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1
+    };
+
+
+    // [aaaaaa][bbbbbb][cccccc][dddddd] => [xxxxxxxx][yyyyyyyy][zzzzzzzz]
+    // [aaaaaa][bbbbbb][cccc00][=]      => [xxxxxxxx][yyyyyyyy]
+    // [aaaaaa][bb0000][=][=]           => [xxxxxxxx]
+    while (first != last)
+    {
+        const int aa =                   UInt8(*first++);
+        const int bb = (first != last) ? UInt8(*first++) : 0;
+        const int cc = (first != last) ? UInt8(*first++) : 0;
+        const int dd = (first != last) ? UInt8(*first++) : 0;
+
+        const int a = TABLE[aa];
+        const int b = TABLE[bb];
+
+
+        if (a < 0 || b < 0)
+            throw std::runtime_error("invalid base64 data");
+        *out++ = (a<<2) | ((b>>4)&0x03);                // [00aaaaaa][00bb----] => [xxxxxxxx]
+
+        if (cc != '=')
+        {
+            const int c = TABLE[cc];
+            if (c < 0)
+                throw std::runtime_error("invalid base64 data");
+            *out++ = ((b<<4)&0xF0) | ((c>>2)&0x0F);     // [00--bbbb][00cccc--] => [yyyyyyyy]
+
+            if (dd != '=')
+            {
+                const int d = TABLE[dd];
+                if (c < 0)
+                    throw std::runtime_error("invalid base64 data");
+                *out++ = ((c<<6)&0xC0) | d;             // [00----cc][00dddddd] => [zzzzzzzz]
+            }
+            else
+            {
+                if (c&0x03) // sanity check
+                    throw std::runtime_error("invalid base64 data");
+            }
+        }
+        else
+        {
+            if ((b&0x0F) || dd != '=' || first != last) // sanity check
+                throw std::runtime_error("invalid base64 data");
+        }
+    }
+
+    return out;
+}
+
+
+/// @brief Encode the custom binary data.
+/**
+@param[in] first The begin of input data.
+@param[in] last The end of input data.
+@return The base64 data.
+*/
+template<typename In> inline
+String base64_encode(In first, In last)
+{
+    const size_t ilen = std::distance(first, last);
+    const size_t olen = ((ilen+2)/3)*4; // ceil(4/3*len)
+
+    String buf(olen, '\0');
+    buf.erase(base64_encode(first,
+        last, buf.begin()), buf.end());
+    return buf;
+}
+
+
+/// @brief Encode the custom binary vector.
+/**
+@param[in] data The input data.
+@return The base64 data.
+*/
+template<typename T, typename A> inline
+String base64_encode(std::vector<T,A> const& data)
+{
+    return base64_encode(data.begin(), data.end());
+}
+
+
+/// @brief Decode the base64 data.
+/**
+@param[in] data The base64 data.
+@return The binary data.
+@throw std::runtime_error on invalid data.
+*/
+inline std::vector<UInt8> base64_decode(String const& data)
+{
+    const size_t ilen = data.size();
+    const size_t olen = ((ilen+3)/4)*3; // ceil(3/4*len)
+
+    std::vector<UInt8> buf(olen);
+    buf.erase(base64_decode(data.begin(),
+        data.end(), buf.begin()), buf.end());
+    return buf;
+}
+
+/// @}
+
     } // http namespace
 
 
@@ -2880,18 +3095,24 @@ In that case you will be unable to use https protocol.
 #define HIVE_DISABLE_SSL
 #endif // defined(HIVE_DOXY_MODE)
 
+} // hive namespace
+
+#endif // __HIVE_HTTP_HPP_
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /** @page page_hive_http HTTP module
 
-Using this HTTP module it's possible to send HTTP requests and get corresponding HTTP responses.
-All operations are done in asynchronous way.
+Using this HTTP module it's possible to send HTTP requests and get
+corresponding HTTP responses. All operations are done in asynchronous way.
 
-To use this module you have to form a proper HTTP request (an instance of hive::http::Request class)
-and provide the callback function, which will be called when HTTP request is finished. A HTTP client
-(an instance of hive::http::Client class) is used to process all HTTP requests.
+To use this module you have to form a proper HTTP request (an instance of
+hive::http::Request class) and provide the callback function, which will
+be called when HTTP request is finished. A HTTP client (an instance of
+hive::http::Client class) is used to process all HTTP requests.
 
-The simple example which prints the corresponding request/response to the standard output:
+The simple example which prints the corresponding request/response
+to the standard output:
 
 ~~~{.cpp}
 using namespace hive;
@@ -2923,8 +3144,9 @@ int main()
 }
 ~~~
 
-You can customize your HTTP request by providing custom HTTP headers (see hive::http::Message::addHeader()
-method and hive::http::header namespace) and message context (see hive::http::Message::setContent()).
+You can customize your HTTP request by providing custom HTTP headers
+(see hive::http::Message::addHeader() method and hive::http::header namespace)
+and message context (see hive::http::Message::setContent() method).
 
 The callback method may be any callable object with the following signature:
 
@@ -2938,15 +3160,12 @@ There are main classes in HTTP module (please see corresponding documentation):
 - hive::http::Client
 - hive::http::Url
 
-You can use http or https protocols. If you don't have OpenSSL then you can define #HIVE_DISABLE_SSL macro.
-In that case you will be unable to use https.
+You can use http or https protocols. If you don't have OpenSSL then you can
+define #HIVE_DISABLE_SSL macro. In that case you will be unable to use https.
 
-The HTTP module is based on boost.asio library. Also the following boost libraries are used:
-boost.asio, boost.bind, boost.system, boost.shared_ptr, boost.lexical_cast, boost.algorithm
+The HTTP module is based on `boost.asio` library. Also the following *boost*
+libraries are used: `boost.asio`, `boost.bind`, `boost.system`,
+`boost.shared_ptr`, `boost.lexical_cast`, `boost.algorithm`.
 
 Restrictions: no IPv6 yet.
 */
-
-} // hive namespace
-
-#endif // __HIVE_HTTP_HPP_

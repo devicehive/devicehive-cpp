@@ -6,12 +6,8 @@
 #ifndef __DEVICEHIVE_GATEWAY_HPP_
 #define __DEVICEHIVE_GATEWAY_HPP_
 
-#include <hive/bstream.hpp>
-#include <hive/swab.hpp>
 #include <hive/json.hpp>
-#include <hive/dump.hpp>
-
-#include "binary.hpp"
+#include <hive/bin.hpp>
 
 #if !defined(HIVE_PCH)
 #   include <boost/shared_ptr.hpp>
@@ -40,6 +36,7 @@ enum MessageIntent
     INTENT_REGISTRATION_REQUEST,  ///< @brief The registration request.
     INTENT_REGISTRATION_RESPONSE, ///< @brief The registration response.
     INTENT_COMMAND_RESULT_RESPONSE, ///< @brief The command result response.
+    INTENT_REGISTRATION2_RESPONSE, ///< @brief The registration response (JSON format).
 
     INTENT_USER = 256             ///< @brief The minimum user intent.
 };
@@ -201,6 +198,18 @@ public:
     }
 
 
+    /// @brief Create "Registration 2 Response" layout.
+    /**
+    @return The new "Registration 2 Response" layout.
+    */
+    static SharedPtr createRegistration2Response()
+    {
+        SharedPtr layout = create();
+        layout->add("json", DT_STRING);
+        return layout;
+    }
+
+
     /// @brief Create "Command Result Response" layout.
     /**
     @return The new "Command Result Response" layout.
@@ -306,6 +315,7 @@ public:
     {
         registerSystemIntent(INTENT_REGISTRATION_REQUEST, Layout::createRegistrationRequest());
         registerSystemIntent(INTENT_REGISTRATION_RESPONSE, Layout::createRegistrationResponse());
+        registerSystemIntent(INTENT_REGISTRATION2_RESPONSE, Layout::createRegistration2Response());
         registerSystemIntent(INTENT_COMMAND_RESULT_RESPONSE, Layout::createCommandResultResponse());
     }
 
@@ -384,7 +394,8 @@ This class contains full formated frame:
 
 The empty frame doesn't contain any data.
 */
-class Frame
+class Frame:
+    public bin::FrameContent
 {
 public:
 
@@ -579,16 +590,6 @@ public:
         return frame;
     }
 
-
-    /// @brief Get the frame content.
-    /**
-    @return The frame content.
-    */
-    std::vector<UInt8> const& getContent() const
-    {
-        return m_content;
-    }
-
 public:
 
     /// @brief Get the frame intent.
@@ -608,28 +609,6 @@ public:
         }
 
         return -1; // unknown
-    }
-
-public:
-
-    /// @brief Is the frame empty?
-    /**
-    @return `true` if the frame is empty.
-    */
-    bool empty() const
-    {
-        return m_content.empty();
-    }
-
-
-    /// @brief Get the frame size.
-    /**
-    This size includes the header size, frame payload and checksum.
-    @return The frame size in bytes.
-    */
-    size_t size() const
-    {
-        return m_content.size();
     }
 
 private:
@@ -681,65 +660,15 @@ private:
             m_content.begin(),
             m_content.end()));
     }
-
-private:
-    std::vector<UInt8> m_content; ///< @brief The frame content.
 };
 
 
-/// @brief The gateway %API.
+/// @brief The gateway engine.
 /**
-Uses external stream object.
+Stores the commands and notifications.
 */
-template<typename StreamT>
-class API:
-    public binary::Transceiver<StreamT, Frame>
+class Engine
 {
-    /// @brief The base type.
-    typedef binary::Transceiver<StreamT, Frame> Base;
-
-    /// @brief The type alias.
-    typedef API<StreamT> This;
-
-private:
-
-    /// @brief The default constructor.
-    /**
-    @param[in] stream The external stream.
-    */
-    explicit API(StreamT &stream)
-        : Base("gateway/API", stream)
-    {}
-
-public:
-
-    /// @brief The frame shared pointer type.
-    typedef typename Base::FrameSPtr FrameSPtr;
-
-    /// @brief The shared pointer type.
-    typedef boost::shared_ptr<This> SharedPtr;
-
-
-    /// @brief The factory method.
-    /**
-    @param[in] stream The external stream.
-    @return The new instance.
-    */
-    static SharedPtr create(StreamT &stream)
-    {
-        return SharedPtr(new This(stream));
-    }
-
-
-    /// @brief Get the shared pointer.
-    /**
-    @return The shared pointer to this instance.
-    */
-    SharedPtr shared_from_this()
-    {
-        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
-    }
-
 public:
 
     /// @brief Find the command intent by name.
@@ -772,12 +701,12 @@ public:
     @param[in] data The JSON frame payload.
     @return The binary frame. May be NULL for unknown intents.
     */
-    FrameSPtr jsonToFrame(int intent, json::Value const& data) const
+    Frame::SharedPtr jsonToFrame(int intent, json::Value const& data) const
     {
         if (Layout::SharedPtr layout = m_layouts.find(intent))
         {
             OStringStream payload;
-            io::BinaryOStream bs(payload);
+            bin::OStream bs(payload);
             Serializer::json2bin(data,
                 bs, layout);
 
@@ -785,7 +714,7 @@ public:
         }
         //else HIVELOG_WARN(m_log, "unknown layout for intent #" << intent);
 
-        return FrameSPtr(); // no conversion
+        return Frame::SharedPtr(); // no conversion
     }
 
 
@@ -794,7 +723,7 @@ public:
     @param[in] frame The frame to convert.
     @return The JSON frame payload. May be empty for unknown intents.
     */
-    json::Value frameToJson(FrameSPtr frame) const
+    json::Value frameToJson(Frame::SharedPtr frame) const
     {
         if (Layout::SharedPtr layout = m_layouts.find(frame->getIntent()))
         {
@@ -802,7 +731,7 @@ public:
             if (frame->getPayload(payload))
             {
                 IStringStream is(payload);
-                io::BinaryIStream bs(is);
+                bin::IStream bs(is);
 
                 return Serializer::bin2json(bs, layout);
             }
@@ -818,7 +747,7 @@ public:
     /// @brief Handle the basic part register response message.
     /**
     This method updates the known layouts based on information from registration response message.
-    @param[in] jval The frame paylaod data.
+    @param[in] jval The frame payload data.
     */
     void handleRegisterResponse(json::Value const& jval)
     {
@@ -832,7 +761,7 @@ public:
                 Layout::SharedPtr layout = gateway::Layout::create();
                 layout->add("id", gateway::DT_UINT32);
 
-                int intent = (int)command["intent"].asUInt();
+                int intent = command["intent"].asUInt16();
                 String name = command["name"].asString();
 
                 if (Layout::SharedPtr params = parseCommandParams(command["params"]))
@@ -850,7 +779,7 @@ public:
             {
                 json::Value const& notification = notifications[i];
 
-                int intent = (int)notification["intent"].asUInt();
+                int intent = notification["intent"].asUInt16();
                 String name = notification["name"].asString();
 
                 if (Layout::SharedPtr layout = parseCommandParams(notification["params"]))
@@ -879,12 +808,163 @@ public:
             json::Value const& param = jval[i];
 
             String name = param["name"].asString();
-            int type = (int)param["type"].asUInt();
+            int type = param["type"].asUInt8();
 
+            // TODO: check type range
             layout->add(name, DataType(type));
         }
 
         return layout;
+    }
+
+
+    /// @brief Handle the basic part register 2 response message.
+    /**
+    This method updates the known layouts based on information from registration 2 response message.
+    @param[in] jval The frame payload data.
+    */
+    void handleRegister2Response(json::Value const& jval)
+    {
+        { // update commands
+            json::Value const& commands = jval["commands"];
+            const size_t N = commands.size();
+            for (size_t i = 0; i < N; ++i)
+            {
+                json::Value const& command = commands[i];
+
+                Layout::SharedPtr layout = gateway::Layout::create();
+                layout->add("id", gateway::DT_UINT32);
+                layout->add(parseCommandParamsField("parameters", command["params"]));
+
+                int intent = command["intent"].asUInt16();
+                String name = command["name"].asString();
+
+                m_layouts.registerIntent(intent, layout);
+                m_commands[name] = intent;
+            }
+        }
+
+        { // update notifications
+            json::Value const& notifications = jval["notifications"];
+            const size_t N = notifications.size();
+            for (size_t i = 0; i < N; ++i)
+            {
+                json::Value const& notification = notifications[i];
+
+                int intent = notification["intent"].asUInt16();
+                String name = notification["name"].asString();
+
+                Layout::SharedPtr layout = gateway::Layout::create();
+                layout->add(parseCommandParamsField("parameters", notification["params"]));
+
+                m_layouts.registerIntent(intent, layout);
+                m_notifications[intent] = name;
+            }
+        }
+    }
+
+
+    /// @brief Parse the command or notification parameters (Struct in JSON format).
+    /**
+    @param[in] jval The JSON value related to structure (array of fields).
+    @return The layout related to parameter. May be NULL for empty parameter.
+    */
+    static Layout::SharedPtr parseCommandParamsStruct(json::Value const& jval)
+    {
+        if (!jval.isNull() && !jval.isObject())
+            throw std::runtime_error("invalid structure description");
+
+        if (jval.empty())
+            return Layout::SharedPtr();
+
+        Layout::SharedPtr layout = gateway::Layout::create();
+        json::Value::MemberIterator i = jval.membersBegin();
+        const json::Value::MemberIterator e = jval.membersEnd();
+        for (; i != e; ++i)
+        {
+            String const& name = i->first;
+            json::Value const& field = i->second;
+
+            layout->add(parseCommandParamsField(name, field));
+        }
+
+        return layout;
+    }
+
+
+    /// @brief Parse the command or notification parameters (Field in JSON format).
+    /**
+    @param[in] name The element name.
+    @param[in] jval The JSON value related to field.
+    @return The layout element.
+    */
+    static Layout::Element::SharedPtr parseCommandParamsField(String const& name, json::Value const& jval)
+    {
+        if (jval.isNull()) // NULL as primitive type
+            return Layout::Element::create(name, DT_NULL);
+        else if (jval.isString()) // a primitive type
+        {
+            return Layout::Element::create(name,
+                parsePrimitiveDataType(jval.asString()));
+        }
+        else if (jval.isObject()) // object
+        {
+            return Layout::Element::create(name, DT_OBJECT,
+                parseCommandParamsStruct(jval));
+        }
+        else if (jval.isArray()) // array
+        {
+            if (jval.size() != 1)
+                throw std::runtime_error("invalid array field [1 element expected]");
+
+            Layout::SharedPtr layout = Layout::create();
+            layout->add(parseCommandParamsField("", jval[0]));
+
+            return Layout::Element::create(name, DT_ARRAY, layout);
+        }
+        else
+            throw std::runtime_error("unknown field type");
+    }
+
+
+    /// @brief Parse primitive data type.
+    /**
+    @param[in] type The primitive data type string.
+    @return The parsed data type.
+    @throw std::runtime_error if type is unknown.
+    */
+    static DataType parsePrimitiveDataType(String const& type)
+    {
+        if (boost::iequals(type, "bool"))
+            return DT_BOOL;
+        else if (boost::iequals(type, "u8") || boost::iequals(type, "uint8"))
+            return DT_UINT8;
+        else if (boost::iequals(type, "i8") || boost::iequals(type, "int8"))
+            return DT_INT8;
+        else if (boost::iequals(type, "u16") || boost::iequals(type, "uint16"))
+            return DT_UINT16;
+        else if (boost::iequals(type, "i16") || boost::iequals(type, "int16"))
+            return DT_INT16;
+        else if (boost::iequals(type, "u32") || boost::iequals(type, "uint32"))
+            return DT_UINT32;
+        else if (boost::iequals(type, "i32") || boost::iequals(type, "int32"))
+            return DT_INT32;
+        else if (boost::iequals(type, "u64") || boost::iequals(type, "uint64"))
+            return DT_UINT64;
+        else if (boost::iequals(type, "i64") || boost::iequals(type, "int64"))
+            return DT_INT64;
+        else if (boost::iequals(type, "f") || boost::iequals(type, "single"))
+            return DT_SINGLE;
+        else if (boost::iequals(type, "ff") || boost::iequals(type, "double"))
+            return DT_DOUBLE;
+        else if (boost::iequals(type, "uuid") || boost::iequals(type, "guid"))
+            return DT_UUID;
+        else if (boost::iequals(type, "s") || boost::iequals(type, "str") || boost::iequals(type, "string"))
+            return DT_STRING;
+        else if (boost::iequals(type, "b") || boost::iequals(type, "bin") || boost::iequals(type, "binary"))
+            return DT_BINARY;
+        else
+            throw std::runtime_error("unknown primitive type");
     }
 
 public:
@@ -903,7 +983,7 @@ public:
         @param[in] layout The layout.
         @return The JSON value.
         */
-        static json::Value bin2json(io::BinaryIStream & bs, Layout::SharedPtr layout)
+        static json::Value bin2json(bin::IStream & bs, Layout::SharedPtr layout)
         {
             json::Value jval;
 
@@ -912,7 +992,14 @@ public:
             for (; i != e; ++i)
             {
                 const Layout::Element::SharedPtr elem = *i;
-                jval[elem->name] = bin2json(bs, elem);
+
+                if (!elem->name.empty())
+                    jval[elem->name] = bin2json(bs, elem);
+                else
+                {
+                    assert((i+1) == e && "one element expected");
+                    jval = bin2json(bs, elem);
+                }
             }
 
             return jval;
@@ -925,19 +1012,19 @@ public:
         @param[in] layoutElement The layout element.
         @return The JSON value.
         */
-        static json::Value bin2json(io::BinaryIStream & bs, Layout::Element::SharedPtr layoutElement)
+        static json::Value bin2json(bin::IStream & bs, Layout::Element::SharedPtr layoutElement)
         {
             switch (layoutElement->dataType)
             {
                 case DT_NULL:   return json::Value();
-                case DT_UINT8:  return json::Value(UInt32(bs.getUInt8()));
-                case DT_UINT16: return json::Value(UInt32(bs.getUInt16()));
-                case DT_UINT32: return json::Value(bs.getUInt32());
-                case DT_UINT64: return json::Value(bs.getUInt64());
-                case DT_INT8:   return json::Value(Int32(bs.getInt8()));
-                case DT_INT16:  return json::Value(Int32(bs.getInt16()));
-                case DT_INT32:  return json::Value(bs.getInt32());
-                case DT_INT64:  return json::Value(bs.getInt64());
+                case DT_UINT8:  return json::Value(bs.getUInt8());
+                case DT_UINT16: return json::Value(bs.getUInt16LE());
+                case DT_UINT32: return json::Value(bs.getUInt32LE());
+                case DT_UINT64: return json::Value(bs.getUInt64LE());
+                case DT_INT8:   return json::Value(bs.getInt8());
+                case DT_INT16:  return json::Value(bs.getInt16LE());
+                case DT_INT32:  return json::Value(bs.getInt32LE());
+                case DT_INT64:  return json::Value(bs.getInt64LE());
                 case DT_BOOL:   return json::Value(bs.getUInt8() != 0);
 
                 case DT_SINGLE:
@@ -965,7 +1052,7 @@ public:
                 case DT_STRING:
                 case DT_BINARY:
                 {
-                    if (const UInt32 len = bs.getUInt16()) // read if non-empty
+                    if (const UInt32 len = bs.getUInt16LE()) // read if non-empty
                     {
                         std::vector<UInt8> buf(len);
                         bs.getBuffer(&buf[0], len);
@@ -978,7 +1065,7 @@ public:
                 case DT_ARRAY:
                 {
                     json::Value jarr(json::Value::TYPE_ARRAY);
-                    const UInt32 N = bs.getUInt16();
+                    const UInt32 N = bs.getUInt16LE();
                     for (size_t i = 0; i < N; ++i)
                         jarr.append(bin2json(bs, layoutElement->sublayout));
                     return jarr;
@@ -1002,14 +1089,21 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layout The layout.
         */
-        static void json2bin(json::Value const& jval, io::BinaryOStream & bs, Layout::SharedPtr layout)
+        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::SharedPtr layout)
         {
             Layout::ElementIterator i = layout->elementsBegin();
             Layout::ElementIterator e = layout->elementsEnd();
             for (; i != e; ++i)
             {
                 const Layout::Element::SharedPtr elem = *i;
-                json2bin(jval[elem->name], bs, elem);
+
+                if (!elem->name.empty())
+                    json2bin(jval[elem->name], bs, elem);
+                else
+                {
+                    assert((i+1) == e && "one element expected");
+                    json2bin(jval, bs, elem);
+                }
             }
         }
 
@@ -1020,19 +1114,20 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layoutElement The layout element.
         */
-        static void json2bin(json::Value const& jval, io::BinaryOStream & bs, Layout::Element::SharedPtr layoutElement)
+        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::Element::SharedPtr layoutElement)
         {
+            // TODO: more checks on data types!!!
             switch (layoutElement->dataType)
             {
                 case DT_NULL:   break;
-                case DT_UINT8:  bs.putUInt8((UInt8)jval.asUInt()); break;
-                case DT_UINT16: bs.putUInt16((UInt16)jval.asUInt()); break;
-                case DT_UINT32: bs.putUInt32((UInt32)jval.asUInt()); break;
-                case DT_UINT64: bs.putUInt64(jval.asUInt()); break;
-                case DT_INT8:   bs.putInt8((Int8)jval.asInt()); break;
-                case DT_INT16:  bs.putInt16((Int16)jval.asInt()); break;
-                case DT_INT32:  bs.putInt32((Int32)jval.asInt()); break;
-                case DT_INT64:  bs.putInt64(jval.asInt()); break;
+                case DT_UINT8:  bs.putUInt8(jval.asUInt8()); break;
+                case DT_UINT16: bs.putUInt16LE(jval.asUInt16()); break;
+                case DT_UINT32: bs.putUInt32LE(jval.asUInt32()); break;
+                case DT_UINT64: bs.putUInt64LE(jval.asUInt64()); break;
+                case DT_INT8:   bs.putInt8(jval.asInt8()); break;
+                case DT_INT16:  bs.putInt16LE(jval.asInt16()); break;
+                case DT_INT32:  bs.putInt32LE(jval.asInt32()); break;
+                case DT_INT64:  bs.putInt64LE(jval.asInt64()); break;
                 case DT_BOOL:   bs.putUInt8(jval.asBool()); break;
 
                 case DT_SINGLE:
@@ -1061,14 +1156,21 @@ public:
                 case DT_BINARY:
                 {
                     String buf = jval.asString();
-                    bs.putUInt16(buf.size());
+                    bs.putUInt16LE(buf.size());
                     bs.putBuffer(buf.data(), buf.size());
                 } break;
 
                 case DT_ARRAY:
                 {
+                    if (!jval.isArray())
+                    {
+                        OStringStream ess;
+                        ess << "\"" << layoutElement->name << "\" is not an array";
+                        throw std::runtime_error(ess.str().c_str());
+                    }
+
                     const size_t N = jval.size();
-                    bs.putUInt16(N);
+                    bs.putUInt16LE(N);
                     for (size_t i = 0; i < N; ++i)
                         json2bin(jval[i], bs, layoutElement->sublayout);
                 } break;
@@ -1088,6 +1190,288 @@ private:
     LayoutManager m_layouts; ///< @brief The registered intents and its layouts.
     std::map<String, int> m_commands; ///< @brief The registered commands.
     std::map<int, String> m_notifications; ///< @brief The registered notifications.
+};
+
+
+class Debug
+{
+public:
+
+    /// @brief Dump the layout.
+    static void dump(Layout::SharedPtr layout, hive::OStream &os, size_t indent = 0)
+    {
+        if (!layout)
+            return;
+
+        for (Layout::ElementIterator i = layout->elementsBegin(); i != layout->elementsEnd(); ++i)
+        {
+            dump(*i, os, indent);
+            os << "\n";
+        }
+    }
+
+
+    /// @brief Dump the layout element.
+    static void dump(Layout::Element::SharedPtr elem, hive::OStream &os, size_t indent = 0)
+    {
+        if (!elem)
+            return;
+
+        json::Formatter::writeIndent(os, indent);
+
+        if (!elem->name.empty())
+        {
+            os << elem->name
+                << ": ";
+        }
+        switch (elem->dataType)
+        {
+            case DT_NULL:   os << "NULL";   break;
+            case DT_UINT8:  os << "UInt8";  break;
+            case DT_UINT16: os << "UInt16"; break;
+            case DT_UINT32: os << "UInt32"; break;
+            case DT_UINT64: os << "UInt64"; break;
+            case DT_INT8:   os << "Int8";   break;
+            case DT_INT16:  os << "Int16";  break;
+            case DT_INT32:  os << "Int32";  break;
+            case DT_INT64:  os << "Int64";  break;
+            case DT_SINGLE: os << "Float";  break;
+            case DT_DOUBLE: os << "Double"; break;
+            case DT_BOOL:   os << "Bool";   break;
+            case DT_UUID:   os << "UUID";   break;
+            case DT_STRING: os << "String"; break;
+            case DT_BINARY: os << "Binary"; break;
+
+            case DT_ARRAY:
+                os << "Array of {\n";
+                dump(elem->sublayout, os, indent+1);
+                json::Formatter::writeIndent(os, indent);
+                os << "}";
+                break;
+
+            case DT_OBJECT:
+                os << "Object {\n";
+                dump(elem->sublayout, os, indent+1);
+                json::Formatter::writeIndent(os, indent);
+                os << "}";
+                break;
+        }
+    }
+};
+
+
+/// @brief The gateway %API.
+/**
+Uses external stream object.
+*/
+template<typename StreamT>
+class API:
+    public bin::Transceiver<StreamT, Frame>
+{
+    /// @brief The base type.
+    typedef bin::Transceiver<StreamT, Frame> Base;
+
+    /// @brief The type alias.
+    typedef API<StreamT> This;
+
+private:
+
+    /// @brief The default constructor.
+    /**
+    @param[in] stream The external stream.
+    */
+    explicit API(StreamT &stream)
+        : Base("gateway/API", stream)
+    {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<This> SharedPtr;
+
+
+    /// @brief The factory method.
+    /**
+    @param[in] stream The external stream.
+    @return The new instance.
+    */
+    static SharedPtr create(StreamT &stream)
+    {
+        return SharedPtr(new This(stream));
+    }
+};
+
+
+/// @brief The Serial submodule.
+/**
+This is helper class.
+
+You have to call initSerialModule() method before use any of the class methods.
+The best place to do that is static factory method of your application.
+*/
+class SerialModule
+{
+    ///< @brief The this type alias.
+    typedef SerialModule This;
+
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] ios The IO service.
+    @param[in] logger The logger.
+    */
+    SerialModule(boost::asio::io_service &ios, log::Logger const& logger)
+        : m_serialOpenTimer(ios)
+        , m_serial(ios)
+        , m_serialBaudrate(0)
+        , m_log_(logger)
+    {}
+
+
+    /// @brief The trivial destructor.
+    virtual ~SerialModule()
+    {}
+
+
+    /// @brief Initialize serial module.
+    /**
+    @param[in] portName The serial port name.
+    @param[in] baudrate The serial baudrate.
+    @param[in] pthis The this pointer.
+    */
+    void initSerialModule(String const& portName, UInt32 baudrate, boost::shared_ptr<SerialModule> pthis)
+    {
+        m_serialPortName = portName;
+        m_serialBaudrate = baudrate;
+        m_this = pthis;
+    }
+
+
+    /// @brief Cancel all serial tasks.
+    void cancelSerialModule()
+    {
+        m_serialOpenTimer.cancel();
+        m_serial.close();
+    }
+
+protected:
+
+    /// @brief Try to open serial device asynchronously.
+    /**
+    @param[in] wait_sec The number of seconds to wait before open.
+    */
+    virtual void asyncOpenSerial(long wait_sec)
+    {
+        assert(!m_this.expired() && "Application is dead or not initialized");
+
+        HIVELOG_TRACE(m_log_, "try to open serial after " << wait_sec << " seconds");
+        m_serialOpenTimer.expires_from_now(boost::posix_time::seconds(wait_sec));
+        m_serialOpenTimer.async_wait(boost::bind(&This::onTryToOpenSerial,
+            m_this.lock(), boost::asio::placeholders::error));
+    }
+
+
+    /// @brief Try to open serial device.
+    /**
+    @return The error code.
+    */
+    virtual boost::system::error_code openSerial()
+    {
+        boost::asio::serial_port & port = m_serial;
+        boost::system::error_code err;
+
+        port.close(err); // (!) ignore error
+        port.open(m_serialPortName, err);
+        if (err) return err;
+
+        // set baud rate
+        port.set_option(boost::asio::serial_port::baud_rate(m_serialBaudrate), err);
+        if (err) return err;
+
+        // set character size
+        port.set_option(boost::asio::serial_port::character_size(), err);
+        if (err) return err;
+
+        // set flow control
+        port.set_option(boost::asio::serial_port::flow_control(), err);
+        if (err) return err;
+
+        // set stop bits
+        port.set_option(boost::asio::serial_port::stop_bits(), err);
+        if (err) return err;
+
+        // set parity
+        port.set_option(boost::asio::serial_port::parity(), err);
+        if (err) return err;
+
+        return err; // OK
+    }
+
+
+    /// @brief Try to open serial port device callback.
+    /**
+    This method is called as the "open serial timer" callback.
+
+    @param[in] err The error code.
+    */
+    virtual void onTryToOpenSerial(boost::system::error_code err)
+    {
+        if (!err)
+            onOpenSerial(openSerial());
+        else if (err == boost::asio::error::operation_aborted)
+            HIVELOG_DEBUG_STR(m_log_, "open serial device timer cancelled");
+        else
+        {
+            HIVELOG_ERROR(m_log_, "open serial device timer error: ["
+                << err << "] " << err.message());
+        }
+    }
+
+
+    /// @brief The serial port is opened.
+    /**
+    @param[in] err The error code.
+    */
+    virtual void onOpenSerial(boost::system::error_code err)
+    {
+        if (!err)
+        {
+            HIVELOG_DEBUG(m_log_,
+                "got serial device \"" << m_serialPortName
+                << "\" at baudrate: " << m_serialBaudrate);
+        }
+        else
+        {
+            HIVELOG_DEBUG(m_log_, "cannot open serial device \""
+                << m_serialPortName << "\": ["
+                << err << "] " << err.message());
+        }
+    }
+
+
+    /// @brief Reset the serial device.
+    /**
+    @brief tryToReopen if `true` then try to reopen serial as soon as possible.
+    */
+    virtual void resetSerial(bool tryToReopen)
+    {
+        HIVELOG_WARN(m_log_, "serial device reset");
+        m_serial.close();
+
+        if (tryToReopen)
+            asyncOpenSerial(0); // ASAP
+    }
+
+protected:
+    boost::asio::deadline_timer m_serialOpenTimer; ///< @brief Open the serial port device timer.
+    boost::asio::serial_port m_serial; ///< @brief The serial port device.
+    String m_serialPortName; ///< @brief The serial port name.
+    UInt32 m_serialBaudrate; ///< @brief The serial baudrate.
+
+private:
+    boost::weak_ptr<SerialModule> m_this; ///< @brief The weak pointer to this.
+    log::Logger m_log_; ///< @brief The module logger.
 };
 
 } // gateway namespace

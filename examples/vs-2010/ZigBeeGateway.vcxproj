@@ -40,12 +40,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Configuration)\</IntDir>
+    <IntDir>$(SolutionDir)obj\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Configuration)\</IntDir>
+    <IntDir>$(SolutionDir)obj\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -82,10 +82,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\DeviceHive\binary.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\gateway.hpp" />
-    <ClInclude Include="..\..\include\hive\bstream.hpp" />
+    <ClInclude Include="..\..\include\hive\bin.hpp" />
     <ClInclude Include="..\..\include\hive\defs.hpp" />
     <ClInclude Include="..\..\include\hive\dump.hpp" />
     <ClInclude Include="..\..\include\hive\http.hpp" />
@@ -96,10 +95,10 @@
     <ClInclude Include="..\..\include\hive\swab.hpp" />
     <ClInclude Include="..\basic_app.hpp" />
     <ClInclude Include="..\simple_gw.hpp" />
-    <ClInclude Include="..\xbee_gw.hpp" />
+    <ClInclude Include="..\zigbee_gw.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\xbee_gw.cpp" />
+    <ClCompile Include="..\zigbee_gw.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

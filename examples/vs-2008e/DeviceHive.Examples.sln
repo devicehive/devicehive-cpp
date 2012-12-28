@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual C++ Express 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimpleDevice", "SimpleDevice.vcproj", "{A09BFBBE-58E0-46AA-B181-293B1238F292}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimpleGateway", "SimpleGateway.vcproj", "{AC46B2ED-8E5E-42BA-A1C3-AE1AD82BF07C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ZigBeeGateway", "ZigBeeGateway.vcproj", "{0B280B7F-C120-4589-A8D8-F54277B6C6E2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A09BFBBE-58E0-46AA-B181-293B1238F292}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A09BFBBE-58E0-46AA-B181-293B1238F292}.Debug|Win32.Build.0 = Debug|Win32
+		{A09BFBBE-58E0-46AA-B181-293B1238F292}.Release|Win32.ActiveCfg = Release|Win32
+		{A09BFBBE-58E0-46AA-B181-293B1238F292}.Release|Win32.Build.0 = Release|Win32
+		{AC46B2ED-8E5E-42BA-A1C3-AE1AD82BF07C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{AC46B2ED-8E5E-42BA-A1C3-AE1AD82BF07C}.Debug|Win32.Build.0 = Debug|Win32
+		{AC46B2ED-8E5E-42BA-A1C3-AE1AD82BF07C}.Release|Win32.ActiveCfg = Release|Win32
+		{AC46B2ED-8E5E-42BA-A1C3-AE1AD82BF07C}.Release|Win32.Build.0 = Release|Win32
+		{0B280B7F-C120-4589-A8D8-F54277B6C6E2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0B280B7F-C120-4589-A8D8-F54277B6C6E2}.Debug|Win32.Build.0 = Debug|Win32
+		{0B280B7F-C120-4589-A8D8-F54277B6C6E2}.Release|Win32.ActiveCfg = Release|Win32
+		{0B280B7F-C120-4589-A8D8-F54277B6C6E2}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,7 +1,7 @@
 /** @file
-@brief The test application.
+@brief The simple device application.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
-@see @ref page_hive_examples
+@see @ref page_examples
 */
 #include <hive/pch.hpp>
 
@@ -17,7 +17,7 @@
 #endif // HIVE_DISABLE_SSL
 
 
-/// @brief The test application entry point.
+/// @brief The simple device application entry point.
 /**
 @param[in] argc The number of command line arguments.
 @param[in] argv The command line arguments.
@@ -27,17 +27,7 @@ int main(int argc, const char *argv[])
 {
     try
     {
-        { // configure logging
-            using namespace hive;
-
-            log::Target::SharedPtr log_file = log::Target::File::create("simple_dev.log");
-            log::Logger::root().setTarget(log::Target::Tie::create(
-                log_file, log::Logger::root().getTarget()));
-            log::Logger::root().setLevel(log::LEVEL_TRACE);
-            log::Logger("/hive/http").setTarget(log_file).setLevel(log::LEVEL_DEBUG); // disable annoying messages
-        }
-
-        simple_dev::Application::create(argc, argv)->run();
+        simple_dev::main(argc, argv);
     }
     catch (std::exception const& ex)
     {
@@ -46,8 +36,7 @@ int main(int argc, const char *argv[])
     }
     catch (...)
     {
-        std::cerr << "FATAL ERROR"
-            << "\n";
+        std::cerr << "FATAL ERROR\n";
     }
 
     return 0;

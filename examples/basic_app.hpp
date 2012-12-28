@@ -1,7 +1,7 @@
 /** @file
 @brief The simplest example.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
-@see @ref page_ex00
+@see @ref page_basic_app
 */
 #ifndef __EXAMPLES_BASIC_APP_HPP_
 #define __EXAMPLES_BASIC_APP_HPP_
@@ -39,7 +39,7 @@ its own initialization and finilization tasks.
 Use create() factory method to create new instances of the application.
 See main() function for example.
 
-@see @ref page_ex00
+@see @ref page_basic_app
 */
 class Application:
     public boost::enable_shared_from_this<Application>
@@ -115,12 +115,12 @@ protected:
     /**
     Resets "terminated" flag and starts listening for system signals.
 
-    @warning Do not forget to call base method first when override.
+    @warning Do not forget to call base method **first** when override.
     */
     virtual void start()
     {
         m_terminated = 0;
-        waitForSignals();
+        asyncWaitForSignals();
     }
 
 
@@ -128,19 +128,19 @@ protected:
     /**
     Stops the application: sets the "terminated" flag and cancels all asynchronous operations.
 
-    @warning Do not forget to call base method last when override.
+    @warning Do not forget to call base method **last** when override.
     */
     virtual void stop()
     {
         m_signals.cancel();
         m_terminated += 1;
-        m_ios.stop();
+        //m_ios.stop();
     }
 
 private:
 
     /// @brief Start waiting for signals.
-    void waitForSignals()
+    void asyncWaitForSignals()
     {
         m_signals.async_wait(boost::bind(&Application::onGotSignal,
             shared_from_this(), boost::asio::placeholders::error,
@@ -158,13 +158,16 @@ private:
     {
         if (!err)
         {
-            HIVELOG_INFO(m_log, "got signal <" << signo << ">");
+            HIVELOG_INFO(m_log, "got "
+                << getSignalName(signo)
+                << " signal");
 
             switch (signo)
             {
                 case SIGTERM:
                 case SIGINT:
-                    stop();
+                    m_terminated += 1; // force 'terminated' flag
+                    stop();            // since stop() is virtual
                     break;
 
                 default:
@@ -173,13 +176,37 @@ private:
 
             // start again
             if (!terminated())
-                waitForSignals();
+                asyncWaitForSignals();
         }
         else if (err == boost::asio::error::operation_aborted)
             HIVELOG_DEBUG_STR(m_log, "listening for signals aborted");
         else
+        {
             HIVELOG_ERROR(m_log, "signal error: ["
                 << err << "] " << err.message());
+        }
+    }
+
+
+    /// @brief Get the signal name.
+    /**
+    @param[in] signo The signal number.
+    @return The signal name string.
+    */
+    static String getSignalName(int signo)
+    {
+        switch (signo)
+        {
+            case SIGINT:    return "SIGINT";
+            case SIGSEGV:   return "SIGSEGV";
+            case SIGTERM:   return "SIGTERM";
+            default:        break;
+        }
+
+        // just print the number
+        OStringStream oss;
+        oss << "#" << signo;
+        return oss.str();
     }
 
 protected:
@@ -192,7 +219,7 @@ private:
 };
 
 
-/// @brief The test application entry point.
+/// @brief The application skeleton entry point.
 /**
 Creates the Application instance and calls its Application::run() method.
 
@@ -209,15 +236,21 @@ inline void main(int argc, const char* argv[])
 
 
 ///////////////////////////////////////////////////////////////////////////////
-/** @page page_ex00 C++ application skeleton
+/** @page page_basic_app Application skeleton
 
-This is the test application skeleton and base class for all test application examples.
+This is the test application skeleton and base class for all application
+examples.
 
 It does almost nothing: handles system signals and closes the application.
 But it contains a few key objects which are widely used by derived classes.
 
-See basic_app::Application documentation for more details or Examples/basic_app.hpp file for full source code.
+See basic_app::Application documentation for more details
+or examples/basic_app.hpp file for full source code.
 
+Also there are two modules which can be used to extend functionality
+of your application:
+    - basic_app::ServerModule which allows you to use cloud6::ServerAPI
+    - basic_app::SerialModule which allows you to use serial port
 
 @example examples/basic_app.hpp
 */

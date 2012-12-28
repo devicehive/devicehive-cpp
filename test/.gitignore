@@ -1,0 +1,10 @@
+# Linux output
+simple_dev
+simple_gw
+zigbee_gw
+hello
+xtest
+
+# log files
+*.log.*
+*.log

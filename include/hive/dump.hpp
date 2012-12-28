@@ -22,7 +22,7 @@ namespace hive
     namespace dump
     {
 
-/// @name Dump to HEX
+/// @name Dump containers to HEX
 /// @{
 
 /// @brief Dump the binary data to output stream in HEX format.
@@ -38,8 +38,8 @@ OStream& hex(OStream &os, In first, In last)
     for (; first != last; ++first)
     {
         const unsigned int b = int(*first); // one byte
-        os.put(misc::int2hex((b>>4)&0x0F)); // high four bits
-        os.put(misc::int2hex((b>>0)&0x0F)); // low four bits
+        os.put(misc::int2hex((b>>4)&0x0F)); // high nibble
+        os.put(misc::int2hex((b>>0)&0x0F)); // low nibble
     }
 
     return os;
@@ -109,28 +109,49 @@ inline String hex(String const& data)
     return hex(data.begin(), data.end());
 }
 
+/// @}
 
         // helpers
         namespace impl
         {
 
-/// @brief Dump the unsigned integer to string in HEX format.
+/// @brief Dump the integer to output stream in HEX format.
 /**
-@param[in] x The unsigned integer to dump.
+@param[in,out] os The output stream.
+@param[in] x The integer to dump.
+@return The output stream.
+*/
+template<typename IntX>
+OStream& int2hex(OStream &os, IntX x)
+{
+    const size_t N = 2*sizeof(IntX);
+    for (size_t i = 0; i < N; ++i)
+    {
+        const int nibble = int(x >> ((N-1-i)*4));
+        os.put(misc::int2hex(nibble&0x0F));
+    }
+
+    return os;
+}
+
+
+/// @brief Dump the integer to string in HEX format.
+/**
+@param[in] x The integer to dump.
 @return The string in HEX format.
 */
-template<typename UIntX>
-String uint2hex(UIntX x)
+template<typename IntX>
+String int2hex(IntX x)
 {
-    const size_t N = 2*sizeof(UIntX);
+    const size_t N = 2*sizeof(IntX);
 
     String s;
     s.reserve(N);
 
     for (size_t i = 0; i < N; ++i)
     {
-        const int xx = (x >> ((N-1-i)*4))&0x0F;
-        s.push_back(misc::int2hex(xx));
+        const int nibble = int(x >> ((N-1-i)*4));
+        s.push_back(misc::int2hex(nibble&0x0F));
     }
 
     return s;
@@ -138,6 +159,8 @@ String uint2hex(UIntX x)
 
         } // helpers
 
+/// @name Dump integers to HEX
+/// @{
 
 /// @brief Dump the 8-bits integer to string in HEX format.
 /**
@@ -146,7 +169,13 @@ String uint2hex(UIntX x)
 */
 inline String hex(UInt8 x)
 {
-    return impl::uint2hex(x);
+    return impl::int2hex(x);
+}
+
+/// @copydoc hex(UInt8)
+inline String hex(Int8 x)
+{
+    return impl::int2hex(x);
 }
 
 
@@ -157,7 +186,13 @@ inline String hex(UInt8 x)
 */
 inline String hex(UInt16 x)
 {
-    return impl::uint2hex(x);
+    return impl::int2hex(x);
+}
+
+/// @copydoc hex(UInt16)
+inline String hex(Int16 x)
+{
+    return impl::int2hex(x);
 }
 
 
@@ -168,7 +203,13 @@ inline String hex(UInt16 x)
 */
 inline String hex(UInt32 x)
 {
-    return impl::uint2hex(x);
+    return impl::int2hex(x);
+}
+
+/// @copydoc hex(UInt32)
+inline String hex(Int32 x)
+{
+    return impl::int2hex(x);
 }
 
 
@@ -179,13 +220,23 @@ inline String hex(UInt32 x)
 */
 inline String hex(UInt64 x)
 {
-    return impl::uint2hex(x);
+    return impl::int2hex(x);
+}
+
+/// @copydoc hex(UInt64)
+inline String hex(Int64 x)
+{
+    return impl::int2hex(x);
 }
 
 /// @}
+    } // HEX
 
+    // ASCII
+    namespace dump
+    {
 
-/// @name Dump to ASCII
+/// @name Dump containers to ASCII
 /// @{
 
 /// @brief Dump the binary data to output stream in ASCII format.
@@ -285,3 +336,18 @@ inline String ascii(String const& data, int bad = '.')
 } // hive namespace
 
 #endif // __HIVE_DUMP_HPP_
+
+
+///////////////////////////////////////////////////////////////////////////////
+/** @page page_hive_dump Dump tools
+
+This tool is mostly used for debugging and logging purposes.
+It's possible to dump any binary containers or integers.
+
+There is two kind of dump functions:
+  - hive::dump::hex() functions are used to dump in *HEX* format.
+  - hive::dump::ascii() functions are used to dump in *ASCII* format.
+
+*ASCII* format uses characters in range [32..127). Any other characters
+are replaced with `bad` placeholder which is '.' by default.
+*/

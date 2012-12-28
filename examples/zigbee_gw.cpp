@@ -1,11 +1,11 @@
 /** @file
 @brief The test application.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
-@see @ref page_hive_examples
+@see @ref page_examples
 */
 #include <hive/pch.hpp>
 
-#include "xbee_gw.hpp"
+#include "zigbee_gw.hpp"
 
 #include <iostream>
 
@@ -27,17 +27,7 @@ int main(int argc, const char *argv[])
 {
     try
     {
-        { // configure logging
-            using namespace hive;
-
-            log::Logger::root().setTarget(log::Target::Tie::create(
-                log::Target::File::create("xbee_gw.log"),
-                log::Logger::root().getTarget()));
-            log::Logger::root().setLevel(log::LEVEL_TRACE);
-            log::Logger("/xbee/API").setLevel(log::LEVEL_TRACE);
-        }
-
-        xbee_gw::Application::create(argc, argv)->run();
+        zigbee_gw::main(argc, argv);
     }
     catch (std::exception const& ex)
     {
@@ -46,8 +36,7 @@ int main(int argc, const char *argv[])
     }
     catch (...)
     {
-        std::cerr << "FATAL ERROR"
-            << "\n";
+        std::cerr << "FATAL ERROR\n";
     }
 
     return 0;

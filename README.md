@@ -4,6 +4,12 @@ DeviceHive C++ framework
 [DeviceHive]: http://devicehive.com "DeviceHive framework"
 [DataArt]: http://dataart.com "DataArt"
 
+This is C++ framework for [DeviceHive].
+For more information please see corresponding documentation.
+
+
+About DeviceHive
+----------------
 
 [DeviceHive] turns any connected device into the part of Internet of Things.
 It provides the communication layer, control software and multi-platform
@@ -27,6 +33,6 @@ is included. This also means you don't have to contribute the end product or
 modified sources back to Open Source, but if you feel like sharing, you are
 highly encouraged to do so!
 
-© Copyright (C) 2012 [DataArt] Apps
+Copyright (C) 2012 DataArt Apps
 
 All Rights Reserved
