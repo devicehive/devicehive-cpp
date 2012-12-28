@@ -71,8 +71,8 @@ int main(int argc, const char *argv[])
         if (0) test_http1();
         if (0) test_ws13_0();
         if (0) test_ws13_1();
-        if (0) test_log0();
-        if (0) test_log1();
+        if (0) test_log_0();
+        if (0) test_log_1();
 #endif // XTEST_UNIT
     }
     catch (std::exception const& ex)
