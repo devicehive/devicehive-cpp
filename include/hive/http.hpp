@@ -1151,7 +1151,8 @@ public:
     */
     OStream& writeFirstLine(OStream & os) const
     {
-        return os << getMethod() << " " << getUrl().getPath()
+        return os << getMethod() << " "
+            << getUrl().toString(Url::PATH|Url::QUERY)
             << " HTTP/" << getVersionMajor() << "."
             << getVersionMinor() << impl::CRLF;
     }

@@ -624,7 +624,7 @@ public:
     */
     size_t getMaxFileSize() const
     {
-        return m_maxFileSize;
+        return size_t(m_maxFileSize);
     }
 
 public:
