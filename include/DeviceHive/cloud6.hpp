@@ -266,6 +266,7 @@ class Command
 {
 public:
     UInt64 id; ///< @brief The command identifier.
+    String timestamp; ///< @brief The command timestamp in UTC format.
     String name; ///< @brief The command name.
     json::Value params; ///< @brief The command parameters.
     int lifetime; ///< @brief The number of seconds until this command expires.
@@ -369,6 +370,7 @@ public:
         {
             Command cmd;
             cmd.id = jval["id"].asUInt();
+            cmd.timestamp = jval["timestamp"].asString();
             cmd.name = jval["command"].asString();
             cmd.params = jval["parameters"];
             cmd.lifetime = int(jval["lifetime"].asInt());
@@ -396,6 +398,7 @@ public:
     {
         json::Value jval;
         //jval["id"] = cmd.id;
+        jval["timestamp"] = cmd.timestamp;
         jval["command"] = cmd.name;
         jval["parameters"] = cmd.params;
         jval["lifetime"] = cmd.lifetime;
@@ -744,14 +747,17 @@ public:
     /// @brief Poll commands from the server.
     /**
     @param[in] device The device to poll commands for.
+    @param[in] timestamp The timestamp of the last received command. Empty for server's "now".
     @param[in] callback The callback functor.
     */
-    void asyncPollCommands(Device::SharedPtr device, PollCommandsCallback callback)
+    void asyncPollCommands(Device::SharedPtr device, String const& timestamp, PollCommandsCallback callback)
     {
         http::Url::Builder urlb(m_baseUrl);
         urlb.appendPath("device");
         urlb.appendPath(device->id);
         urlb.appendPath("command/poll");
+        if (!timestamp.empty())
+            urlb.appendQuery("timestamp=" + timestamp);
 
         http::RequestPtr req = http::Request::GET(urlb.build());
         req->addHeader("Auth-DeviceID", device->id);
@@ -993,13 +999,14 @@ protected:
     /// @brief Poll commands asynchronously.
     /**
     @param[in] device The device to poll commands for.
+    @param[in] timestamp The timestamp of the last received command. Empty for server's "now".
     */
-    virtual void asyncPollCommands(cloud6::DevicePtr device)
+    virtual void asyncPollCommands(cloud6::DevicePtr device, String const& timestamp)
     {
         assert(!m_this.expired() && "Application is dead or not initialized");
 
         HIVELOG_INFO(m_log_, "poll commands for: " << device->id);
-        m_serverAPI->asyncPollCommands(device,
+        m_serverAPI->asyncPollCommands(device, timestamp,
             boost::bind(&This::onPollCommands,
                 m_this.lock(), _1, _2, _3));
     }

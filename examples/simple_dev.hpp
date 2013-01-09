@@ -364,7 +364,7 @@ private: // ServerModuleREST
         if (!err)
         {
             resetAllLedControls("0");
-            asyncPollCommands(device);
+            asyncPollCommands(device, m_lastCommandTimestamp);
             asyncUpdateSensors(0); // ASAP
         }
     }
@@ -381,6 +381,7 @@ private: // ServerModuleREST
             for (Iterator i = commands.begin(); i != commands.end(); ++i)
             {
                 cloud6::Command cmd = *i; // copy to modify
+                m_lastCommandTimestamp = cmd.timestamp;
                 bool processed = true;
 
                 try
@@ -423,7 +424,7 @@ private: // ServerModuleREST
                     asyncUpdateCommand(device, cmd);
             }
 
-            asyncPollCommands(device); // start poll again
+            asyncPollCommands(device, m_lastCommandTimestamp); // start poll again
         }
     }
 
@@ -509,6 +510,7 @@ private:
 private:
     boost::asio::deadline_timer m_updateTimer; ///< @brief The update timer.
     cloud6::DevicePtr m_device; ///< @brief The device.
+    String m_lastCommandTimestamp; ///< @brief The timestamp of the last received command.
 };
 
 

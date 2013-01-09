@@ -171,6 +171,7 @@ private:
 
         cloud6::DevicePtr device; ///< @brief The corresponding device.
         bool deviceRegistered;    ///< @brief The "registered" flag.
+        String m_lastCommandTimestamp; ///< @brief The timestamp of the last received command.
         std::vector<cloud6::Notification> delayedNotifications; ///< @brief The list of delayed notification.
         gateway::Engine gw; ///< @brief The gateway engine.
 
@@ -240,7 +241,7 @@ private: // ServerModuleREST
             {
                 zdev->deviceRegistered = true;
                 sendDelayedNotifications(zdev);
-                asyncPollCommands(device);
+                asyncPollCommands(device, zdev->m_lastCommandTimestamp);
             }
             else
                 HIVELOG_ERROR(m_log, "unknown device");
@@ -261,6 +262,7 @@ private: // ServerModuleREST
                 for (Iterator i = commands.begin(); i != commands.end(); ++i)
                 {
                     cloud6::Command cmd = *i; // copy to modify
+                    zdev->m_lastCommandTimestamp = cmd.timestamp;
                     bool processed = true;
 
                     try
@@ -280,7 +282,7 @@ private: // ServerModuleREST
                         asyncUpdateCommand(device, cmd);
                 }
 
-                asyncPollCommands(device); // start poll again
+                asyncPollCommands(device, zdev->m_lastCommandTimestamp); // start poll again
             }
             else
                 HIVELOG_ERROR(m_log, "unknown device");
