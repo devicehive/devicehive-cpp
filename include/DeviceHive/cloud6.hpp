@@ -195,6 +195,7 @@ public:
     String name; ///< @brief The custom name.
     String key; ///< @brief The authorization key.
     String status; ///< @brief The custom device status.
+    json::Value data; ///< @brief The custom parameters.
 
     NetworkPtr network; ///< @brief The corresponding network.
     ClassPtr deviceClass; ///< @brief The corresponding device class.
@@ -566,6 +567,7 @@ public:
             device->status = jval["status"].asString();
             json2network(jval["network"], device->network);
             json2deviceClass(jval["deviceClass"], device->deviceClass);
+            device->data = jval["data"];
 
             { // equipment
                 json::Value const& json_eq = jval["equipment"];
@@ -607,12 +609,15 @@ public:
 
         json::Value jval;
         //jval["id"] = device->id;
-        jval["name"] = device->name;
+        if (!device->name.empty())
+            jval["name"] = device->name;
         jval["key"] = device->key;
         jval["status"] = device->status;
         jval["network"] = network2json(device->network);
         jval["deviceClass"] = deviceClass2json(device->deviceClass);
         jval["equipment"] = json_eq;
+        if (!device->data.isNull())
+            jval["data"] = device->data;
         return jval;
     }
 };
@@ -704,6 +709,33 @@ public:
             _1, _2, _3, device, callback), m_timeout_ms);
     }
 
+
+    /// @brief Update device data on the server.
+    /**
+    @param[in] device The device to update.
+    @param[in] callback The callback functor.
+    */
+    void asyncUpdateDeviceData(Device::SharedPtr device, RegisterDeviceCallback callback)
+    {
+        http::Url::Builder urlb(m_baseUrl);
+        urlb.appendPath("device");
+        urlb.appendPath(device->id);
+
+        json::Value jcontent;
+        jcontent["data"] = device->data;
+
+        http::RequestPtr req = http::Request::PUT(urlb.build());
+        req->addHeader(http::header::Content_Type, "application/json");
+        req->addHeader("Auth-DeviceID", device->id);
+        req->addHeader("Auth-DeviceKey", device->key);
+        req->setContent(json::toStr(jcontent));
+        req->setVersion(m_http_major, m_http_minor);
+
+        HIVELOG_DEBUG(m_log, "update device data:\n" << json::toStrH(jcontent));
+        m_http->send(req, boost::bind(&ThisType::onUpdateDeviceData, shared_from_this(),
+            _1, _2, _3, device, callback), m_timeout_ms);
+    }
+
 private:
 
     /// @brief The "register device" completion handler.
@@ -729,6 +761,33 @@ private:
         else
         {
             HIVELOG_WARN_STR(m_log, "failed to get \"register device\" response");
+            callback(err, device);
+        }
+    }
+
+    /// @brief The "update device data" completion handler.
+    /**
+    @param[in] err The error code.
+    @param[in] request The HTTP request.
+    @param[in] response The HTTP response.
+    @param[in] device The device registered.
+    @param[in] callback The callback functor.
+    */
+    void onUpdateDeviceData(boost::system::error_code err, http::RequestPtr request,
+        http::ResponsePtr response, Device::SharedPtr device, RegisterDeviceCallback callback)
+    {
+        if (!err && response && response->getStatusCode() == http::status::OK)
+        {
+            // TODO: handle all exceptions
+            json::Value jval = json::fromStr(response->getContent());
+            HIVELOG_DEBUG(m_log, "got \"update device data\" response:\n"
+                << json::toStrH(jval));
+            Serializer::json2device(jval, device);
+            callback(err, device);
+        }
+        else
+        {
+            HIVELOG_WARN_STR(m_log, "failed to get \"update device data\" response");
             callback(err, device);
         }
     }
@@ -990,6 +1049,39 @@ protected:
         else
         {
             HIVELOG_ERROR(m_log_, "register device error: ["
+                << err << "] " << err.message());
+        }
+    }
+
+protected:
+
+    /// @brief Update the device data asynchronously.
+    /**
+    @param[in] device The device to update.
+    */
+    virtual void asyncUpdateDeviceData(cloud6::DevicePtr device)
+    {
+        assert(!m_this.expired() && "Application is dead or not initialized");
+
+        HIVELOG_INFO(m_log_, "update device data: " << device->id);
+        m_serverAPI->asyncUpdateDeviceData(device,
+            boost::bind(&This::onUpdateDeviceData,
+                m_this.lock(), _1, _2));
+    }
+
+
+    /// @brief The "update device data" callback.
+    /**
+    @param[in] err The error code.
+    @param[in] device The device.
+    */
+    virtual void onUpdateDeviceData(boost::system::error_code err, cloud6::DevicePtr device)
+    {
+        if (!err)
+            HIVELOG_INFO(m_log_, "got \"update device data\" response: " << device->id);
+        else
+        {
+            HIVELOG_ERROR(m_log_, "update device data error: ["
                 << err << "] " << err.message());
         }
     }
