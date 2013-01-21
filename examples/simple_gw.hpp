@@ -133,6 +133,7 @@ protected:
     {
         Base::start();
         asyncOpenSerial(0); // ASAP
+        asyncGetServerInfo();
     }
 
 
@@ -149,6 +150,19 @@ protected:
     }
 
 private: // ServerModuleREST
+
+    /// @copydoc cloud6::ServerModuleREST::onGotServerInfo()
+    virtual void onGotServerInfo(boost::system::error_code err, json::Value const& info)
+    {
+        ServerModuleREST::onGotServerInfo(err, info);
+
+        if (!err)
+        {
+            // update the last command time!
+            m_lastCommandTimestamp = info["serverTimestamp"].asString();
+        }
+    }
+
 
     /// @copydoc cloud6::ServerModuleREST::onRegisterDevice()
     virtual void onRegisterDevice(boost::system::error_code err, cloud6::DevicePtr device)

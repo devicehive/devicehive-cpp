@@ -676,6 +676,59 @@ private:
           m_log("CloudV6"), m_baseUrl(baseUrl), m_timeout_ms(60000)
     {}
 
+/// @name Server Info
+/// @{
+public:
+
+    /// @brief The "server info" callback type.
+    typedef boost::function2<void, boost::system::error_code, json::Value const&> ServerInfoCallback;
+
+
+    /// @brief Get the server info.
+    /**
+    @param[in] callback The callback functor.
+    */
+    void asyncGetServerInfo(ServerInfoCallback callback)
+    {
+        http::Url::Builder urlb(m_baseUrl);
+        urlb.appendPath("info");
+
+        http::RequestPtr req = http::Request::GET(urlb.build());
+        req->setVersion(m_http_major, m_http_minor);
+
+        HIVELOG_DEBUG(m_log, "get server info");
+        m_http->send(req, boost::bind(&ThisType::onGotServerInfo, shared_from_this(),
+            _1, _2, _3, callback), m_timeout_ms);
+    }
+
+private:
+
+    /// @brief The "server info" completion handler.
+    /**
+    @param[in] err The error code.
+    @param[in] request The HTTP request.
+    @param[in] response The HTTP response.
+    @param[in] callback The callback functor.
+    */
+    void onGotServerInfo(boost::system::error_code err, http::RequestPtr request,
+        http::ResponsePtr response, ServerInfoCallback callback)
+    {
+        if (!err && response && response->getStatusCode() == http::status::OK)
+        {
+            // TODO: handle all exceptions
+            json::Value jval = json::fromStr(response->getContent());
+            HIVELOG_DEBUG(m_log, "got \"server info\" response:\n"
+                << json::toStrH(jval));
+            callback(err, jval);
+        }
+        else
+        {
+            HIVELOG_WARN_STR(m_log, "failed to get \"server info\" response");
+            callback(err, json::Value());
+        }
+    }
+/// @}
+
 
 /// @name Device
 /// @{
@@ -764,6 +817,7 @@ private:
             callback(err, device);
         }
     }
+
 
     /// @brief The "update device data" completion handler.
     /**
@@ -1020,6 +1074,41 @@ protected:
 
 protected:
 
+    /// @brief Get the server info asynchronously.
+    /**
+    */
+    virtual void asyncGetServerInfo()
+    {
+        assert(!m_this.expired() && "Application is dead or not initialized");
+
+        HIVELOG_INFO(m_log_, "get server info");
+        m_serverAPI->asyncGetServerInfo(
+            boost::bind(&This::onGotServerInfo,
+                m_this.lock(), _1, _2));
+    }
+
+
+    /// @brief The "server info" callback.
+    /**
+    @param[in] err The error code.
+    @param[in] info The server information.
+    */
+    virtual void onGotServerInfo(boost::system::error_code err, json::Value const& info)
+    {
+        if (!err)
+        {
+            HIVELOG_INFO(m_log_, "got \"server info\" response:\n"
+                << json::toStrH(info));
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log_, "server info error: ["
+                << err << "] " << err.message());
+        }
+    }
+
+protected:
+
     /// @brief Register the device asynchronously.
     /**
     @param[in] device The device to register.
@@ -1037,8 +1126,6 @@ protected:
 
     /// @brief The "register device" callback.
     /**
-    Starts listening for commands from the server and starts "update" timer.
-
     @param[in] err The error code.
     @param[in] device The device.
     */
