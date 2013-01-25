@@ -1482,7 +1482,7 @@ private:
 private:
     http::ConnectionPtr m_conn; ///< @brief The corresponding HTTP connection.
     TRX::SharedPtr m_trx; ///< @brief The tranceiver.
-    log::Logger m_log; ///< @brief The logger.
+    hive::log::Logger m_log; ///< @brief The logger.
 };
 
 

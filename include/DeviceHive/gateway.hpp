@@ -1321,7 +1321,7 @@ protected:
     @param[in] ios The IO service.
     @param[in] logger The logger.
     */
-    SerialModule(boost::asio::io_service &ios, log::Logger const& logger)
+    SerialModule(boost::asio::io_service &ios, hive::log::Logger const& logger)
         : m_serialOpenTimer(ios)
         , m_serial(ios)
         , m_serialBaudrate(0)
@@ -1471,7 +1471,7 @@ protected:
 
 private:
     boost::weak_ptr<SerialModule> m_this; ///< @brief The weak pointer to this.
-    log::Logger m_log_; ///< @brief The module logger.
+    hive::log::Logger m_log_; ///< @brief The module logger.
 };
 
 } // gateway namespace

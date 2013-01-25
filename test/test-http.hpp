@@ -60,7 +60,7 @@ void test_http0()
 // test application entry point: download file
 void test_http1()
 {
-    log::Logger::root().setLevel(log::LEVEL_DEBUG);
+    hive::log::Logger::root().setLevel(hive::log::LEVEL_DEBUG);
 
     // client: usually one per application
     boost::asio::io_service ios;

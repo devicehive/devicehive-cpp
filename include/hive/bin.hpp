@@ -1473,7 +1473,7 @@ private:
 
 protected:
     StreamT &m_stream; ///< @brief The external stream.
-    log::Logger m_log; ///< @brief The logger instance.
+    hive::log::Logger m_log; ///< @brief The logger instance.
 };
 
     } // bin namespace

@@ -661,7 +661,7 @@ private:
     int m_http_major; ///< @brief The HTTP major version.
     int m_http_minor; ///< @brief The HTTP minor version.
 
-    log::Logger m_log;              ///< @brief The logger.
+    hive::log::Logger m_log;        ///< @brief The logger.
     http::Url m_baseUrl;            ///< @brief The base URL.
     size_t m_timeout_ms;            ///< @brief The HTTP request timeout, milliseconds.
 
@@ -1043,7 +1043,7 @@ protected:
     @param[in] ios The IO service.
     @param[in] logger The logger.
     */
-    ServerModuleREST(boost::asio::io_service &ios, log::Logger const& logger)
+    ServerModuleREST(boost::asio::io_service &ios, hive::log::Logger const& logger)
         : m_httpClient(http::Client::create(ios))
         , m_log_(logger)
     {}
@@ -1243,7 +1243,7 @@ protected:
 
 private:
     boost::weak_ptr<This> m_this; ///< @brief The weak pointer to this.
-    log::Logger m_log_; ///< @brief The module logger.
+    hive::log::Logger m_log_; ///< @brief The module logger.
 };
 
 } // cloud6 namespace

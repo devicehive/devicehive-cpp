@@ -263,7 +263,7 @@ private:
 
     http::Url m_baseUrl;            ///< @brief The base URL.
     size_t m_timeout_ms;            ///< @brief The HTTP request timeout, milliseconds.
-    log::Logger m_log;              ///< @brief The logger.
+    hive::log::Logger m_log;              ///< @brief The logger.
 };
 
 
@@ -287,7 +287,7 @@ protected:
     @param[in] ios The IO service.
     @param[in] logger The logger.
     */
-    ServerModuleWS(boost::asio::io_service &ios, log::Logger const& logger)
+    ServerModuleWS(boost::asio::io_service &ios, hive::log::Logger const& logger)
         : m_httpClient(http::Client::create(ios))
         , m_serverOpenTimer(ios)
         , m_log_(logger)
@@ -517,7 +517,7 @@ protected:
 
 private:
     boost::weak_ptr<This> m_this; ///< @brief The weak pointer to this.
-    log::Logger m_log_; ///< @brief The module logger.
+    hive::log::Logger m_log_; ///< @brief The module logger.
 };
 
 } // cloud7 namespace

@@ -1848,7 +1848,7 @@ private:
 #endif // HIVE_DISABLE_SSL
 
     /// @brief The HTTP logger.
-    log::Logger m_log;
+    hive::log::Logger m_log;
 
 public:
 

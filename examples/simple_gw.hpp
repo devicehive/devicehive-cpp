@@ -1101,13 +1101,15 @@ Creates the Application instance and calls its Application::run() method.
 inline void main(int argc, const char* argv[], bool useNewWS = true)
 {
     { // configure logging
-        log::Target::SharedPtr log_file = log::Target::File::create("simple_gw.log");
-        log::Target::SharedPtr log_console = log::Logger::root().getTarget();
-        log::Logger::root().setTarget(log::Target::Tie::create(log_file, log_console));
-        log::Logger::root().setLevel(log::LEVEL_TRACE);
-        log::Logger("/hive/http").setTarget(log_file).setLevel(log::LEVEL_DEBUG); // disable annoying messages
-        log_console->setFormat(log::Format::create("%N %L %M\n"));
-        log_console->setMinimumLevel(log::LEVEL_DEBUG);
+        using namespace hive::log;
+
+        Target::SharedPtr log_file = Target::File::create("simple_gw.log");
+        Target::SharedPtr log_console = Logger::root().getTarget();
+        Logger::root().setTarget(Target::Tie::create(log_file, log_console));
+        Logger::root().setLevel(LEVEL_TRACE);
+        Logger("/hive/http").setTarget(log_file).setLevel(LEVEL_DEBUG); // disable annoying messages
+        log_console->setFormat(Format::create("%N %L %M\n"));
+        log_console->setMinimumLevel(LEVEL_DEBUG);
     }
 
     if (useNewWS)

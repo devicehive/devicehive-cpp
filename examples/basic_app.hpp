@@ -212,7 +212,7 @@ private:
 protected:
     boost::asio::io_service m_ios; ///< @brief The IO service.
     boost::asio::signal_set m_signals; ///< @brief The signal set.
-    log::Logger m_log; ///< @brief The application logger.
+    hive::log::Logger m_log; ///< @brief The application logger.
 
 private:
     volatile int m_terminated; ///< @brief The "terminated" flag.
@@ -228,7 +228,12 @@ Creates the Application instance and calls its Application::run() method.
 */
 inline void main(int argc, const char* argv[])
 {
-    log::Logger::root().setLevel(log::LEVEL_TRACE);
+    { // configure logging
+        using namespace hive::log;
+
+        Logger::root().setLevel(LEVEL_TRACE);
+    }
+
     Application::create(argc, argv)->run();
 }
 
