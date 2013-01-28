@@ -90,12 +90,20 @@ public:
     /// @brief Run the application.
     void run()
     {
-        start();
-
-        while (!terminated())
+        try
         {
-            m_ios.reset();
-            m_ios.run();
+            start();
+
+            while (!terminated())
+            {
+                m_ios.reset();
+                m_ios.run();
+            }
+        }
+        catch (std::exception const& ex)
+        {
+            HIVELOG_FATAL(m_log, ex.what());
+            throw;
         }
     }
 
