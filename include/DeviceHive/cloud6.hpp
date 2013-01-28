@@ -558,7 +558,7 @@ public:
                 const String id = jval["id"].asString();
                 if (id.empty())
                     throw std::runtime_error("identifier is empty");
-                if (device->id != id)
+                if (!boost::iequals(device->id, id))
                     throw std::runtime_error("invalid identifier");
             }
 
