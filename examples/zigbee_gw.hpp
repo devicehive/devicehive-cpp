@@ -666,12 +666,12 @@ private:
                     if (zdev->deviceRegistered)
                     {
                         asyncInsertNotification(zdev->device,
-                            cloud6::Notification(name, data));
+                            cloud6::Notification(name, data["parameters"]));
                     }
                     else
                     {
                         HIVELOG_DEBUG_STR(m_log, "device is not registered, notification delayed");
-                        zdev->delayedNotifications.push_back(cloud6::Notification(name, data));
+                        zdev->delayedNotifications.push_back(cloud6::Notification(name, data["parameters"]));
                     }
                 }
                 else
@@ -1410,12 +1410,12 @@ private:
                     if (zdev->deviceRegistered)
                     {
                         asyncInsertNotification(zdev->device,
-                            cloud7::Notification(name, data));
+                            cloud7::Notification(name, data["parameters"]));
                     }
                     else
                     {
                         HIVELOG_DEBUG_STR(m_log, "device is not registered, notification delayed");
-                        zdev->delayedNotifications.push_back(cloud7::Notification(name, data));
+                        zdev->delayedNotifications.push_back(cloud7::Notification(name, data["parameters"]));
                     }
                 }
                 else

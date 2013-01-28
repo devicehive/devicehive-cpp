@@ -481,12 +481,12 @@ private:
                     if (m_deviceRegistered)
                     {
                         asyncInsertNotification(m_device,
-                            cloud6::Notification(name, data));
+                            cloud6::Notification(name, data["parameters"]));
                     }
                     else
                     {
                         HIVELOG_DEBUG_STR(m_log, "device is not registered, notification delayed");
-                        m_delayedNotifications.push_back(cloud6::Notification(name, data));
+                        m_delayedNotifications.push_back(cloud6::Notification(name, data["parameters"]));
                     }
                 }
                 else
@@ -1052,12 +1052,12 @@ private:
                     if (m_deviceRegistered && m_serverAPI->isOpen())
                     {
                         asyncInsertNotification(m_device,
-                            cloud7::Notification(name, data));
+                            cloud7::Notification(name, data["parameters"]));
                     }
                     else
                     {
                         HIVELOG_DEBUG_STR(m_log, "device is not registered, notification delayed");
-                        m_delayedNotifications.push_back(cloud7::Notification(name, data));
+                        m_delayedNotifications.push_back(cloud7::Notification(name, data["parameters"]));
                     }
                 }
                 else
