@@ -21,6 +21,7 @@ enum
 {
     SERIAL_RECONNECT_TIMEOUT    = 10, ///< @brief Try to open serial port each X seconds.
     SERVER_RECONNECT_TIMEOUT    = 10, ///< @brief Try to open server connection each X seconds.
+    RETRY_TIMEOUT               = 5,  ///< @brief Common retry timeout, seconds.
     DEVICE_OFFLINE_TIMEOUT      = 0
 };
 
@@ -31,6 +32,7 @@ Uses DeviceHive REST server interface.
 */
 class Application:
     public basic_app::Application,
+    public basic_app::DelayedTasks,
     public cloud6::ServerModuleREST,
     public gateway::SerialModule
 {
@@ -40,7 +42,8 @@ protected:
 
     /// @brief The default constructor.
     Application()
-        : ServerModuleREST(m_ios, m_log)
+        : DelayedTasks(m_ios, m_log)
+        , ServerModuleREST(m_ios, m_log)
         , SerialModule(m_ios, m_log)
         , m_deviceRegistered(false)
     {
@@ -108,6 +111,7 @@ public:
         pthis->m_networkKey = networkKey;
         pthis->m_networkDesc = networkDesc;
 
+        pthis->initDelayedTasks(pthis);
         pthis->initServerModuleREST(baseUrl, pthis);
         pthis->initSerialModule(serialPortName, serialBaudrate, pthis);
         return pthis;
@@ -146,6 +150,7 @@ protected:
         cancelServerModuleREST();
         cancelSerialModule();
         asyncListenForGatewayFrames(false); // stop listening to release shared pointer
+        cancelDelayedTasks();
         Base::stop();
     }
 
@@ -175,6 +180,14 @@ private: // ServerModuleREST
 
             asyncPollCommands(device, m_lastCommandTimestamp);
             sendDelayedNotifications();
+        }
+        else if (!terminated())
+        {
+            // try to register again later!
+            // asyncRegisterDevice(device);
+            callLater(RETRY_TIMEOUT*1000,
+                boost::bind(&This::asyncRegisterDevice,
+                    shared_from_this(), device));
         }
     }
 
@@ -211,6 +224,13 @@ private: // ServerModuleREST
             }
 
             asyncPollCommands(device, m_lastCommandTimestamp); // start poll again
+        }
+        else if (!terminated())
+        {
+            // start poll again later!
+            callLater(RETRY_TIMEOUT*1000,
+                boost::bind(&This::asyncPollCommands, shared_from_this(),
+                    device, m_lastCommandTimestamp));
         }
     }
 
