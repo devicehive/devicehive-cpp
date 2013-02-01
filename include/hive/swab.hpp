@@ -783,10 +783,10 @@ Change the byte order
 ---------------------
 
 There are a few functions to change the byte order:
-- hive::mist::swab_16() for 16-bits integers
-- hive::mist::swab_32() for 32-bits integers
-- hive::mist::swab_64() for 64 bits integers
-- hive::mist::swab() overloaded for all integer sizes
+- hive::misc::swab_16() for 16-bits integers
+- hive::misc::swab_32() for 32-bits integers
+- hive::misc::swab_64() for 64 bits integers
+- hive::misc::swab() overloaded for all integer sizes
 
 The signed integers might be safely converted too.
 

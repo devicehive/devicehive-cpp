@@ -12,6 +12,9 @@ namespace hive
     namespace misc
     {
 
+/// @name Characters
+/// @{
+
 /// @brief Check for the simple character.
 /**
 @param[in] ch The input character to test.
@@ -50,7 +53,7 @@ inline bool is_hexdigit(int ch)
 /// @brief Check for the digital character.
 /**
 @param[in] ch The input character to test.
-@return `true` if input character is within range ['0'..'9'].
+@return `true` if input character is within range [0..9].
 */
 inline bool is_digit(int ch)
 {
@@ -120,6 +123,8 @@ inline char int2dec(int x)
 
     return -1; // error
 }
+
+/// @}
 
     } // misc namespace
 } // hive namespace

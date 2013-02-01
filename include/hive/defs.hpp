@@ -50,8 +50,9 @@ typedef std::istream             IStream; ///< @brief The basic input stream.
 
 /// @brief The non-copyable interface.
 /**
-This class should be used as private base class to emphasise that object cannot be copied.
-It is especially useful for classes which hold some h/w resources and therefore cannot be copied.
+This class should be used as private base class to emphasise
+that object cannot be copied. It is especially useful for classes
+which holds some h/w resources and therefore cannot be copied.
 
 ~~~{.cpp}
 class MyDevice:
@@ -69,7 +70,8 @@ void f()
 }
 ~~~
 
-@note Anyway it is possible to explicit provide copy-constructor and/or assignment operator for derived classes.
+@note Anyway it is possible to explicit provide copy-constructor
+      and/or assignment operator for derived classes.
 */
 typedef boost::noncopyable NonCopyable;
 
