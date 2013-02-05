@@ -241,6 +241,7 @@ public:
         String deviceName = "C++ device";
 
         String baseUrl = "http://ecloud.dataart.com/ecapi7";
+        size_t web_timeout = 0; // zero - don't change
 
         String networkName = "C++ network";
         String networkKey = "";
@@ -265,6 +266,7 @@ public:
                 std::cout << "\t--deviceClassName <device class name>\n";
                 std::cout << "\t--deviceClassVersion <device class version>\n";
                 std::cout << "\t--server <server URL>\n";
+                std::cout << "\t--web-timeout <timeout, seconds>\n";
                 std::cout << "\t--led <id> <name> <file name>\n";
                 std::cout << "\t--temp <id> <name> <file name>\n";
 
@@ -288,6 +290,8 @@ public:
                 deviceClassVersion = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--server") && i+1 < argc)
                 baseUrl = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--web-timeout") && i+1 < argc)
+                web_timeout = boost::lexical_cast<UInt32>(argv[++i]);
             else if (boost::algorithm::iequals(argv[i], "--led") && i+3 < argc)
             {
                 const String id = argv[++i];
@@ -321,6 +325,9 @@ public:
 
         pthis->initDelayedTasks(pthis);
         pthis->initServerModuleREST(baseUrl, pthis);
+        if (0 < web_timeout)
+            pthis->m_serverAPI->setTimeout(web_timeout*1000); // seconds -> milliseconds
+
         return pthis;
     }
 

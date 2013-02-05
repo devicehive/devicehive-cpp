@@ -72,6 +72,8 @@ public:
         String networkDesc = "C++ device test network";
 
         String baseUrl = "http://ecloud.dataart.com/ecapi7";
+        size_t web_timeout = 0; // zero - don't change
+
         String serialPortName = "";
         UInt32 serialBaudrate = 9600;
 
@@ -85,6 +87,7 @@ public:
                 std::cout << "\t--networkKey <network authentication key>\n";
                 std::cout << "\t--networkDesc <network description>\n";
                 std::cout << "\t--server <server URL>\n";
+                std::cout << "\t--web-timeout <timeout, seconds>\n";
                 std::cout << "\t--serial <serial device name>\n";
                 std::cout << "\t--baudrate <serial baudrate>\n";
 
@@ -98,6 +101,8 @@ public:
                 networkDesc = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--server") && i+1 < argc)
                 baseUrl = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--web-timeout") && i+1 < argc)
+                web_timeout = boost::lexical_cast<UInt32>(argv[++i]);
             else if (boost::algorithm::iequals(argv[i], "--serial") && i+1 < argc)
                 serialPortName = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--baudrate") && i+1 < argc)
@@ -115,6 +120,9 @@ public:
         pthis->initDelayedTasks(pthis);
         pthis->initServerModuleREST(baseUrl, pthis);
         pthis->initSerialModule(serialPortName, serialBaudrate, pthis);
+        if (0 < web_timeout)
+            pthis->m_serverAPI->setTimeout(web_timeout*1000); // seconds -> milliseconds
+
         return pthis;
     }
 

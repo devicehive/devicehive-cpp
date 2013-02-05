@@ -656,6 +656,16 @@ public:
         return SharedPtr(new ThisType(httpClient, baseUrl));
     }
 
+
+    /// @brief Set default web request timeout.
+    /**
+    @param[in] timeout_ms The request timeout, milliseconds.
+    */
+    void setTimeout(size_t timeout_ms)
+    {
+        m_timeout_ms = timeout_ms;
+    }
+
 private:
     http::Client::SharedPtr m_http; ///< @brief The HTTP client.
     int m_http_major; ///< @brief The HTTP major version.
