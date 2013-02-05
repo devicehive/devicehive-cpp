@@ -913,7 +913,7 @@ Creates the Application instance and calls its Application::run() method.
 @param[in] argv The command line arguments.
 @param[in] useNewWS Use new websocket service flag.
 */
-inline void main(int argc, const char* argv[], bool useNewWS = true)
+inline void main(int argc, const char* argv[], bool useNewWS = false)
 {
     { // configure logging
         using namespace hive::log;
