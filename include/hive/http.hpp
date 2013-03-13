@@ -788,6 +788,7 @@ const char Last_Modified[]      = "Last-Modified";      ///< @hideinitializer @b
 const char User_Agent[]         = "User-Agent";         ///< @hideinitializer @brief The "User-Agent" header name.
 const char Location[]           = "Location";           ///< @hideinitializer @brief The "Location" header name.
 const char Upgrade[]            = "Upgrade";            ///< @hideinitializer @brief The "Upgrade" header name.
+const char Authorization[]      = "Authorization";      ///< @hideinitializer @brief The "Authorization" header name.
 
         // TODO: add more headers here
 
@@ -1355,6 +1356,16 @@ public:
     String const& getStatusPhrase() const
     {
         return m_statusPhrase;
+    }
+
+
+    /// @brief Is status code successful?
+    /**
+    @return `true` if status code is in range [200..299].
+    */
+    bool isStatusSuccessful() const
+    {
+        return 200 <= m_statusCode && m_statusCode < 300;
     }
 /// @}
 

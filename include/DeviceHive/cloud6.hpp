@@ -723,7 +723,7 @@ private:
     void onGotServerInfo(boost::system::error_code err, http::RequestPtr request,
         http::ResponsePtr response, ServerInfoCallback callback)
     {
-        if (!err && response && response->getStatusCode() == http::status::OK)
+        if (!err && response && response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
             json::Value jval = json::fromStr(response->getContent());
@@ -812,7 +812,7 @@ private:
     void onRegisterDevice(boost::system::error_code err, http::RequestPtr request,
         http::ResponsePtr response, Device::SharedPtr device, RegisterDeviceCallback callback)
     {
-        if (!err && response && response->getStatusCode() == http::status::OK)
+        if (!err && response && response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
             json::Value jval = json::fromStr(response->getContent());
@@ -840,7 +840,7 @@ private:
     void onUpdateDeviceData(boost::system::error_code err, http::RequestPtr request,
         http::ResponsePtr response, Device::SharedPtr device, RegisterDeviceCallback callback)
     {
-        if (!err && response && response->getStatusCode() == http::status::OK)
+        if (!err && response && response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
             json::Value jval = json::fromStr(response->getContent());
@@ -908,7 +908,7 @@ private:
         std::vector<Command> commands;
         json::Value jval;
 
-        if (!err && response && response->getStatusCode() == http::status::OK)
+        if (!err && response && response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
             jval = json::fromStr(response->getContent());
