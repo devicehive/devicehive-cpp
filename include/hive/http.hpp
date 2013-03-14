@@ -1436,6 +1436,7 @@ public:
     typedef boost::asio::io_service IOService; ///< @brief The IO service type.
     typedef boost::system::error_code ErrorCode; ///< @brief The error code type.
     typedef boost::asio::ip::tcp::resolver Resolver; ///< @brief The resolver type.
+    typedef boost::asio::ip::tcp::endpoint Endpoint; ///< @brief The endpoint type.
     typedef boost::asio::streambuf StreamBuf; ///< @brief The stream buffer type.
     typedef boost::asio::mutable_buffers_1 MutableBuffers; ///< @brief The mutable buffers.
     typedef boost::asio::const_buffers_1 ConstBuffers; ///< @brief The constant buffers.
@@ -1479,6 +1480,13 @@ public:
     @return The corresponding IO service.
     */
     virtual IOService& get_io_service() = 0;
+
+
+    /// @brief Get the remote endpoint.
+    /**
+    @return The remote endpoint.
+    */
+    virtual Endpoint remote_endpoint() const = 0;
 
 
     /// @brief Close the connection.
@@ -1606,6 +1614,13 @@ public: // Connection
     }
 
 
+    /// @copydoc Connection::remote_endpoint()
+    virtual Endpoint remote_endpoint() const
+    {
+        return m_socket.remote_endpoint();
+    }
+
+
     /// @copydoc Connection::close()
     virtual void close()
     {
@@ -1722,6 +1737,13 @@ public: // Connection
     virtual IOService& get_io_service()
     {
         return m_stream.get_io_service();
+    }
+
+
+    /// @copydoc Connection::remote_endpoint()
+    virtual Endpoint remote_endpoint() const
+    {
+        return m_stream.lowest_layer().remote_endpoint();
     }
 
 
@@ -1844,6 +1866,7 @@ protected:
         , m_context(boost::asio::ssl::context::sslv23)
 #endif // HIVE_DISABLE_SSL
         , m_log("/hive/http/client/" + name)
+        , m_nameCacheLifetime(10*60000)
     {
         HIVELOG_TRACE_STR(m_log, "created");
     }
@@ -2187,13 +2210,27 @@ private:
         String const& service = url.getPort().empty()
             ? url.getProtocol() : url.getPort();
 
-        // start async resolve operation
-        HIVELOG_DEBUG(m_log, "{" << task.get() << "} start async resolve <"
-            << url.getHost() << ">, \"" << service << "\" service");
-        task->resolver.async_resolve(Resolver::query(url.getHost(), service),
-            boost::bind(&Client::onResolved, shared_from_this(),
-                task, boost::asio::placeholders::error,
-                boost::asio::placeholders::iterator));
+        Endpoint cachedEndpoint;
+        String hostName = url.toString(Url::PROTOCOL|Url::HOST|Url::PORT);
+        if (m_nameCacheLifetime && nameCacheFind(hostName, cachedEndpoint))
+        {
+            Resolver::iterator epi = Resolver::iterator::create(cachedEndpoint, url.getHost(), service);
+
+            HIVELOG_DEBUG(m_log, "{" << task.get() << "} <"
+                << url.getHost() << "> resolved from cache as:\n" << dump(epi));
+
+            asyncConnect(task, epi);
+        }
+        else
+        {
+            // start async resolve operation
+            HIVELOG_DEBUG(m_log, "{" << task.get() << "} start async resolve <"
+                << url.getHost() << ">, \"" << service << "\" service");
+            task->resolver.async_resolve(Resolver::query(url.getHost(), service),
+                boost::bind(&Client::onResolved, shared_from_this(),
+                    task, boost::asio::placeholders::error,
+                    boost::asio::placeholders::iterator));
+        }
     }
 
 
@@ -2289,6 +2326,13 @@ private:
         if (!err && !task->cancelled)
         {
             // TODO: handle Expect 100 header?
+
+            if (m_nameCacheLifetime) // update name cache
+            {
+                Url const& url = task->request->getUrl();
+                String hostName = url.toString(Url::PROTOCOL|Url::HOST|Url::PORT);
+                nameCacheUpdate(hostName, task->connection->remote_endpoint());
+            }
 
             asyncHandshake(task);
         }
@@ -2655,6 +2699,79 @@ private:
                 << err << "] " << err.message());
             done(task, err);
         }
+    }
+/// @}
+
+/// @name local DNS name cache
+/// @{
+private:
+
+    /// @brief DNS name entry.
+    struct NameEntry
+    {
+        Endpoint endpoint;
+        boost::posix_time::ptime created;
+
+        explicit NameEntry(Endpoint const& ep)
+            : endpoint(ep)
+            , created(boost::posix_time::microsec_clock::universal_time())
+        {}
+
+        NameEntry()
+        {}
+    };
+
+    std::map<String, NameEntry> m_nameCache; ///< @brief The DNS name cache.
+    size_t m_nameCacheLifetime; ///< @brief The DNS name entry lifetime, milliseconds.
+
+
+    /// @brief Update the name cache entry.
+    /**
+    @param[in] host The host name.
+    @param[in] endpoint The host endpoint.
+    */
+    void nameCacheUpdate(String const& host, Endpoint const& endpoint)
+    {
+        // TODO: do not reset lifetime of existing items?
+        m_nameCache[host] = NameEntry(endpoint);
+    }
+
+
+    /// @brief Remove the name cache entry.
+    /**
+    @param[in] host The host name.
+    */
+    void nameCacheRemove(String const& host)
+    {
+        m_nameCache.erase(host);
+    }
+
+
+    /// @brief Get the endpoint from name cache.
+    /**
+    @param[in] host The host name.
+    @param[out] endpoint The host endpoint.
+    @return `false` if name entry not found.
+    */
+    bool nameCacheFind(String const& host, Endpoint &endpoint)
+    {
+        typedef std::map<String, NameEntry>::iterator Iterator;
+        const Iterator i = m_nameCache.find(host);
+        if (i != m_nameCache.end())
+        {
+            const NameEntry entry = i->second;
+
+            const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+            if ((now - entry.created).total_milliseconds() < m_nameCacheLifetime)
+            {
+                endpoint = i->second.endpoint;
+                return true;
+            }
+            else
+                m_nameCache.erase(i); // lifetime expired!
+        }
+
+        return false; // not found
     }
 /// @}
 
