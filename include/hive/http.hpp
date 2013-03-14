@@ -2217,7 +2217,7 @@ private:
             Resolver::iterator epi = Resolver::iterator::create(cachedEndpoint, url.getHost(), service);
 
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} <"
-                << url.getHost() << "> resolved from cache as:\n" << dump(epi));
+                << url.getHost() << "> resolved from cache as: " << dump(epi));
 
             asyncConnect(task, epi);
         }
@@ -2248,7 +2248,7 @@ private:
         {
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} <"
                 << task->request->getUrl().getHost()
-                << "> resolved as:\n" << dump(epi));
+                << "> resolved as: " << dump(epi));
 
             asyncConnect(task, epi);
         }
@@ -2787,16 +2787,22 @@ private:
     static String dump(Resolver::iterator epi)
     {
         OStringStream oss;
+        oss << "[";
 
         const Resolver::iterator ie;
         for (Resolver::iterator i = epi; i != ie; ++i)
         {
             const Endpoint endpoint(*i);
             const boost::asio::ip::address addr = endpoint.address();
-            oss << "\t-" << (addr.is_v6() ? "v6" : (addr.is_v4() ? "v4" : "??"))
-                << " " << addr.to_string() << ":" << endpoint.port() << "\n";
+
+            if (i != epi)
+                oss << ", ";
+
+            oss << addr.to_string() << ":" << endpoint.port()
+                << (addr.is_v6() ? "-v6" : (addr.is_v4() ? "-v4" : ""));
         }
 
+        oss << "]";
         return oss.str();
     }
 
