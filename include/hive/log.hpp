@@ -669,7 +669,7 @@ public:
 
             m_file.clear();
             m_file.open(m_fileName.c_str(),
-                std::ios::app); // append!
+                std::ios::binary|std::ios::app); // append!
         }
 
         if (m_file.is_open()) // write message
