@@ -241,7 +241,7 @@ private:
 
                 HIVELOG_DEBUG(m_log, "text received: \"" << msg->getData() << "\"");
                 jaction = json::fromStr(msg->getData());
-                HIVELOG_DEBUG(m_log, "converted to: " << json::toStrH(jaction));
+                HIVELOG_DEBUG(m_log, "converted to: " << json::toStrHH(jaction));
             }
             catch (std::exception const& ex)
             {
@@ -381,7 +381,7 @@ protected:
     */
     virtual void onActionReceived(boost::system::error_code err, json::Value const& jaction)
     {
-        HIVELOG_DEBUG(m_log_, "got action: " << json::toStrH(jaction));
+        HIVELOG_DEBUG(m_log_, "got action: " << json::toStrHH(jaction));
     }
 
 protected:
@@ -407,7 +407,7 @@ protected:
     */
     virtual void onActionSent(boost::system::error_code err, json::Value action)
     {
-        HIVELOG_DEBUG(m_log_, "action sent: " << json::toStrH(action));
+        HIVELOG_DEBUG(m_log_, "action sent: " << json::toStrHH(action));
     }
 
 protected:

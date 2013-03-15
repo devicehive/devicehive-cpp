@@ -1532,12 +1532,13 @@ public:
     @param[in,out] os The output stream.
     @param[in] jval The JSON value to write.
     @param[in] humanFriendly The *human-fiendly* format flag.
+    @param[in] escaping The *escaping* string flag.
     @param[in] indent The first line indent.
         Is used for *human-friendly* format.
     @return The output stream.
     */
     static OStream& write(OStream &os, Value const& jval,
-        bool humanFriendly, size_t indent = 0)
+        bool humanFriendly, bool escaping = true, size_t indent = 0)
     {
         switch (jval.getType())
         {
@@ -1558,7 +1559,7 @@ public:
                 break;
 
             case Value::TYPE_STRING:
-                writeQuotedString(os, jval.asString());
+                writeString(os, jval.asString(), escaping, true);
                 break;
 
             case Value::TYPE_ARRAY:
@@ -1578,6 +1579,7 @@ public:
                         }
                         write(os, jval[i],
                             humanFriendly,
+                            escaping,
                             indent+1);
                     }
                     if (humanFriendly)
@@ -1610,12 +1612,13 @@ public:
                             writeIndent(os,
                                 indent+1);
                         }
-                        writeQuotedString(os, name);
+                        writeString(os, name, escaping, false);
                         os.put(':');
                         if (humanFriendly)
                             os.put(' ');
                         write(os, val,
                             humanFriendly,
+                            escaping,
                             indent+1);
                     }
                     if (humanFriendly)
@@ -1648,6 +1651,63 @@ public:
         for (size_t i = 0; i < N; ++i)
             os.put(' ');
         return os;
+    }
+
+
+    /// @brief Write quoted/unquoted string to an output stream.
+    /**
+    This method writes the string in queted or unquoted format.
+    All special and UNICODE characters are escaped.
+
+    @param[in,out] os The output stream.
+    @param[in] str The string to write.
+    @return The output stream.
+    */
+    static OStream& writeString(OStream &os, String const& str, bool escaping, bool forceQuote)
+    {
+        if (escaping || needToBeEscaped(str))
+            return writeQuotedString(os, str);
+        else  if (forceQuote)
+            return os << "\"" << str << "\"";
+        else
+            return os << str;
+    }
+
+
+    /// @brief Check if a character is simple.
+    /**
+    @param[in] ch The character to check.
+    @return `true` if character is in range [0-9A-Za-z-_.].
+    */
+    static bool isSimple(int ch)
+    {
+        return ('0' <= ch && ch <= '9')
+            || ('A' <= ch && ch <= 'Z')
+            || ('a' <= ch && ch <= 'z')
+            || ('.' == ch)
+            || ('-' == ch)
+            || ('_' == ch);
+    }
+
+
+    /// @brief Is a string need to be escaped?
+    /**
+    @param[in] str The string the check.
+    @return `true` if the string contains any character that should be escaped.
+    */
+    static bool needToBeEscaped(String const& str)
+    {
+        const size_t N = str.size();
+        for (size_t i = 0; i < N; ++i)
+        {
+            const int ch = (unsigned char)(str[i]);
+            // TODO: handle utf-8 strings!!!
+
+            if (!isSimple(ch))
+                return true;
+        }
+
+        return false; // simple string
     }
 
 
@@ -1761,6 +1821,19 @@ inline String toStrH(Value const& jval)
 {
     OStringStream oss;
     Formatter::write(oss, jval, true);
+    return oss.str();
+}
+
+
+/// @brief Convert JSON value to *human-friendly* string without escaping.
+/** @relates Value
+@param[in] jval The JSON value.
+@return The JSON string.
+*/
+inline String toStrHH(Value const& jval)
+{
+    OStringStream oss;
+    Formatter::write(oss, jval, true, false);
     return oss.str();
 }
 
@@ -2153,9 +2226,7 @@ public:
             if (Traits::eq_int_type(meta, Traits::eof()))
                 return false; // end of stream
 
-            if (('0' <= meta && meta <= '9')
-                || ('A' <= meta && meta <= 'Z')
-                || ('a' <= meta && meta <= 'z'))
+            if (Formatter::isSimple(meta))
             {
                 oss.put(Traits::to_char_type(meta)); // just save
                 is.ignore(1);

@@ -728,7 +728,7 @@ private:
             // TODO: handle all exceptions
             json::Value jval = json::fromStr(response->getContent());
             HIVELOG_DEBUG(m_log, "got \"server info\" response:\n"
-                << json::toStrH(jval));
+                << json::toStrHH(jval));
             callback(err, jval);
         }
         else
@@ -767,7 +767,7 @@ public:
         req->setContent(json::toStr(jcontent));
         req->setVersion(m_http_major, m_http_minor);
 
-        HIVELOG_DEBUG(m_log, "register device:\n" << json::toStrH(jcontent));
+        HIVELOG_DEBUG(m_log, "register device:\n" << json::toStrHH(jcontent));
         m_http->send(req, boost::bind(&ThisType::onRegisterDevice, shared_from_this(),
             _1, _2, _3, device, callback), m_timeout_ms);
     }
@@ -794,7 +794,7 @@ public:
         req->setContent(json::toStr(jcontent));
         req->setVersion(m_http_major, m_http_minor);
 
-        HIVELOG_DEBUG(m_log, "update device data:\n" << json::toStrH(jcontent));
+        HIVELOG_DEBUG(m_log, "update device data:\n" << json::toStrHH(jcontent));
         m_http->send(req, boost::bind(&ThisType::onUpdateDeviceData, shared_from_this(),
             _1, _2, _3, device, callback), m_timeout_ms);
     }
@@ -817,7 +817,7 @@ private:
             // TODO: handle all exceptions
             json::Value jval = json::fromStr(response->getContent());
             HIVELOG_DEBUG(m_log, "got \"register device\" response:\n"
-                << json::toStrH(jval));
+                << json::toStrHH(jval));
             Serializer::json2device(jval, device);
             callback(err, device);
         }
@@ -845,7 +845,7 @@ private:
             // TODO: handle all exceptions
             json::Value jval = json::fromStr(response->getContent());
             HIVELOG_DEBUG(m_log, "got \"update device data\" response:\n"
-                << json::toStrH(jval));
+                << json::toStrHH(jval));
             Serializer::json2device(jval, device);
             callback(err, device);
         }
@@ -922,7 +922,7 @@ private:
         }
 
         HIVELOG_DEBUG(m_log, "got \"poll commands\" response:\n"
-            << json::toStrH(jval));
+            << json::toStrHH(jval));
 
         callback(err, device, commands);
     }
@@ -955,7 +955,7 @@ public:
         req->setContent(json::toStr(jbody));
         req->setVersion(m_http_major, m_http_minor);
 
-        HIVELOG_DEBUG(m_log, "command result:\n" << json::toStrH(jbody));
+        HIVELOG_DEBUG(m_log, "command result:\n" << json::toStrHH(jbody));
         m_http->send(req, boost::bind(&ThisType::onSendCommandResult,
             shared_from_this(), _1, _2, _3), m_timeout_ms);
     }
@@ -1003,7 +1003,7 @@ public:
         req->setContent(json::toStr(jbody));
         req->setVersion(m_http_major, m_http_minor);
 
-        HIVELOG_DEBUG(m_log, "notification:\n" << json::toStrH(jbody));
+        HIVELOG_DEBUG(m_log, "notification:\n" << json::toStrHH(jbody));
         m_http->send(req, boost::bind(&ThisType::onSendNotification,
             shared_from_this(), _1, _2, _3), m_timeout_ms);
     }
@@ -1108,7 +1108,7 @@ protected:
         if (!err)
         {
             HIVELOG_INFO(m_log_, "got \"server info\" response:\n"
-                << json::toStrH(info));
+                << json::toStrHH(info));
         }
         else
         {
