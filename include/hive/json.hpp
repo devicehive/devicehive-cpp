@@ -24,7 +24,7 @@
 #   define HIVE_JSON_SINGLE_QUOTED_STRING   1
 #endif // HIVE_JSON_SINGLE_QUOTED_STRING
 
-// extension: simple strings [0-9A-Za-z]
+// extension: simple strings [0-9A-Za-z_]
 #if !defined(HIVE_JSON_SIMPLE_STRING)
 #   define HIVE_JSON_SIMPLE_STRING          1
 #endif // HIVE_JSON_SIMPLE_STRING
@@ -1532,13 +1532,13 @@ public:
     @param[in,out] os The output stream.
     @param[in] jval The JSON value to write.
     @param[in] humanFriendly The *human-fiendly* format flag.
-    @param[in] escaping The *escaping* string flag.
     @param[in] indent The first line indent.
         Is used for *human-friendly* format.
+    @param[in] escaping The *escaping* string flag.
     @return The output stream.
     */
     static OStream& write(OStream &os, Value const& jval,
-        bool humanFriendly, bool escaping = true, size_t indent = 0)
+        bool humanFriendly, size_t indent = 0, bool escaping = true)
     {
         switch (jval.getType())
         {
@@ -1579,8 +1579,8 @@ public:
                         }
                         write(os, jval[i],
                             humanFriendly,
-                            escaping,
-                            indent+1);
+                            indent + 1,
+                            escaping);
                     }
                     if (humanFriendly)
                     {
@@ -1618,8 +1618,8 @@ public:
                             os.put(' ');
                         write(os, val,
                             humanFriendly,
-                            escaping,
-                            indent+1);
+                            indent + 1,
+                            escaping);
                     }
                     if (humanFriendly)
                     {
@@ -1665,9 +1665,9 @@ public:
     */
     static OStream& writeString(OStream &os, String const& str, bool escaping, bool forceQuote)
     {
-        if (escaping || needToBeEscaped(str))
+        if (escaping || !isSimple(str))
             return writeQuotedString(os, str);
-        else  if (forceQuote)
+        else  if (forceQuote || str.empty())
             return os << "\"" << str << "\"";
         else
             return os << str;
@@ -1677,25 +1677,23 @@ public:
     /// @brief Check if a character is simple.
     /**
     @param[in] ch The character to check.
-    @return `true` if character is in range [0-9A-Za-z-_.].
+    @return `true` if character is in range [0-9A-Za-z_].
     */
     static bool isSimple(int ch)
     {
         return ('0' <= ch && ch <= '9')
             || ('A' <= ch && ch <= 'Z')
             || ('a' <= ch && ch <= 'z')
-            || ('.' == ch)
-            || ('-' == ch)
             || ('_' == ch);
     }
 
 
-    /// @brief Is a string need to be escaped?
+    /// @brief Check if a string is simple.
     /**
     @param[in] str The string the check.
-    @return `true` if the string contains any character that should be escaped.
+    @return `true` if string contains simple characters only.
     */
-    static bool needToBeEscaped(String const& str)
+    static bool isSimple(String const& str)
     {
         const size_t N = str.size();
         for (size_t i = 0; i < N; ++i)
@@ -1704,10 +1702,10 @@ public:
             // TODO: handle utf-8 strings!!!
 
             if (!isSimple(ch))
-                return true;
+                return false;
         }
 
-        return false; // simple string
+        return true; // simple string
     }
 
 
@@ -1833,7 +1831,7 @@ inline String toStrH(Value const& jval)
 inline String toStrHH(Value const& jval)
 {
     OStringStream oss;
-    Formatter::write(oss, jval, true, false);
+    Formatter::write(oss, jval, true, 0, false);
     return oss.str();
 }
 
@@ -2012,7 +2010,7 @@ public:
             Value().swap(jval);
         }
 
-        // extension: simple strings [0-9A-Za-z] without quotes
+        // extension: simple strings [0-9A-Za-z_] without quotes
         else if (HIVE_JSON_SIMPLE_STRING)
         {
             String val;
@@ -2211,7 +2209,7 @@ public:
 
     /// @brief Parse simple string from an input stream.
     /**
-    A simple string consists of characters from the [0-9A-Za-z] set.
+    A simple string consists of characters from the [0-9A-Za-z_] set.
     @param[in,out] is The input stream.
     @param[out] str The parsed string.
     @return `true` if string successfully parsed.
