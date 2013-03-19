@@ -1985,8 +1985,8 @@ public:
                 throw error::SyntaxError("cannot parse integer value");
         }
 
-        // double-quoted string
-        else if (Traits::eq(cx, '\"'))
+        // double-quoted or single-quoted string
+        else if (Traits::eq(cx, '\"') || (HIVE_JSON_SINGLE_QUOTED_STRING && Traits::eq(cx, '\'')))
         {
             String val;
             if (parseQuotedString(is, val))
@@ -2014,7 +2014,7 @@ public:
         else if (HIVE_JSON_SIMPLE_STRING)
         {
             String val;
-            if (parseString(is, val))
+            if (parseSimpleString(is, val))
                 Value(val).swap(jval);
             else
                 throw error::SyntaxError("cannot parse simple string");
@@ -2232,7 +2232,7 @@ public:
             else
             {
                 str = oss.str();
-                return true; // OK
+                return !str.empty(); // OK
             }
         }
 

@@ -194,7 +194,7 @@ public:
 
 public:
 
-    /// @brief Do the log message formatting.
+    /// @brief Do a log message formatting.
     /**
     Uses defaultFormat() or customFormat() method as an implementation.
 
@@ -210,7 +210,7 @@ public:
     }
 
 
-    /// @brief %Format the log message (default format).
+    /// @brief %Format a log message (default format).
     /**
     @param[in,out] os The output stream.
     @param[in] msg The log message to format.
@@ -230,7 +230,7 @@ public:
     }
 
 
-    /// @brief %Format the log message (custom format).
+    /// @brief %Format a log message (custom format).
     /**
     @param[in,out] os The output stream.
     @param[in] msg The log message to format.
@@ -366,7 +366,7 @@ public:
 
 public:
 
-    /// @brief Send log message to the target.
+    /// @brief Send a log message to the target.
     /**
     @param[in] msg The log message.
     */
@@ -908,7 +908,7 @@ protected:
 This is the main class of the logging tools.
 
 All loggers organized into tree hierarchy. The root logger available
-through root() static method. By default root() logger send messages
+through root() static method. By default root() logger sends messages
 to the standard error stream at the **WARN** level minimum.
 */
 class Logger
