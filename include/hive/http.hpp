@@ -36,40 +36,6 @@ namespace hive
     */
     namespace http
     {
-        // helpers
-        namespace impl
-        {
-
-/// @brief Check for the scpecial character.
-/**
-The special characters are: "()<>@,;:\"/[]?={}", space and tab.
-
-@param[in] ch The input character to test.
-@return `true` if input character is one of the special character.
-*/
-inline bool is_tspecial(int ch)
-{
-    switch (ch)
-    {
-        case '(': case ')': case '<': case '>': case '@':
-        case ',': case ';': case ':': case '\\': case '"':
-        case '/': case '[': case ']': case '?': case '=':
-        case '{': case '}': case ' ': case '\t':
-            return true;
-    }
-
-    return false;
-}
-
-
-/// @hideinitializer @brief The new line string.
-const char CRLF[] = "\r\n";
-
-/// @hideinitializer @brief The empty line and new line string.
-const char CRLFx2[] = "\r\n\r\n";
-
-        } // helpers
-
 
 /// @brief The URL.
 /**
@@ -87,7 +53,6 @@ There also equality operators == and != are available.
 
 Please use Builder class to build advanced URLs.
 */
-// TODO: check components encode/decode
 class Url
 {
 public:
@@ -140,9 +105,13 @@ public:
     Url(String const& proto, String const& user,
         String const& host, String const& port, String const& path,
         String const& query, String const& fragment)
-        : m_proto(proto), m_user(user),
-          m_host(host), m_port(port), m_path(path),
-          m_query(query), m_fragment(fragment)
+        : m_proto(proto)
+        , m_user(user)
+        , m_host(host)
+        , m_port(port)
+        , m_path(path)
+        , m_query(query)
+        , m_fragment(fragment)
     {}
 
 
@@ -489,11 +458,11 @@ public:
     @param[in] url The base URL.
     */
     explicit Builder(Url const& url)
-        : m_proto(url.getProtocol()),
-          m_user(url.getUserInfo()),
-          m_host(url.getHost()),
-          m_port(url.getPort()),
-          m_fragment(url.getFragment())
+        : m_proto(url.getProtocol())
+        , m_user(url.getUserInfo())
+        , m_host(url.getHost())
+        , m_port(url.getPort())
+        , m_fragment(url.getFragment())
     {
         parsePath(url.getPath());
         parseQuery(url.getQuery());
@@ -677,6 +646,19 @@ const char Authorization[]      = "Authorization";      ///< @hideinitializer @b
         } // header namespace
 
 
+        // helpers
+        namespace impl
+        {
+
+/// @hideinitializer @brief The new line string.
+const char CRLF[] = "\r\n";
+
+/// @hideinitializer @brief The empty line and new line string.
+const char CRLFx2[] = "\r\n\r\n";
+
+        } // helpers
+
+
 /// @brief The HTTP message.
 /**
 This is base class for HTTP requests and responses.
@@ -699,8 +681,8 @@ protected:
     The HTTP 1.1 version is used by default.
     */
     Message()
-        : m_versionMajor(1),
-          m_versionMinor(1)
+        : m_versionMajor(1)
+        , m_versionMinor(1)
     {}
 
 public:
@@ -712,10 +694,6 @@ public:
 
 /// @name The HTTP version
 /// @{
-private:
-    UInt32 m_versionMajor; ///< @brief The major HTTP version.
-    UInt32 m_versionMinor; ///< @brief The minor HTTP version.
-
 public:
 
     /// @brief Set the HTTP version.
@@ -747,36 +725,6 @@ public:
 
 /// @name HTTP headers
 /// @{
-private:
-
-    /// @brief The less functor.
-    /**
-    Compares string no case.
-    */
-    struct iLess
-        : public std::binary_function<String, String, bool>
-    {
-        /// @brief Compare two strings.
-        /**
-        @param[in] a The first string.
-        @param[in] b The second string.
-        @return `true` if first string is less than second.
-        */
-        bool operator()(String const& a, String const& b) const
-        {
-            return boost::ilexicographical_compare(a, b);
-        }
-    };
-
-    /// @brief The header container type.
-    /**
-    Uses case insensitive comparison for header names.
-    */
-    typedef std::map<String, String, iLess> HeaderMap;
-
-    /// @brief The headers.
-    HeaderMap m_headers;
-
 public:
 
     /// @brief Get header.
@@ -853,11 +801,6 @@ public:
 
 /// @name Body content
 /// @{
-private:
-
-    /// @brief The custom content.
-    String m_content;
-
 public:
 
     /// @brief Set content string.
@@ -904,6 +847,39 @@ public:
         return os;
     }
 /// @}
+
+private:
+
+    /// @brief The less functor.
+    /**
+    Compares string no case.
+    */
+    struct iLess
+        : public std::binary_function<String, String, bool>
+    {
+        /// @brief Compare two strings.
+        /**
+        @param[in] a The first string.
+        @param[in] b The second string.
+        @return `true` if first string is less than second.
+        */
+        bool operator()(String const& a, String const& b) const
+        {
+            return boost::ilexicographical_compare(a, b);
+        }
+    };
+
+    /// @brief The header container type.
+    /**
+    Uses case insensitive comparison for header names.
+    */
+    typedef std::map<String, String, iLess> HeaderMap;
+
+
+    UInt32 m_versionMajor; ///< @brief The major HTTP version.
+    UInt32 m_versionMinor; ///< @brief The minor HTTP version.
+    HeaderMap m_headers; ///< @brief The headers.
+    String m_content; ///< @brief The custom content.
 };
 
 
@@ -924,6 +900,17 @@ The request HTTP method and the URL cannot be changed after creation.
 class Request:
     public Message
 {
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] method The HTTP method.
+    @param[in] url The URL.
+    */
+    Request(String const& method, Url const& url)
+        : m_method(method), m_url(url)
+    {}
+
 public:
 
     /// @brief The shared pointer type.
@@ -956,21 +943,26 @@ public:
     /// @brief Create PUT request.
     /**
     @param[in] url The URL.
+    @return The new PUT request instance.
+    */
+    static SharedPtr PUT(Url const& url)
+    {
+        return create("PUT", url);
+    }
+
+
+    /// @brief Create PUT request with content.
+    /**
+    @param[in] url The URL.
     @param[in] contentType The optional content type.
     @param[in] content The optional content.
     @return The new PUT request instance.
     */
-    static SharedPtr PUT(Url const& url,
-        String const& contentType = String(),
-        String const& content = String())
+    static SharedPtr PUT(Url const& url, String const& contentType, String const& content)
     {
-        SharedPtr req = create("PUT", url);
-
-        if (!contentType.empty())
-            req->addHeader(header::Content_Type, contentType);
-        if (!content.empty())
-            req->setContent(content);
-
+        SharedPtr req = PUT(url);
+        req->addHeader(header::Content_Type, contentType);
+        req->setContent(content);
         return req;
     }
 
@@ -978,34 +970,28 @@ public:
     /// @brief Create POST request.
     /**
     @param[in] url The URL.
+    @return The new POST request instance.
+    */
+    static SharedPtr POST(Url const& url)
+    {
+        return create("POST", url);
+    }
+
+
+    /// @brief Create POST request with content.
+    /**
+    @param[in] url The URL.
     @param[in] contentType The optional content type.
     @param[in] content The optional content.
     @return The new POST request instance.
     */
-    static SharedPtr POST(Url const& url,
-        String const& contentType = String(),
-        String const& content = String())
+    static SharedPtr POST(Url const& url, String const& contentType, String const& content)
     {
-        SharedPtr req = create("POST", url);
-
-        if (!contentType.empty())
-            req->addHeader(header::Content_Type, contentType);
-        if (!content.empty())
-            req->setContent(content);
-
+        SharedPtr req = POST(url);
+        req->addHeader(header::Content_Type, contentType);
+        req->setContent(content);
         return req;
     }
-
-protected:
-
-    /// @brief The main constructor.
-    /**
-    @param[in] method The HTTP method.
-    @param[in] url The URL.
-    */
-    Request(String const& method, Url const& url)
-        : m_method(method), m_url(url)
-    {}
 
 public:
 
@@ -1163,6 +1149,18 @@ They are created by the Client automatically.
 class Response:
     public Message
 {
+protected:
+
+    /// @brief The default constructor.
+    /**
+    @param[in] status The status code.
+    @param[in] reason The status phrase.
+    */
+    Response(int status, String const& reason)
+        : m_statusCode(status),
+          m_statusPhrase(reason)
+    {}
+
 public:
 
     /// @brief The shared pointer type.
@@ -1180,25 +1178,8 @@ public:
         return SharedPtr(new Response(status, reason));
     }
 
-protected:
-
-    /// @brief The default constructor.
-    /**
-    @param[in] status The status code.
-    @param[in] reason The status phrase.
-    */
-    Response(int status, String const& reason)
-        : m_statusCode(status),
-          m_statusPhrase(reason)
-    {}
-
-
 /// @name Response status
 /// @{
-private:
-    int m_statusCode; ///< @brief The status code.
-    String m_statusPhrase; ///< @brief The status phrase.
-
 public:
 
     /// @brief Set the status code.
@@ -1284,6 +1265,10 @@ public:
         writeContent(os);
         return os;
     }
+
+private:
+    int m_statusCode; ///< @brief The status code.
+    String m_statusPhrase; ///< @brief The status phrase.
 };
 
 
@@ -1323,15 +1308,6 @@ public:
     typedef boost::asio::mutable_buffers_1 MutableBuffers; ///< @brief The mutable buffers.
     typedef boost::asio::const_buffers_1 ConstBuffers; ///< @brief The constant buffers.
 
-public:
-
-    /// @brief The shared pointer type.
-    typedef boost::shared_ptr<Connection> SharedPtr;
-
-    // real connections
-    class Simple;
-    class Secure;
-
 protected:
 
     /// @brief The default constructor.
@@ -1343,6 +1319,15 @@ public:
     /// @brief The trivial destructor.
     virtual ~Connection()
     {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<Connection> SharedPtr;
+
+    // real connections
+    class Simple;
+    class Secure;
 
 public:
 
@@ -1478,11 +1463,11 @@ public:
 
 public:
 
-    /// @brief Get the socket.
+    /// @brief Get the socket stream.
     /**
     @return The socket.
     */
-    TcpSocket& getSocket()
+    TcpSocket& getStream()
     {
         return m_socket;
     }
@@ -1521,7 +1506,7 @@ public: // Connection
     {
         // attempt a connection to each endpoint in the list
         boost::asio::async_connect(
-            getSocket(), epi, boost::bind(callback,
+            m_socket, epi, boost::bind(callback,
                 boost::asio::placeholders::error));
     }
 
@@ -1540,7 +1525,7 @@ public: // Connection
     /// @copydoc Connection::async_write_some()
     virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback)
     {
-        getSocket().async_write_some(bufs,
+        m_socket.async_write_some(bufs,
             boost::bind(callback, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
@@ -1549,7 +1534,7 @@ public: // Connection
     /// @copydoc Connection::async_read_some()
     virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback)
     {
-        getSocket().async_read_some(bufs,
+        m_socket.async_read_some(bufs,
             boost::bind(callback, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
@@ -1634,10 +1619,10 @@ public: // Connection
     {
         ErrorCode terr;
 
-        getStream().lowest_layer().shutdown(TcpSocket::shutdown_both, terr);
+        m_stream.lowest_layer().shutdown(TcpSocket::shutdown_both, terr);
         // ignore error code?
 
-        getStream().lowest_layer().close(terr);
+        m_stream.lowest_layer().close(terr);
         // ignore error code?
     }
 
@@ -1646,7 +1631,7 @@ public: // Connection
     virtual void async_connect(Resolver::iterator epi, ConnectCallback callback)
     {
         // attempt a connection to each endpoint in the list
-        boost::asio::async_connect(getStream().lowest_layer(), epi,
+        boost::asio::async_connect(m_stream.lowest_layer(), epi,
             boost::bind(callback, boost::asio::placeholders::error));
     }
 
@@ -1654,7 +1639,7 @@ public: // Connection
     /// @copydoc Connection::async_handshake()
     virtual void async_handshake(int type, HandshakeCallback callback)
     {
-        getStream().async_handshake(
+        m_stream.async_handshake(
             boost::asio::ssl::stream_base::handshake_type(type),
             boost::bind(callback, boost::asio::placeholders::error));
     }
@@ -1663,7 +1648,7 @@ public: // Connection
     /// @copydoc Connection::async_write_some()
     virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback)
     {
-        getStream().async_write_some(bufs,
+        m_stream.async_write_some(bufs,
             boost::bind(callback, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
@@ -1672,7 +1657,7 @@ public: // Connection
     /// @copydoc Connection::async_read_some()
     virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback)
     {
-        getStream().async_read_some(bufs,
+        m_stream.async_read_some(bufs,
             boost::bind(callback, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
@@ -2787,6 +2772,28 @@ private:
     }
 
 
+    /// @brief Check for the scpecial character.
+    /**
+    The special characters are: "()<>@,;:\"/[]?={}", space and tab.
+
+    @param[in] ch The input character to test.
+    @return `true` if input character is one of the special character.
+    */
+    static bool is_tspecial(int ch)
+    {
+        switch (ch)
+        {
+            case '(': case ')': case '<': case '>': case '@':
+            case ',': case ';': case ':': case '\\': case '"':
+            case '/': case '[': case ']': case '?': case '=':
+            case '{': case '}': case ' ': case '\t':
+                return true;
+        }
+
+        return false;
+    }
+
+
     /// @brief Parse the headers.
     /**
     @param[in] first The begin of input stream.
@@ -2822,7 +2829,7 @@ private:
                 case FIRST_HEADER_LINE_START:
                     if (ch == '\r')
                         state = FINAL_LINEFEED;
-                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || impl::is_tspecial(ch))
+                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || is_tspecial(ch))
                         state = FAIL;
                     else
                     {
@@ -2841,7 +2848,7 @@ private:
                     }
                     else if (ch == ' ' || ch == '\t')
                         state = HEADER_LWS;
-                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || impl::is_tspecial(ch))
+                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || is_tspecial(ch))
                         state = FAIL;
                     else
                     {
@@ -2870,7 +2877,7 @@ private:
                 case HEADER_NAME:
                     if (ch == ':')
                         state = SPACE_BEFORE_HEADER_VALUE;
-                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || impl::is_tspecial(ch))
+                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || is_tspecial(ch))
                         state = FAIL;
                     else
                         name.push_back(ch);
