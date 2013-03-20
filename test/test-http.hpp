@@ -28,8 +28,8 @@ void on_http_print(boost::system::error_code err, http::RequestPtr request, http
 
 void check_base64(String const& data)
 {
-    const String a = http::base64_encode(data.begin(), data.end());
-    const std::vector<UInt8> b = http::base64_decode(a);
+    const String a = misc::base64_encode(data);
+    const std::vector<UInt8> b = misc::base64_decode(a);
 
     std::cout << "[" << dump::hex(data) << "] => \""
         << a << "\" => [" << dump::hex(b) << "]\n";

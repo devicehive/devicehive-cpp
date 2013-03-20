@@ -999,7 +999,7 @@ public:
         for (size_t i = 0; i < N; ++i)
             key[i] = rand()&0xFF;
 
-        return http::base64_encode(key);
+        return misc::base64_encode(key);
     }
 
 
@@ -1011,7 +1011,7 @@ public:
     static String buildAcceptKey(String const& key)
     {
         const OctetString check = impl::sha1(key + KEY_UUID);
-        return http::base64_encode(check.begin(), check.end());
+        return misc::base64_encode(check.begin(), check.end());
     }
 
 

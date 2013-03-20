@@ -300,7 +300,7 @@ public:
 
         // user name & password
         if ((components&USER_INFO) && !m_user.empty())
-            encode(res, m_user) << "@";
+            misc::url_encode(res, m_user) << "@";
 
         // host
         if ((components&HOST) && !m_host.empty())
@@ -312,136 +312,18 @@ public:
 
         // path
         if ((components&PATH) && !m_path.empty())
-            res << m_path; //encode(res, m_path);
+            res << m_path; //misc::url_encode(res, m_path);
 
         // query
         if ((components&QUERY) && !m_query.empty())
-            res << "?" << m_query; //encode(res << "?", m_query);
+            res << "?" << m_query; //misc::url_encode(res << "?", m_query);
 
         // fragment
         if ((components&FRAGMENT) && !m_fragment.empty())
-            res << "#" << m_fragment; // encode(res << "#", m_fragment);
+            res << "#" << m_fragment; // misc::url_encode(res << "#", m_fragment);
 
         return res.str();
     }
-
-
-/// @name URL encode/decode
-/// @{
-public:
-
-    /// @brief Encode URL.
-    /**
-    @param[in,out] os The output stream.
-    @param[in] str The string to encode.
-    @return The output stream.
-    */
-    static OStream& encode(OStream & os, String const& str)
-    {
-        const size_t N = str.size();
-        for (size_t i = 0; i < N; ++i)
-        {
-            const char ch = str[i];
-
-            switch (ch)
-            {
-                default: // no escaping
-                    if (32 < ch && ch < 127)
-                    {
-                        os.put(ch);
-                        break;
-                    }
-                    // no break;
-
-                case ' ': // escaping
-                case '$': case '&': case '+': case ',': case '/': case ':':
-                case ';': case '=': case '?': case '@': case '"': case '<':
-                case '>': case '#': case '%': case '{': case '}': case '|':
-                case '\\': case '^': case '~': case '[': case ']': case '`':
-                {
-                    os.put('%');
-                    os.put(misc::int2hex((ch>>4)&0x0f));
-                    os.put(misc::int2hex(ch&0x0f));
-                } break;
-            }
-        }
-
-        return os;
-    }
-
-
-    /// @brief Encode URL.
-    /**
-    @param[in] str The string to encode.
-    @return The encoded string.
-    */
-    static String encode(String const& str)
-    {
-        OStringStream oss;
-        encode(oss, str);
-        return oss.str();
-    }
-
-
-    /// @brief Decode URL.
-    /**
-    @param[in,out] os The output stream.
-    @param[in] str The string to decode.
-    @return The output stream.
-    */
-    static OStream& decode(OStream & os, String const& str)
-    {
-        const size_t N = str.size();
-        for (size_t i = 0; i < N; ++i)
-        {
-            const char ch = str[i];
-
-            switch (ch)
-            {
-                //case '+': // ??? space character
-                //    os.put(' ');
-                //    break;
-
-                case '%': // hexidecimal value
-                    if (i+2 < N)
-                    {
-                        const char a = str[i+1];
-                        const char b = str[i+2];
-
-                        const int aa = misc::hex2int(a);
-                        const int bb = misc::hex2int(b);
-
-                        if (0 <= aa && 0 <= bb)
-                        {
-                            os.put((aa<<4) | bb);
-                            i += 2;
-                            break;
-                        }
-                    }
-                    // no break;
-
-                default: // no escaping
-                    os.put(ch);
-                    break;
-            }
-        }
-
-        return os;
-    }
-
-
-    /// @brief Decode URL.
-    /**
-    @param[in] str The string to decode.
-    @return The decoded string.
-    */
-    static String decode(String const& str)
-    {
-        OStringStream oss;
-        decode(oss, str);
-        return oss.str();
-    }
-/// @}
 
 private:
 
@@ -458,7 +340,7 @@ private:
             const size_t len = (p - url);
 
             m_proto.assign(url, p);
-            //m_proto = decode(m_proto);
+            //m_proto = misc::url_decode(m_proto);
             boost::algorithm::to_lower(m_proto);
 
             url += len + 3;
@@ -471,7 +353,7 @@ private:
             if (url[len] == '@')
             {
                 m_user.assign(url, url + len);
-                m_user = decode(m_user);
+                m_user = misc::url_decode(m_user);
                 url += len + 1;
             }
             else if (url[len] == ':')
@@ -480,7 +362,7 @@ private:
                 if (url[len+len2] == '@')
                 {
                     m_user.assign(url, url + len+len2);
-                    m_user = decode(m_user);
+                    m_user = misc::url_decode(m_user);
                     url += len+len2 + 1;
                 }
             }
@@ -495,7 +377,7 @@ private:
         {
             const size_t len = std::strcspn(url, ":/?#");
             m_host.assign(url, url + len);
-            //m_host = decode(m_host);
+            //m_host = misc::url_decode(m_host);
             url += len;
         }
 
@@ -521,7 +403,7 @@ private:
         {
             const size_t len = std::strcspn(url, "?#");
             m_path.assign(url, url + len);
-            m_path = decode(m_path);
+            m_path = misc::url_decode(m_path);
             url += len;
         }
         else
@@ -532,7 +414,7 @@ private:
         {
             const size_t len = std::strcspn(++url, "#");
             m_query.assign(url, url + len);
-            m_query = decode(m_query);
+            m_query = misc::url_decode(m_query);
             url += len;
         }
 
@@ -540,7 +422,7 @@ private:
         if (url[0] == '#')
         {
             m_fragment.assign(++url);
-            m_fragment = decode(m_fragment);
+            m_fragment = misc::url_decode(m_fragment);
         }
     }
 
@@ -3029,193 +2911,6 @@ typedef    Request::SharedPtr    RequestPtr;  ///< @brief The HTTP request share
 typedef   Response::SharedPtr   ResponsePtr;  ///< @brief The HTTP response shared pointer type.
 typedef Connection::SharedPtr ConnectionPtr;  ///< @brief The HTTP connection shared pointer type.
 typedef     Client::SharedPtr     ClientPtr;  ///< @brief The HTTP client shared pointer type.
-
-
-/// @name Base64 encoding
-/// @{
-
-/// @brief Encode the custom binary buffer.
-/**
-The output buffer should be 4/3 times big than input buffer.
-
-@param[in] first The begin of input buffer.
-@param[in] last The end of output buffer.
-@param[in] out The begin of output buffer.
-@return The end of output buffer.
-*/
-template<typename In, typename Out>
-Out base64_encode(In first, In last, Out out)
-{
-    const char TABLE[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-
-    // [xxxxxxxx][yyyyyyyy][zzzzzzzz] => [aaaaaa][bbbbbb][cccccc][dddddd]
-    while (first != last)
-    {
-        const int x = UInt8(*first++);          // byte #0
-
-        int a = (x>>2) & 0x3F;      // [xxxxxx--] => [00xxxxxx]
-        int b = (x<<4) & 0x3F;      // [------xx] => [00xx0000]
-        int c = 64;                 // '=' by default
-        int d = 64;                 // '=' by default
-
-        if (first != last)
-        {
-            const int y = UInt8(*first++);      // byte #1
-
-            b |= (y>>4) & 0x0F;     // [yyyy----] => [00xxyyyy]
-            c  = (y<<2) & 0x3F;     // [----yyyy] => [00yyyy00]
-
-            if (first != last)
-            {
-                const int z = UInt8(*first++);   // byte #2
-
-                c |= (z>>6) & 0x03; // [zz------] => [00yyyyzz]
-                d  =  z     & 0x3F; // [--zzzzzz] => [00zzzzzz]
-            }
-        }
-
-        *out++ = TABLE[a];
-        *out++ = TABLE[b];
-        *out++ = TABLE[c];
-        *out++ = TABLE[d];
-    }
-
-    return out;
-}
-
-
-/// @brief Decode the custom binary buffer.
-/**
-The output buffer should be 4/3 times less than input buffer.
-
-@param[in] first The begin of input buffer.
-@param[in] last The end of output buffer.
-@param[in] out The begin of output buffer.
-@return The end of output buffer.
-@throw std::runtime_error on invalid data.
-*/
-template<typename In, typename Out>
-Out base64_decode(In first, In last, Out out)
-{
-    const Int8 TABLE[] =
-    {
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,62,  -1,-1,-1,63,
-        52,53,54,55,  56,57,58,59,  60,61,-1,-1,  -1,-1,-1,-1,
-        -1, 0, 1, 2,   3, 4, 5, 6,   7, 8, 9,10,  11,12,13,14,
-        15,16,17,18,  19,20,21,22,  23,24,25,-1,  -1,-1,-1,-1,
-        -1,26,27,28,  29,30,31,32,  33,34,35,36,  37,38,39,40,
-        41,42,43,44,  45,46,47,48,  49,50,51, 1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1
-    };
-
-
-    // [aaaaaa][bbbbbb][cccccc][dddddd] => [xxxxxxxx][yyyyyyyy][zzzzzzzz]
-    // [aaaaaa][bbbbbb][cccc00][=]      => [xxxxxxxx][yyyyyyyy]
-    // [aaaaaa][bb0000][=][=]           => [xxxxxxxx]
-    while (first != last)
-    {
-        const int aa =                   UInt8(*first++);
-        const int bb = (first != last) ? UInt8(*first++) : 0;
-        const int cc = (first != last) ? UInt8(*first++) : 0;
-        const int dd = (first != last) ? UInt8(*first++) : 0;
-
-        const int a = TABLE[aa];
-        const int b = TABLE[bb];
-
-
-        if (a < 0 || b < 0)
-            throw std::runtime_error("invalid base64 data");
-        *out++ = (a<<2) | ((b>>4)&0x03);                // [00aaaaaa][00bb----] => [xxxxxxxx]
-
-        if (cc != '=')
-        {
-            const int c = TABLE[cc];
-            if (c < 0)
-                throw std::runtime_error("invalid base64 data");
-            *out++ = ((b<<4)&0xF0) | ((c>>2)&0x0F);     // [00--bbbb][00cccc--] => [yyyyyyyy]
-
-            if (dd != '=')
-            {
-                const int d = TABLE[dd];
-                if (c < 0)
-                    throw std::runtime_error("invalid base64 data");
-                *out++ = ((c<<6)&0xC0) | d;             // [00----cc][00dddddd] => [zzzzzzzz]
-            }
-            else
-            {
-                if (c&0x03) // sanity check
-                    throw std::runtime_error("invalid base64 data");
-            }
-        }
-        else
-        {
-            if ((b&0x0F) || dd != '=' || first != last) // sanity check
-                throw std::runtime_error("invalid base64 data");
-        }
-    }
-
-    return out;
-}
-
-
-/// @brief Encode the custom binary data.
-/**
-@param[in] first The begin of input data.
-@param[in] last The end of input data.
-@return The base64 data.
-*/
-template<typename In> inline
-String base64_encode(In first, In last)
-{
-    const size_t ilen = std::distance(first, last);
-    const size_t olen = ((ilen+2)/3)*4; // ceil(4/3*len)
-
-    String buf(olen, '\0');
-    buf.erase(base64_encode(first,
-        last, buf.begin()), buf.end());
-    return buf;
-}
-
-
-/// @brief Encode the custom binary vector.
-/**
-@param[in] data The input data.
-@return The base64 data.
-*/
-template<typename T, typename A> inline
-String base64_encode(std::vector<T,A> const& data)
-{
-    return base64_encode(data.begin(), data.end());
-}
-
-
-/// @brief Decode the base64 data.
-/**
-@param[in] data The base64 data.
-@return The binary data.
-@throw std::runtime_error on invalid data.
-*/
-inline std::vector<UInt8> base64_decode(String const& data)
-{
-    const size_t ilen = data.size();
-    const size_t olen = ((ilen+3)/4)*3; // ceil(3/4*len)
-
-    std::vector<UInt8> buf(olen);
-    buf.erase(base64_decode(data.begin(),
-        data.end(), buf.begin()), buf.end());
-    return buf;
-}
-
-/// @}
 
     } // http namespace
 
