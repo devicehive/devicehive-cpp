@@ -14,15 +14,15 @@ namespace
     if (cond) {} else throw std::runtime_error(msg)
 
 // callback: print the request/response to standard output
-void on_http_print(boost::system::error_code err, http::RequestPtr request, http::ResponsePtr response)
+void on_http_print(http::Client::TaskPtr task)
 {
     std::cout << "\n\n>>> HTTP client response >>>>>>>>>>>>>>>>>\n";
-    if (request)
-        std::cout << "REQUEST:\n" << *request << "\n";
-    if (response)
-        std::cout << "RESPONSE:\n" << *response << "\n";
-    if (err)
-        std::cout << "ERROR: " << err.message() << "\n";
+    if (task->request)
+        std::cout << "REQUEST:\n" << *task->request << "\n";
+    if (task->response)
+        std::cout << "RESPONSE:\n" << *task->response << "\n";
+    if (task->errorCode)
+        std::cout << "ERROR: " << task->errorCode.message() << "\n";
     std::cout << "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n\n\n";
 }
 
@@ -66,13 +66,15 @@ void test_http1()
     boost::asio::io_service ios;
     http::ClientPtr client = http::Client::create(ios);
 
-    // prepare request
-    //client->send(http::Request::GET(http::Url("http://httpbin.org/headers")), on_http_print, 10000);
-    //client->send(http::Request::GET(http::Url("http://httpbin.org/user-agent")), on_http_print, 10000);
-    //client->send(http::Request::GET(http::Url("https://httpbin.org/ip")), on_http_print, 10000);
-    //client->send(http::Request::GET(http::Url("http://httpbin.org/redirect/2")), on_http_print, 10000);
-    //client->send(http::Request::GET(http::Url("http://httpbin.org/stream/2")), on_http_print, 10000);
-    client->send(http::Request::GET(http::Url("http://httpbin.org/delay/5")), on_http_print, 10000);
+    // prepare and send request
+    const http::Url url("http://httpbin.org/delay/5");
+    //const http::Url url("http://httpbin.org/headers");
+    //const http::Url url("http://httpbin.org/user-agent");
+    //const http::Url url("https://httpbin.org/ip");
+    //const http::Url url("http://httpbin.org/redirect/2");
+    //const http::Url url("http://httpbin.org/stream/2");
+    if (http::Client::TaskPtr task = client->send(http::Request::GET(url), 10000))
+        task->callWhenDone(boost::bind(on_http_print, task));
 
     ios.run();
 }

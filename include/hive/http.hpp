@@ -1060,6 +1060,10 @@ private:
 };
 
 
+/// @brief The HTTP request shared pointer type.
+typedef Request::SharedPtr RequestPtr;
+
+
 /// @brief Write the whole request to the output stream.
 /** @relates Request
 @param[in,out] os The output stream.
@@ -1272,6 +1276,10 @@ private:
 };
 
 
+/// @brief The HTTP response shared pointer type.
+typedef Response::SharedPtr ResponsePtr;
+
+
 /// @brief Write the whole response to the output stream.
 /** @relates Response
 @param[in,out] os The output stream.
@@ -1422,6 +1430,9 @@ private:
     */
     StreamBuf m_buffer;
 };
+
+/// @brief The HTTP connection shared pointer type.
+typedef Connection::SharedPtr ConnectionPtr;
 
 
 /// @brief The simple HTTP connection.
@@ -1705,11 +1716,11 @@ protected:
     */
     explicit Client(IOService &ios, String const& name)
         : m_ios(ios)
+        , m_log("/hive/http/client/" + name)
+        , m_nameCache(10*60000) // 10 minutes
 #if !defined(HIVE_DISABLE_SSL)
         , m_context(boost::asio::ssl::context::sslv23)
 #endif // HIVE_DISABLE_SSL
-        , m_log("/hive/http/client/" + name)
-        , m_nameCache(10*60000)
     {
         HIVELOG_TRACE_STR(m_log, "created");
     }
@@ -1719,6 +1730,7 @@ public:
     /// @brief The trivial destructor.
     virtual ~Client()
     {
+        assert(m_taskList.empty() && "not all tasks are finished");
         HIVELOG_TRACE_STR(m_log, "deleted");
     }
 
@@ -1752,38 +1764,114 @@ public:
 
 public:
 
-    /// @brief The callback type.
+    /// @brief The one request/response task.
     /**
-    The callback signature should be the following:
-
-    ~~~{.cpp}
-    void cb(boost::system::error_code err,
-        http::Request::SharedPtr request,
-        http::Response::SharedPtr response,
-        http::Connection::SharedPtr connection)
-    ~~~
-
-    Note that response may be NULL!
+    Contains data related to one request/response pair.
     */
-    typedef boost::function4<void, ErrorCode,
-        Request::SharedPtr, Response::SharedPtr,
-            Connection::SharedPtr> Callback2;
+    class Task
+    {
+        friend class Client;
+    public:
+        typedef boost::shared_ptr<Task> SharedPtr; ///< @brief The shared pointer type.
 
+        ConnectionPtr connection;   ///< @brief The HTTP or HTTPS connection.
+        RequestPtr    request;      ///< @brief The request object.
+        ResponsePtr   response;     ///< @brief The response object.
+        ErrorCode     errorCode;    ///< @brief The task error code.
+
+    public:
+
+        /// @brief The callback method type.
+        typedef boost::function0<void> Callback;
+
+        /// @brief Call this method when task is done.
+        /**
+        This callback will be called when this task is finished (successful or not).
+
+        @param[in] cb The callback to call.
+        */
+        void callWhenDone(Callback cb)
+        {
+            if (!m_callback)
+                m_callback = cb;
+            else
+                m_callback = boost::bind(&Task::call2, m_callback, cb);
+        }
+
+    public:
+
+        /// @brief Cancel all task operations.
+        /**
+        This method cancels current task.
+        */
+        void cancel()
+        {
+            m_cancelled = true;
+            m_resolver.cancel();
+            if (connection)
+                connection->close();
+        }
+
+    private:
+        boost::function0<void> m_callback; ///< @brief The callback method.
+
+        bool m_timer_started; ///< @brief The timer "started" flag.
+        Timer m_timer;    ///< @brief The deadline timer.
+
+        Resolver m_resolver; ///< @brief The host name resolver.
+
+        bool m_cancelled; ///< @brief The "cancelled" flag.
+        size_t m_rx_len; ///< @brief The expected content-length.
+
+    private:
+
+        /// @brief Call two callbacks.
+        /**
+        @param[in] cb1 The first callback.
+        @param[in] cb2 The second callback.
+        */
+        static void call2(Callback cb1, Callback cb2)
+        {
+            cb1();
+            cb2();
+        }
+
+    private:
+
+        /// @brief The main constructor.
+        /**
+        @param[in] ios The IO service.
+        @param[in] req The request.
+        */
+        Task(IOService &ios, RequestPtr req)
+            : request(req)
+            , m_timer_started(false)
+            , m_timer(ios)
+            , m_resolver(ios)
+            , m_cancelled(false)
+            , m_rx_len(0)
+        {}
+    };
+
+    /// @brief The Task shared pointer type.
+    typedef Task::SharedPtr TaskPtr;
+
+public:
 
     /// @brief Send request asynchronously.
     /**
     @param[in] request The HTTP request to send.
-    @param[in] callback The response callback function.
     @param[in] timeout_ms The request timeout, milliseconds.
         If it's zero, no any deadline timers will be started.
+    @return The new task instance.
     */
-    void send2(Request::SharedPtr request, Callback2 callback, size_t timeout_ms)
+    TaskPtr send(Request::SharedPtr request, size_t timeout_ms)
     {
         HIVELOG_TRACE_BLOCK(m_log, "send()");
         assert(request && "no request");
 
         // create new task for the request
-        Task::SharedPtr task(new Task(m_ios, request, callback));
+        TaskPtr task(new Task(m_ios, request));
 
         if (0 < timeout_ms)
         {
@@ -1791,225 +1879,40 @@ public:
             {
                 HIVELOG_ERROR(m_log, "cannot start deadline timer: ["
                     << err << "] " << err.message());
-                m_ios.post(boost::bind(callback, err,
-                    request, Response::SharedPtr(),
-                        Connection::SharedPtr()));
-                return; // no task started
+                return TaskPtr(); // no task started
             }
 
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
                 << request->getMethod() << " request to <"
-                << request->getUrl().getHost() << "> with "
+                << request->getUrl().toString() << "> with "
                 << timeout_ms << " ms timeout:\n" << *request);
         }
         else
         {
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
                 << request->getMethod() << " request to <"
-                << request->getUrl().getHost()
+                << request->getUrl().toString()
                 << "> without timeout:\n" << *request);
         }
 
-        m_tasks.push_back(task);
+        m_taskList.push_back(task);
         asyncResolve(task);
     }
 
 
-    /// @brief The callback type.
+    /// @brief Cancel all tasks.
     /**
-    The callback signature should be the following:
-
-    ~~~{.cpp}
-    void cb(boost::system::error_code err,
-        http::Request::SharedPtr request,
-        http::Response::SharedPtr response)
-    ~~~
-
-    Note that response may be NULL!
-    */
-    typedef boost::function3<void, ErrorCode,
-        Request::SharedPtr, Response::SharedPtr> Callback;
-
-
-    /// @brief Send request asynchronously.
-    /**
-    @param[in] request The HTTP request to send.
-    @param[in] callback The response callback function.
-    @param[in] timeout_ms The request timeout, milliseconds.
-        If it's zero, no any deadline timers will be started.
-    */
-    void send(Request::SharedPtr request, Callback callback, size_t timeout_ms)
-    {
-        send2(request, boost::bind(callback, _1, _2, _3), timeout_ms);
-    }
-
-
-    /// @brief Cancel all requests.
-    /**
-    All active requests will be finished with `boost::asio::error::operation_aborted` error code.
+    All active tasks will be finished with `boost::asio::error::operation_aborted` error code.
     */
     void cancelAll()
     {
         HIVELOG_TRACE_BLOCK(m_log, "cancelAll()");
-        while (!m_tasks.empty())
+        while (!m_taskList.empty())
         {
-            Task::SharedPtr task = m_tasks.front();
-            done(task, boost::asio::error::operation_aborted);
+            TaskPtr task = m_taskList.front();
             task->cancel();
         }
     }
-
-private:
-
-    /// @brief The one task (request/response).
-    /**
-    Contains data related to one request/response pair.
-    */
-    class Task
-    {
-    public:
-        typedef boost::shared_ptr<Task> SharedPtr; ///< @brief The shared pointer type.
-
-        Request::SharedPtr  request;  ///< @brief The request object.
-        Response::SharedPtr response; ///< @brief The response object.
-
-        Callback2 callback; ///< @brief The callback method.
-
-        bool timer_started; ///< @brief The timer "started" flag.
-        Timer timer;    ///< @brief The deadline timer.
-
-        Resolver resolver; ///< @brief The host name resolver.
-        Connection::SharedPtr connection; ///< @brief The HTTP or HTTPS connection.
-
-        bool cancelled; ///< @brief The "cancelled" flag.
-        size_t rx_len; ///< @brief The expected content-length.
-
-    public:
-
-        /// @brief The main constructor.
-        /**
-        @param[in] ios The IO service.
-        @param[in] req The request.
-        @param[in] cb The callback.
-        */
-        Task(IOService &ios, Request::SharedPtr req, Callback2 cb)
-            : request(req)
-            , callback(cb)
-            , timer_started(false)
-            , timer(ios)
-            , resolver(ios)
-            , cancelled(false)
-            , rx_len(0)
-        {}
-
-    public:
-
-        /// @brief Cancel all operations.
-        void cancel()
-        {
-            cancelled = true;
-            resolver.cancel();
-            if (connection)
-                connection->close();
-        }
-    };
-
-private:
-
-    /// @name The DNS name cache.
-    class NameCache
-    {
-    public:
-
-        /// @brief Default constructor.
-        /**
-        @param[in] lifetime_ms The entry lifetime in milliseconds.
-        */
-        explicit NameCache(size_t lifetime_ms)
-            : m_lifetime(lifetime_ms)
-        {}
-
-
-        /// @brief Is enabled?
-        /**
-        @return `true` if cache is enabled.
-        */
-        bool enabled() const
-        {
-            return 0 < m_lifetime;
-        }
-
-    public:
-
-        /// @brief Update the entry.
-        /**
-        @param[in] host The host name.
-        @param[in] endpoint The host endpoint.
-        */
-        void update(String const& host, Endpoint const& endpoint)
-        {
-            // TODO: do not reset lifetime of existing items?
-            m_cache[host] = Entry(endpoint);
-        }
-
-
-        /// @brief Remove the entry.
-        /**
-        @param[in] host The host name.
-        */
-        void remove(String const& host)
-        {
-            m_cache.erase(host);
-        }
-
-
-        /// @brief Get the endpoint from name cache.
-        /**
-        @param[in] host The host name.
-        @param[out] endpoint The host endpoint.
-        @return `false` if name entry not found.
-        */
-        bool find(String const& host, Endpoint &endpoint)
-        {
-            typedef std::map<String, Entry>::iterator Iterator;
-            const Iterator i = m_cache.find(host);
-            if (i != m_cache.end())
-            {
-                const Entry entry = i->second;
-
-                const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-                if ((now - entry.created).total_milliseconds() < m_lifetime)
-                {
-                    endpoint = i->second.endpoint;
-                    return true;
-                }
-                else
-                    m_cache.erase(i); // lifetime expired!
-            }
-
-            return false; // not found
-        }
-
-    private:
-
-        /// @brief The cache entry.
-        struct Entry
-        {
-            Endpoint endpoint;
-            boost::posix_time::ptime created;
-
-            explicit Entry(Endpoint const& ep)
-                : endpoint(ep)
-                , created(boost::posix_time::microsec_clock::universal_time())
-            {}
-
-            Entry()
-            {}
-        };
-
-        std::map<String, Entry> m_cache; ///< @brief The DNS name cache.
-        size_t m_lifetime; ///< @brief The DNS name entry lifetime, milliseconds.
-    };
 
 private:
 
@@ -2019,19 +1922,19 @@ private:
 
     @param[in] task The task.
     */
-    void finish(Task::SharedPtr task)
+    void finish(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "finish(task)");
 
         Connection::StreamBuf &sbuf = task->connection->getBuffer();
         Connection::StreamBuf::const_buffers_type data = sbuf.data();
 
-        if (task->rx_len != std::numeric_limits<size_t>::max())
+        if (task->m_rx_len != std::numeric_limits<size_t>::max())
         {
             task->response->setContent(String(
                 boost::asio::buffers_begin(data),
-                boost::asio::buffers_begin(data) + task->rx_len));
-            sbuf.consume(task->rx_len);
+                boost::asio::buffers_begin(data) + task->m_rx_len));
+            sbuf.consume(task->m_rx_len);
         }
         else // copy whole buffer
         {
@@ -2055,28 +1958,23 @@ private:
     @param[in] task The task to remove.
     @param[in] err The error code.
     */
-    void done(Task::SharedPtr task, ErrorCode err)
+    void done(TaskPtr task, ErrorCode err)
     {
         HIVELOG_TRACE_BLOCK(m_log, "done(task)");
 
-        if (task->timer_started)
+        task->errorCode = err;
+        if (task->m_timer_started)
         {
-            task->timer.cancel();
-            task->timer_started = false;
+            task->m_timer.cancel();
+            task->m_timer_started = false;
         }
-        if (task->callback)
+        if (task->m_callback)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} request to call callback");
-
-            // callback will be called later, outside this method
-            m_ios.post(boost::bind(task->callback,
-                err, task->request, task->response,
-                    task->connection));
-            task->callback = Callback2();
+            task->m_callback(); // call it
+            task->m_callback = Task::Callback();
         }
 
-        m_tasks.remove(task);
+        m_taskList.remove(task);
     }
 
 /// @name Task timeout
@@ -2089,20 +1987,20 @@ private:
     @param[in] timeout_ms The timeout in milliseconds.
     @return The error code.
     */
-    ErrorCode asyncStartTimeout(Task::SharedPtr task, size_t timeout_ms)
+    ErrorCode asyncStartTimeout(TaskPtr task, size_t timeout_ms)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncStartTimeout(task)");
         ErrorCode err;
 
         // initialize timer
-        task->timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms), err);
+        task->m_timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms), err);
         if (!err)
         {
             // start it
-            task->timer.async_wait(
+            task->m_timer.async_wait(
                 boost::bind(&Client::onTimedOut, shared_from_this(),
                     task, boost::asio::placeholders::error));
-            task->timer_started = true;
+            task->m_timer_started = true;
         }
 
         return err;
@@ -2114,7 +2012,7 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onTimedOut(Task::SharedPtr task, ErrorCode err)
+    void onTimedOut(TaskPtr task, ErrorCode err)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onTimedOut(task)");
 
@@ -2140,7 +2038,7 @@ private:
     }
 /// @}
 
-/// @name Resolve the host
+/// @name Resolve the host name
 /// @{
 private:
 
@@ -2148,7 +2046,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncResolve(Task::SharedPtr task)
+    void asyncResolve(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncResolve(task)");
 
@@ -2161,18 +2059,15 @@ private:
         if (m_nameCache.enabled() && m_nameCache.find(hostName, cachedEndpoint))
         {
             Resolver::iterator epi = Resolver::iterator::create(cachedEndpoint, url.getHost(), service);
-
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} <"
-                << url.getHost() << "> resolved from cache as: " << dump(epi));
-
-            asyncConnect(task, epi);
+            m_ios.post(boost::bind(&Client::onResolved, shared_from_this(), task, ErrorCode(), epi));
+            HIVELOG_DEBUG(m_log, "{" << task.get() << "} resolved from name cache!");
         }
         else
         {
             // start async resolve operation
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} start async resolve <"
                 << url.getHost() << ">, \"" << service << "\" service");
-            task->resolver.async_resolve(Resolver::query(url.getHost(), service),
+            task->m_resolver.async_resolve(Resolver::query(url.getHost(), service),
                 boost::bind(&Client::onResolved, shared_from_this(),
                     task, boost::asio::placeholders::error,
                     boost::asio::placeholders::iterator));
@@ -2186,11 +2081,11 @@ private:
     @param[in] err The error code.
     @param[in] epi The endpoint iterator.
     */
-    void onResolved(Task::SharedPtr task, ErrorCode err, Resolver::iterator epi)
+    void onResolved(TaskPtr task, ErrorCode err, Resolver::iterator epi)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onResolved(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} <"
                 << task->request->getUrl().getHost()
@@ -2198,11 +2093,11 @@ private:
 
             asyncConnect(task, epi);
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async resolve cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2224,14 +2119,15 @@ private:
     @param[in] task The task.
     @param[in] epi The endpoint iterator.
     */
-    void asyncConnect(Task::SharedPtr task, Resolver::iterator epi)
+    void asyncConnect(TaskPtr task, Resolver::iterator epi)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncConnect(task)");
 
-        if (boost::iequals(task->request->getUrl().getProtocol(), "https")) // secure connection?
+        String const& proto = task->request->getUrl().getProtocol();
+        if (boost::iequals(proto, "https") || boost::iequals(proto, "wss")) // secure connection?
         {
 #if !defined(HIVE_DISABLE_SSL)
-            // TODO: select one of unused connection?
+            // TODO: select an unused connection?
             Connection::Secure::SharedPtr conn = Connection::Secure::create(m_ios, m_context);
             conn->getStream().set_verify_mode(boost::asio::ssl::verify_none); // TODO: boost::asio::ssl::verify_peer
             conn->getStream().set_verify_callback(
@@ -2247,7 +2143,7 @@ private:
         }
         else
         {
-            // TODO: select one of unused connection?
+            // TODO: select an unused connection?
             task->connection = Connection::Simple::create(m_ios);
         }
 
@@ -2265,11 +2161,11 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onConnected(Task::SharedPtr task, ErrorCode err)
+    void onConnected(TaskPtr task, ErrorCode err)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onConnected(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             // TODO: handle Expect 100 header?
 
@@ -2282,11 +2178,11 @@ private:
 
             asyncHandshake(task);
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async connection cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2306,7 +2202,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncHandshake(Task::SharedPtr task)
+    void asyncHandshake(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncHandshake(task)");
 
@@ -2329,19 +2225,19 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onHandshaked(Task::SharedPtr task, ErrorCode err)
+    void onHandshaked(TaskPtr task, ErrorCode err)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onHandshaked(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             asyncWriteRequest(task);
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async handshake cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2381,7 +2277,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncWriteRequest(Task::SharedPtr task)
+    void asyncWriteRequest(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncWriteRequest(task)");
 
@@ -2406,19 +2302,19 @@ private:
     @param[in] err The error code.
     @param[in] len The number of bytes transferred.
     */
-    void onRequestWritten(Task::SharedPtr task, ErrorCode err, size_t len)
+    void onRequestWritten(TaskPtr task, ErrorCode err, size_t len)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onRequestWritten(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             asyncReadStatus(task);
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async request sending cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2438,7 +2334,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncReadStatus(Task::SharedPtr task)
+    void asyncReadStatus(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadStatus(task)");
 
@@ -2458,11 +2354,11 @@ private:
     @param[in] err The error code.
     @param[in] len The number of bytes transferred.
     */
-    void onStatusRead(Task::SharedPtr task, ErrorCode err, size_t len)
+    void onStatusRead(TaskPtr task, ErrorCode err, size_t len)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onStatusRead(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             std::istreambuf_iterator<char> buf_beg(&task->connection->getBuffer());
             const std::istreambuf_iterator<char> buf_end;
@@ -2491,11 +2387,11 @@ private:
                 done(task, boost::asio::error::no_data); // boost::asio::error::failure
             }
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async status line receiving cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2515,7 +2411,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncReadHeaders(Task::SharedPtr task)
+    void asyncReadHeaders(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadHeaders(task)");
 
@@ -2535,11 +2431,11 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onHeadersRead(Task::SharedPtr task, ErrorCode err, size_t)
+    void onHeadersRead(TaskPtr task, ErrorCode err, size_t)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onHeadersRead(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             Connection::StreamBuf &sbuf = task->connection->getBuffer();
             std::istreambuf_iterator<char> buf_beg(&sbuf);
@@ -2549,10 +2445,10 @@ private:
             {
                 const String len_s = task->response->getHeader(header::Content_Length);
                 if (!len_s.empty())
-                    task->rx_len = boost::lexical_cast<size_t>(len_s);
+                    task->m_rx_len = boost::lexical_cast<size_t>(len_s);
 
                 // stop if we got all content data
-                if (task->rx_len <= sbuf.size())
+                if (task->m_rx_len <= sbuf.size())
                 {
                     finish(task);
                     done(task, err);
@@ -2567,11 +2463,11 @@ private:
                 done(task, boost::asio::error::no_data); // boost::asio::error::failure
             }
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async headers receiving cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2591,7 +2487,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncReadContent(Task::SharedPtr task)
+    void asyncReadContent(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadContent(task)");
 
@@ -2612,15 +2508,15 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onContentRead(Task::SharedPtr task, ErrorCode err, size_t)
+    void onContentRead(TaskPtr task, ErrorCode err, size_t)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onContentRead(task)");
 
         Connection::StreamBuf &sbuf = task->connection->getBuffer();
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             // stop if we got all content data
-            if (task->rx_len <= sbuf.size())
+            if (task->m_rx_len <= sbuf.size())
             {
                 finish(task);
                 done(task, err);
@@ -2628,11 +2524,17 @@ private:
             else // continue reading
                 asyncReadContent(task);
         }
+        else if (task->m_cancelled)
+        {
+            HIVELOG_DEBUG(m_log, "{" << task.get()
+                << "} async content receiving cancelled");
+            done(task, boost::asio::error::operation_aborted);
+        }
         else if (err == boost::asio::error::eof)
         {
             // clear error if we got the whole content
-            if (task->rx_len == std::numeric_limits<size_t>::max()
-                || task->rx_len <= sbuf.size())
+            if (task->m_rx_len == std::numeric_limits<size_t>::max()
+                || task->m_rx_len <= sbuf.size())
                     err = ErrorCode();
 
             finish(task);
@@ -2919,31 +2821,121 @@ private:
     }
 /// @}
 
+
 private:
 
-    /// @brief The IO service.
-    IOService &m_ios;
+    /// @name The DNS name cache.
+    class NameCache
+    {
+    public:
+
+        /// @brief Default constructor.
+        /**
+        @param[in] lifetime_ms The entry lifetime in milliseconds.
+        */
+        explicit NameCache(size_t lifetime_ms)
+            : m_lifetime(lifetime_ms)
+        {}
+
+
+        /// @brief Is enabled?
+        /**
+        @return `true` if cache is enabled.
+        */
+        bool enabled() const
+        {
+            return 0 < m_lifetime;
+        }
+
+    public:
+
+        /// @brief Update the entry.
+        /**
+        @param[in] host The host name.
+        @param[in] endpoint The host endpoint.
+        */
+        void update(String const& host, Endpoint const& endpoint)
+        {
+            // TODO: do not reset lifetime of existing items?
+            m_cache[host] = Entry(endpoint);
+        }
+
+
+        /// @brief Remove the entry.
+        /**
+        @param[in] host The host name.
+        */
+        void remove(String const& host)
+        {
+            m_cache.erase(host);
+        }
+
+
+        /// @brief Get the endpoint from name cache.
+        /**
+        @param[in] host The host name.
+        @param[out] endpoint The host endpoint.
+        @return `false` if name entry not found.
+        */
+        bool find(String const& host, Endpoint &endpoint)
+        {
+            typedef std::map<String, Entry>::iterator Iterator;
+            const Iterator i = m_cache.find(host);
+            if (i != m_cache.end())
+            {
+                const Entry entry = i->second;
+
+                const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+                if ((now - entry.created).total_milliseconds() < m_lifetime)
+                {
+                    endpoint = i->second.endpoint;
+                    return true;
+                }
+                else
+                    m_cache.erase(i); // lifetime expired!
+            }
+
+            return false; // not found
+        }
+
+    private:
+
+        /// @brief The cache entry.
+        struct Entry
+        {
+            Endpoint endpoint;
+            boost::posix_time::ptime created;
+
+            explicit Entry(Endpoint const& ep)
+                : endpoint(ep)
+                , created(boost::posix_time::microsec_clock::universal_time())
+            {}
+
+            Entry()
+            {}
+        };
+
+        std::map<String, Entry> m_cache; ///< @brief The DNS name cache.
+        size_t m_lifetime; ///< @brief The DNS name entry lifetime, milliseconds.
+    };
+
+private:
+    IOService &m_ios; ///< @brief The IO service.
+    hive::log::Logger m_log; ///< @brief The HTTP logger.
+    NameCache m_nameCache; ///< @brief The local DNS name cache.
 
 #if !defined(HIVE_DISABLE_SSL)
     /// @brief The SSL context.
     Connection::Secure::SslContext m_context;
 #endif // HIVE_DISABLE_SSL
 
-    /// @brief The HTTP logger.
-    hive::log::Logger m_log;
-
     /// @brief The task list type.
-    typedef std::list<Task::SharedPtr> TaskList;
-    TaskList m_tasks; ///< @brief The task list.
-
-    NameCache m_nameCache; ///< @brief The local DNS name cache.
+    typedef std::list<TaskPtr> TaskList;
+    TaskList m_taskList; ///< @brief The task list.
 };
 
-
-typedef    Request::SharedPtr    RequestPtr;  ///< @brief The HTTP request shared pointer type.
-typedef   Response::SharedPtr   ResponsePtr;  ///< @brief The HTTP response shared pointer type.
-typedef Connection::SharedPtr ConnectionPtr;  ///< @brief The HTTP connection shared pointer type.
-typedef     Client::SharedPtr     ClientPtr;  ///< @brief The HTTP client shared pointer type.
+/// @brief The HTTP client shared pointer type.
+typedef Client::SharedPtr ClientPtr;
 
     } // http namespace
 
@@ -2981,14 +2973,14 @@ to the standard output:
 using namespace hive;
 
 //// callback: print the request/response to standard output
-void on_print(boost::system::error_code err, http::RequestPtr request, http::ResponsePtr response)
+void on_print(http::Client::TaskPtr task)
 {
-    if (request)
-        std::cout << "REQUEST:\n" << *request << "\n";
-    if (response)
-        std::cout << "RESPONSE:\n" << *response << "\n";
-    if (err)
-        std::cout << "ERROR: " << err.message() << "\n";
+    if (task->request)
+        std::cout << "REQUEST:\n" << *task->request << "\n";
+    if (task->response)
+        std::cout << "RESPONSE:\n" << *task->response << "\n";
+    if (task->errorCode)
+        std::cout << "ERROR: " << task->errorCode.message() << "\n";
 }
 
 //// application entry point
@@ -3000,7 +2992,8 @@ int main()
 
     http::Url url("http://www.boost.org/LICENSE_1_0.txt");
     http::RequestPtr req = http::Request::GET(url);
-    client->send(req, on_print, 10000);
+    if (http::Client::TaskPtr task = client->send(req, 10000))
+        task->callWhenDone(boost::bind(on_print, task));
 
     ios.run();
     return 0;
