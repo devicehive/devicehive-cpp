@@ -1795,7 +1795,7 @@ public:
             if (!m_callback)
                 m_callback = cb;
             else
-                m_callback = boost::bind(&Task::call2, m_callback, cb);
+                m_callback = boost::bind(&Task::zcall2, m_callback, cb);
         }
 
     public:
@@ -1830,7 +1830,7 @@ public:
         @param[in] cb1 The first callback.
         @param[in] cb2 The second callback.
         */
-        static void call2(Callback cb1, Callback cb2)
+        static void zcall2(Callback cb1, Callback cb2)
         {
             cb1();
             cb2();
@@ -1897,6 +1897,7 @@ public:
 
         m_taskList.push_back(task);
         asyncResolve(task);
+        return task;
     }
 
 

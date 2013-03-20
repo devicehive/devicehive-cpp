@@ -707,34 +707,34 @@ public:
         req->setVersion(m_http_major, m_http_minor);
 
         HIVELOG_DEBUG(m_log, "get server info");
-        m_http->send(req, boost::bind(&ThisType::onGotServerInfo, shared_from_this(),
-            _1, _2, _3, callback), m_timeout_ms);
+        if (http::Client::TaskPtr task = m_http->send(req, m_timeout_ms))
+        {
+            task->callWhenDone(boost::bind(&ThisType::onGotServerInfo,
+                shared_from_this(), task, callback));
+        }
     }
 
 private:
 
     /// @brief The "server info" completion handler.
     /**
-    @param[in] err The error code.
-    @param[in] request The HTTP request.
-    @param[in] response The HTTP response.
+    @param[in] task The HTTP task.
     @param[in] callback The callback functor.
     */
-    void onGotServerInfo(boost::system::error_code err, http::RequestPtr request,
-        http::ResponsePtr response, ServerInfoCallback callback)
+    void onGotServerInfo(http::Client::TaskPtr task, ServerInfoCallback callback)
     {
-        if (!err && response && response->isStatusSuccessful())
+        if (!task->errorCode && task->response && task->response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
-            json::Value jval = json::fromStr(response->getContent());
+            json::Value jval = json::fromStr(task->response->getContent());
             HIVELOG_DEBUG(m_log, "got \"server info\" response:\n"
                 << json::toStrHH(jval));
-            callback(err, jval);
+            callback(task->errorCode, jval);
         }
         else
         {
             HIVELOG_WARN_STR(m_log, "failed to get \"server info\" response");
-            callback(err, json::Value());
+            callback(task->errorCode, json::Value());
         }
     }
 /// @}
@@ -768,8 +768,11 @@ public:
         req->setVersion(m_http_major, m_http_minor);
 
         HIVELOG_DEBUG(m_log, "register device:\n" << json::toStrHH(jcontent));
-        m_http->send(req, boost::bind(&ThisType::onRegisterDevice, shared_from_this(),
-            _1, _2, _3, device, callback), m_timeout_ms);
+        if (http::Client::TaskPtr task = m_http->send(req, m_timeout_ms))
+        {
+            task->callWhenDone(boost::bind(&ThisType::onRegisterDevice,
+                shared_from_this(), task, device, callback));
+        }
     }
 
 
@@ -795,64 +798,61 @@ public:
         req->setVersion(m_http_major, m_http_minor);
 
         HIVELOG_DEBUG(m_log, "update device data:\n" << json::toStrHH(jcontent));
-        m_http->send(req, boost::bind(&ThisType::onUpdateDeviceData, shared_from_this(),
-            _1, _2, _3, device, callback), m_timeout_ms);
+        if (http::Client::TaskPtr task = m_http->send(req, m_timeout_ms))
+        {
+            task->callWhenDone(boost::bind(&ThisType::onUpdateDeviceData,
+                shared_from_this(), task, device, callback));
+        }
     }
 
 private:
 
     /// @brief The "register device" completion handler.
     /**
-    @param[in] err The error code.
-    @param[in] request The HTTP request.
-    @param[in] response The HTTP response.
+    @param[in] task The HTTP task.
     @param[in] device The device registered.
     @param[in] callback The callback functor.
     */
-    void onRegisterDevice(boost::system::error_code err, http::RequestPtr request,
-        http::ResponsePtr response, Device::SharedPtr device, RegisterDeviceCallback callback)
+    void onRegisterDevice(http::Client::TaskPtr task, Device::SharedPtr device, RegisterDeviceCallback callback)
     {
-        if (!err && response && response->isStatusSuccessful())
+        if (!task->errorCode && task->response && task->response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
-            json::Value jval = json::fromStr(response->getContent());
+            json::Value jval = json::fromStr(task->response->getContent());
             HIVELOG_DEBUG(m_log, "got \"register device\" response:\n"
                 << json::toStrHH(jval));
             Serializer::json2device(jval, device);
-            callback(err, device);
+            callback(task->errorCode, device);
         }
         else
         {
             HIVELOG_WARN_STR(m_log, "failed to get \"register device\" response");
-            callback(err, device);
+            callback(task->errorCode, device);
         }
     }
 
 
     /// @brief The "update device data" completion handler.
     /**
-    @param[in] err The error code.
-    @param[in] request The HTTP request.
-    @param[in] response The HTTP response.
+    @param[in] task The HTTP task.
     @param[in] device The device registered.
     @param[in] callback The callback functor.
     */
-    void onUpdateDeviceData(boost::system::error_code err, http::RequestPtr request,
-        http::ResponsePtr response, Device::SharedPtr device, RegisterDeviceCallback callback)
+    void onUpdateDeviceData(http::Client::TaskPtr task, Device::SharedPtr device, RegisterDeviceCallback callback)
     {
-        if (!err && response && response->isStatusSuccessful())
+        if (!task->errorCode && task->response && task->response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
-            json::Value jval = json::fromStr(response->getContent());
+            json::Value jval = json::fromStr(task->response->getContent());
             HIVELOG_DEBUG(m_log, "got \"update device data\" response:\n"
                 << json::toStrHH(jval));
             Serializer::json2device(jval, device);
-            callback(err, device);
+            callback(task->errorCode, device);
         }
         else
         {
             HIVELOG_WARN_STR(m_log, "failed to get \"update device data\" response");
-            callback(err, device);
+            callback(task->errorCode, device);
         }
     }
 /// @}
@@ -888,30 +888,30 @@ public:
         req->setVersion(m_http_major, m_http_minor);
 
         HIVELOG_DEBUG(m_log, "poll commands for \"" << device->id << "\"");
-        m_http->send(req, boost::bind(&ThisType::onPollCommands, shared_from_this(),
-            _1, _2, _3, device, callback), m_timeout_ms);
+        if (http::Client::TaskPtr task = m_http->send(req, m_timeout_ms))
+        {
+            task->callWhenDone(boost::bind(&ThisType::onPollCommands,
+                shared_from_this(), task, device, callback));
+        }
     }
 
 private:
 
     /// @brief The "poll commands" completion handler.
     /**
-    @param[in] err The error code.
-    @param[in] request The HTTP request.
-    @param[in] response The HTTP response.
+    @param[in] task The HTTP task.
     @param[in] device The device to poll commands for.
     @param[in] callback The callback functor.
     */
-    void onPollCommands(boost::system::error_code err, http::RequestPtr request,
-        http::ResponsePtr response, Device::SharedPtr device, PollCommandsCallback callback)
+    void onPollCommands(http::Client::TaskPtr task, Device::SharedPtr device, PollCommandsCallback callback)
     {
         std::vector<Command> commands;
         json::Value jval;
 
-        if (!err && response && response->isStatusSuccessful())
+        if (!task->errorCode && task->response && task->response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
-            jval = json::fromStr(response->getContent());
+            jval = json::fromStr(task->response->getContent());
             if (jval.isArray())
             {
                 commands.reserve(jval.size());
@@ -924,7 +924,7 @@ private:
         HIVELOG_DEBUG(m_log, "got \"poll commands\" response:\n"
             << json::toStrHH(jval));
 
-        callback(err, device, commands);
+        callback(task->errorCode, device, commands);
     }
 
 public:
@@ -956,19 +956,20 @@ public:
         req->setVersion(m_http_major, m_http_minor);
 
         HIVELOG_DEBUG(m_log, "command result:\n" << json::toStrHH(jbody));
-        m_http->send(req, boost::bind(&ThisType::onSendCommandResult,
-            shared_from_this(), _1, _2, _3), m_timeout_ms);
+        if (http::Client::TaskPtr task = m_http->send(req, m_timeout_ms))
+        {
+            task->callWhenDone(boost::bind(&ThisType::onSendCommandResult,
+                shared_from_this(), task));
+        }
     }
 
 private:
 
     /// @brief The "send command result" completion handler.
     /**
-    @param[in] err The error code.
-    @param[in] request The HTTP request.
-    @param[in] response The HTTP response.
+    @param[in] task The HTTP task.
     */
-    void onSendCommandResult(boost::system::error_code err, http::RequestPtr request, http::ResponsePtr response)
+    void onSendCommandResult(http::Client::TaskPtr task)
     {
         HIVELOG_DEBUG_STR(m_log, "got \"command result\" response");
 
@@ -1004,19 +1005,20 @@ public:
         req->setVersion(m_http_major, m_http_minor);
 
         HIVELOG_DEBUG(m_log, "notification:\n" << json::toStrHH(jbody));
-        m_http->send(req, boost::bind(&ThisType::onSendNotification,
-            shared_from_this(), _1, _2, _3), m_timeout_ms);
+        if (http::Client::TaskPtr task = m_http->send(req, m_timeout_ms))
+        {
+            task->callWhenDone(boost::bind(&ThisType::onSendNotification,
+                shared_from_this(), task));
+        }
     }
 
 private:
 
     /// @brief The "send notification" completion handler.
     /**
-    @param[in] err The error code.
-    @param[in] request The HTTP request.
-    @param[in] response The HTTP response.
+    @param[in] task The HTTP task.
     */
-    void onSendNotification(boost::system::error_code err, http::RequestPtr request, http::ResponsePtr response)
+    void onSendNotification(http::Client::TaskPtr task)
     {
         HIVELOG_DEBUG_STR(m_log, "got \"notification\" response");
 
