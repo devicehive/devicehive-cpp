@@ -1696,6 +1696,32 @@ public:
     typedef boost::asio::ip::tcp::endpoint Endpoint; ///< @brief The endpoint type.
     typedef boost::asio::deadline_timer Timer;       ///< @brief The timer type.
 
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] ios The IO service.
+    @param[in] name The client name.
+    */
+    explicit Client(IOService &ios, String const& name)
+        : m_ios(ios)
+#if !defined(HIVE_DISABLE_SSL)
+        , m_context(boost::asio::ssl::context::sslv23)
+#endif // HIVE_DISABLE_SSL
+        , m_log("/hive/http/client/" + name)
+        , m_nameCache(10*60000)
+    {
+        HIVELOG_TRACE_STR(m_log, "created");
+    }
+
+public:
+
+    /// @brief The trivial destructor.
+    virtual ~Client()
+    {
+        HIVELOG_TRACE_STR(m_log, "deleted");
+    }
+
 public:
 
     /// @brief The shared pointer type.
@@ -1712,44 +1738,6 @@ public:
     {
         return SharedPtr(new Client(ios, name));
     }
-
-
-    /// @brief The trivial destructor.
-    virtual ~Client()
-    {
-        HIVELOG_TRACE_STR(m_log, "deleted");
-    }
-
-protected:
-
-    /// @brief The main constructor.
-    /**
-    @param[in] ios The IO service.
-    @param[in] name The client name.
-    */
-    explicit Client(IOService &ios, String const& name)
-        : m_ios(ios)
-#if !defined(HIVE_DISABLE_SSL)
-        , m_context(boost::asio::ssl::context::sslv23)
-#endif // HIVE_DISABLE_SSL
-        , m_log("/hive/http/client/" + name)
-        , m_nameCacheLifetime(10*60000)
-    {
-        HIVELOG_TRACE_STR(m_log, "created");
-    }
-
-private:
-
-    /// @brief The IO service.
-    IOService &m_ios;
-
-#if !defined(HIVE_DISABLE_SSL)
-    /// @brief The SSL context.
-    Connection::Secure::SslContext m_context;
-#endif // HIVE_DISABLE_SSL
-
-    /// @brief The HTTP logger.
-    hive::log::Logger m_log;
 
 public:
 
@@ -1928,9 +1916,100 @@ private:
 
 private:
 
-    /// @brief The task list type.
-    typedef std::list<Task::SharedPtr> TaskList;
-    TaskList m_tasks; ///< @brief The task list.
+    /// @name The DNS name cache.
+    class NameCache
+    {
+    public:
+
+        /// @brief Default constructor.
+        /**
+        @param[in] lifetime_ms The entry lifetime in milliseconds.
+        */
+        explicit NameCache(size_t lifetime_ms)
+            : m_lifetime(lifetime_ms)
+        {}
+
+
+        /// @brief Is enabled?
+        /**
+        @return `true` if cache is enabled.
+        */
+        bool enabled() const
+        {
+            return 0 < m_lifetime;
+        }
+
+    public:
+
+        /// @brief Update the entry.
+        /**
+        @param[in] host The host name.
+        @param[in] endpoint The host endpoint.
+        */
+        void update(String const& host, Endpoint const& endpoint)
+        {
+            // TODO: do not reset lifetime of existing items?
+            m_cache[host] = Entry(endpoint);
+        }
+
+
+        /// @brief Remove the entry.
+        /**
+        @param[in] host The host name.
+        */
+        void remove(String const& host)
+        {
+            m_cache.erase(host);
+        }
+
+
+        /// @brief Get the endpoint from name cache.
+        /**
+        @param[in] host The host name.
+        @param[out] endpoint The host endpoint.
+        @return `false` if name entry not found.
+        */
+        bool find(String const& host, Endpoint &endpoint)
+        {
+            typedef std::map<String, Entry>::iterator Iterator;
+            const Iterator i = m_cache.find(host);
+            if (i != m_cache.end())
+            {
+                const Entry entry = i->second;
+
+                const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+                if ((now - entry.created).total_milliseconds() < m_lifetime)
+                {
+                    endpoint = i->second.endpoint;
+                    return true;
+                }
+                else
+                    m_cache.erase(i); // lifetime expired!
+            }
+
+            return false; // not found
+        }
+
+    private:
+
+        /// @brief The cache entry.
+        struct Entry
+        {
+            Endpoint endpoint;
+            boost::posix_time::ptime created;
+
+            explicit Entry(Endpoint const& ep)
+                : endpoint(ep)
+                , created(boost::posix_time::microsec_clock::universal_time())
+            {}
+
+            Entry()
+            {}
+        };
+
+        std::map<String, Entry> m_cache; ///< @brief The DNS name cache.
+        size_t m_lifetime; ///< @brief The DNS name entry lifetime, milliseconds.
+    };
 
 private:
 
@@ -2079,7 +2158,7 @@ private:
 
         Endpoint cachedEndpoint;
         String hostName = url.toString(Url::PROTOCOL|Url::HOST|Url::PORT);
-        if (m_nameCacheLifetime && nameCacheFind(hostName, cachedEndpoint))
+        if (m_nameCache.enabled() && m_nameCache.find(hostName, cachedEndpoint))
         {
             Resolver::iterator epi = Resolver::iterator::create(cachedEndpoint, url.getHost(), service);
 
@@ -2194,11 +2273,11 @@ private:
         {
             // TODO: handle Expect 100 header?
 
-            if (m_nameCacheLifetime) // update name cache
+            if (m_nameCache.enabled()) // update name cache
             {
                 Url const& url = task->request->getUrl();
                 String hostName = url.toString(Url::PROTOCOL|Url::HOST|Url::PORT);
-                nameCacheUpdate(hostName, task->connection->remote_endpoint());
+                m_nameCache.update(hostName, task->connection->remote_endpoint());
             }
 
             asyncHandshake(task);
@@ -2569,78 +2648,6 @@ private:
     }
 /// @}
 
-/// @name local DNS name cache
-/// @{
-private:
-
-    /// @brief DNS name entry.
-    struct NameEntry
-    {
-        Endpoint endpoint;
-        boost::posix_time::ptime created;
-
-        explicit NameEntry(Endpoint const& ep)
-            : endpoint(ep)
-            , created(boost::posix_time::microsec_clock::universal_time())
-        {}
-
-        NameEntry()
-        {}
-    };
-
-    std::map<String, NameEntry> m_nameCache; ///< @brief The DNS name cache.
-    size_t m_nameCacheLifetime; ///< @brief The DNS name entry lifetime, milliseconds.
-
-
-    /// @brief Update the name cache entry.
-    /**
-    @param[in] host The host name.
-    @param[in] endpoint The host endpoint.
-    */
-    void nameCacheUpdate(String const& host, Endpoint const& endpoint)
-    {
-        // TODO: do not reset lifetime of existing items?
-        m_nameCache[host] = NameEntry(endpoint);
-    }
-
-
-    /// @brief Remove the name cache entry.
-    /**
-    @param[in] host The host name.
-    */
-    void nameCacheRemove(String const& host)
-    {
-        m_nameCache.erase(host);
-    }
-
-
-    /// @brief Get the endpoint from name cache.
-    /**
-    @param[in] host The host name.
-    @param[out] endpoint The host endpoint.
-    @return `false` if name entry not found.
-    */
-    bool nameCacheFind(String const& host, Endpoint &endpoint)
-    {
-        typedef std::map<String, NameEntry>::iterator Iterator;
-        const Iterator i = m_nameCache.find(host);
-        if (i != m_nameCache.end())
-        {
-            const NameEntry entry = i->second;
-
-            const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-            if ((now - entry.created).total_milliseconds() < m_nameCacheLifetime)
-            {
-                endpoint = i->second.endpoint;
-                return true;
-            }
-            else
-                m_nameCache.erase(i); // lifetime expired!
-        }
-
-        return false; // not found
-    }
-/// @}
 
 /// @name Dump tools
 /// @{
@@ -2911,6 +2918,25 @@ private:
         return false;
     }
 /// @}
+
+private:
+
+    /// @brief The IO service.
+    IOService &m_ios;
+
+#if !defined(HIVE_DISABLE_SSL)
+    /// @brief The SSL context.
+    Connection::Secure::SslContext m_context;
+#endif // HIVE_DISABLE_SSL
+
+    /// @brief The HTTP logger.
+    hive::log::Logger m_log;
+
+    /// @brief The task list type.
+    typedef std::list<Task::SharedPtr> TaskList;
+    TaskList m_tasks; ///< @brief The task list.
+
+    NameCache m_nameCache; ///< @brief The local DNS name cache.
 };
 
 
