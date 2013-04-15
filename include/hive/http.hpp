@@ -1908,9 +1908,11 @@ public:
     void cancelAll()
     {
         HIVELOG_TRACE_BLOCK(m_log, "cancelAll()");
-        while (!m_taskList.empty())
+        TaskList::iterator i = m_taskList.begin();
+        TaskList::iterator e = m_taskList.end();
+        for (; i != e; ++i)
         {
-            TaskPtr task = m_taskList.front();
+            TaskPtr task = *i;
             task->cancel();
         }
     }
