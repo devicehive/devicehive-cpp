@@ -182,6 +182,9 @@ private: // ServerModuleREST
     {
         ServerModuleREST::onRegisterDevice(err, device);
 
+        if (m_device != device)     // if device's changed
+            return;                 // just do nothing
+
         if (!err)
         {
             m_deviceRegistered = true;
@@ -204,6 +207,9 @@ private: // ServerModuleREST
     virtual void onPollCommands(boost::system::error_code err, cloud6::DevicePtr device, std::vector<cloud6::Command> const& commands)
     {
         ServerModuleREST::onPollCommands(err, device, commands);
+
+        if (m_device != device)     // if device's changed
+            return;                 // just do nothing
 
         if (!err)
         {
@@ -469,6 +475,7 @@ private:
         {
             m_gw.handleRegisterResponse(data);
             createDevice(data);
+            cancelServerModuleREST(); // cancel all previous requests
             asyncRegisterDevice(m_device);
         }
 

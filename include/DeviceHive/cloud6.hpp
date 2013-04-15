@@ -818,10 +818,13 @@ private:
         if (!task->errorCode && task->response && task->response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
-            json::Value jval = json::fromStr(task->response->getContent());
-            HIVELOG_DEBUG(m_log, "got \"register device\" response:\n"
-                << json::toStrHH(jval));
-            Serializer::json2device(jval, device);
+            if (task->response->getStatusCode() != http::status::NO_CONTENT)
+            {
+                json::Value jval = json::fromStr(task->response->getContent());
+                HIVELOG_DEBUG(m_log, "got \"register device\" response:\n"
+                    << json::toStrHH(jval));
+                Serializer::json2device(jval, device);
+            }
             callback(task->errorCode, device);
         }
         else
@@ -843,10 +846,13 @@ private:
         if (!task->errorCode && task->response && task->response->isStatusSuccessful())
         {
             // TODO: handle all exceptions
-            json::Value jval = json::fromStr(task->response->getContent());
-            HIVELOG_DEBUG(m_log, "got \"update device data\" response:\n"
-                << json::toStrHH(jval));
-            Serializer::json2device(jval, device);
+            if (task->response->getStatusCode() != http::status::NO_CONTENT)
+            {
+                json::Value jval = json::fromStr(task->response->getContent());
+                HIVELOG_DEBUG(m_log, "got \"update device data\" response:\n"
+                    << json::toStrHH(jval));
+                Serializer::json2device(jval, device);
+            }
             callback(task->errorCode, device);
         }
         else
