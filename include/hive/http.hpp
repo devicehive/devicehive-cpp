@@ -259,7 +259,7 @@ public:
     @see Components enumeration for possible values.
     @return A string representation of the URL.
     */
-    String toString(int components = ALL) const
+    String toStr(int components = ALL) const
     {
         OStringStream res;
 
@@ -700,11 +700,13 @@ public:
     /**
     @param[in] major The major HTTP version.
     @param[in] minor The minor HTTP version.
+    @return Self reference.
     */
-    void setVersion(UInt32 major, UInt32 minor)
+    Message& setVersion(UInt32 major, UInt32 minor)
     {
         m_versionMajor = major;
         m_versionMinor = minor;
+        return *this;
     }
 
 
@@ -760,22 +762,26 @@ public:
 
     @param[in] name The header name.
     @param[in] value The header value.
+    @return Self reference.
     @see @ref header namespace for possible names
     */
-    void addHeader(String const& name, String const& value)
+    Message& addHeader(String const& name, String const& value)
     {
         m_headers[name] = value;
+        return *this;
     }
 
 
     /// @brief Remove header.
     /**
     @param[in] name The header name.
+    @return Self reference.
     @see @ref header namespace for possible names
     */
-    void removeHeader(String const& name)
+    Message& removeHeader(String const& name)
     {
         m_headers.erase(name);
+        return *this;
     }
 
 
@@ -806,10 +812,12 @@ public:
     /// @brief Set content string.
     /**
     @param[in] content The custom content.
+    @return Self reference.
     */
-    void setContent(String const& content)
+    Message& setContent(String const& content)
     {
         m_content = content;
+        return *this;
     }
 
 
@@ -1021,7 +1029,7 @@ public:
     OStream& writeFirstLine(OStream & os) const
     {
         return os << getMethod() << " "
-            << getUrl().toString(Url::PATH|Url::QUERY)
+            << getUrl().toStr(Url::PATH|Url::QUERY)
             << " HTTP/" << getVersionMajor() << "."
             << getVersionMinor() << impl::CRLF;
     }
@@ -1046,7 +1054,7 @@ public:
         if (!hasHeader(header::Host))
         {
             os << header::Host << ": "
-                << getUrl().toString(Url::HOST|Url::PORT)
+                << getUrl().toStr(Url::HOST|Url::PORT)
                 << impl::CRLF;
         }
 
@@ -1189,10 +1197,12 @@ public:
     /// @brief Set the status code.
     /**
     @param[in] status The status code.
+    @return Self reference.
     */
-    void setStatusCode(int status)
+    Response& setStatusCode(int status)
     {
         m_statusCode = status;
+        return *this;
     }
 
 
@@ -1209,10 +1219,12 @@ public:
     /// @brief Set the status phrase.
     /**
     @param[in] reason The status phrase.
+    @return Self reference.
     */
-    void setStatusPhrase(String const& reason)
+    Response& setStatusPhrase(String const& reason)
     {
         m_statusPhrase = reason;
+        return *this;
     }
 
 
@@ -1884,14 +1896,14 @@ public:
 
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
                 << request->getMethod() << " request to <"
-                << request->getUrl().toString() << "> with "
+                << request->getUrl().toStr() << "> with "
                 << timeout_ms << " ms timeout:\n" << *request);
         }
         else
         {
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
                 << request->getMethod() << " request to <"
-                << request->getUrl().toString()
+                << request->getUrl().toStr()
                 << "> without timeout:\n" << *request);
         }
 
@@ -2058,7 +2070,7 @@ private:
             ? url.getProtocol() : url.getPort();
 
         Endpoint cachedEndpoint;
-        String hostName = url.toString(Url::PROTOCOL|Url::HOST|Url::PORT);
+        const String hostName = url.toStr(Url::PROTOCOL|Url::HOST|Url::PORT);
         if (m_nameCache.enabled() && m_nameCache.find(hostName, cachedEndpoint))
         {
             Resolver::iterator epi = Resolver::iterator::create(cachedEndpoint, url.getHost(), service);
@@ -2175,7 +2187,7 @@ private:
             if (m_nameCache.enabled()) // update name cache
             {
                 Url const& url = task->request->getUrl();
-                String hostName = url.toString(Url::PROTOCOL|Url::HOST|Url::PORT);
+                const String hostName = url.toStr(Url::PROTOCOL|Url::HOST|Url::PORT);
                 m_nameCache.update(hostName, task->connection->remote_endpoint());
             }
 

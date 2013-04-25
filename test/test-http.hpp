@@ -43,11 +43,11 @@ void check_base64(String const& data)
 void test_http0()
 {
     http::Url url("http://ecloud.dataart.com/ecapi6?a=1&b=2");
-    std::cout << url.toString() << "\n";
+    std::cout << url.toStr() << "\n";
 
     http::Url::Builder urlb(url);
     urlb.appendPath("device/test");
-    std::cout << urlb.build().toString() << "\n";
+    std::cout << urlb.build().toStr() << "\n";
 
     check_base64("");
     check_base64("\x01");

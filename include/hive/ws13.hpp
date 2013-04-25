@@ -100,10 +100,12 @@ public:
     /// @brief Append data to the end of message.
     /**
     @param[in] data The data to append.
+    @return Self reference.
     */
-    void appendData(OctetString const& data)
+    Message& appendData(OctetString const& data)
     {
         m_data.append(data);
+        return *this;
     }
 
 public:
@@ -1045,7 +1047,7 @@ public:
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncConnect()");
 
-        HIVELOG_DEBUG(m_log, "try to connect to " << url.toString());
+        HIVELOG_DEBUG(m_log, "try to connect to " << url.toStr());
         if (http::Client::TaskPtr task = httpClient->send(getHandshakeRequest(url, key), timeout_ms))
             task->callWhenDone(boost::bind(&This::onConnect, shared_from_this(), task, httpClient, callback));
     }
