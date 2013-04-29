@@ -38,6 +38,7 @@ protected:
         , m_log("/devicehive/websocket/" + name)
         , m_baseUrl(baseUrl)
         , m_timeout_ms(60000)
+        , m_pingPong(m_ios)
     {}
 
 public:
@@ -148,11 +149,13 @@ public:
     /// @brief Close the connection.
     void close(bool force = false)
     {
+        m_pingPong.timer.cancel();
+
         if (m_ws->isOpen())
         {
             m_ws->close(force);
             m_ws->asyncListenForMessages(ws13::WebSocket::RecvMessageCallbackType());
-            //m_ws->asyncListenForFrames(ws13::WebSocket::RecvFrameCallback());
+            m_ws->asyncListenForFrames(ws13::WebSocket::RecvFrameCallback());
             listenForActions(ActionReceivedCallback());
         }
     }
@@ -176,6 +179,10 @@ private:
             m_ws->asyncListenForMessages(
                 boost::bind(&This::onMessageReceived,
                 shared_from_this(), _1, _2));
+            m_ws->asyncListenForFrames(
+                boost::bind(&This::onFrameReceived,
+                shared_from_this(), _1, _2));
+            pingPongRestartIdle();
         }
         else
         {
@@ -293,6 +300,119 @@ private:
             HIVELOG_WARN(m_log, "no action callback, ignored: " << jaction);
     }
 
+
+    /// @brief The frame handler.
+    /**
+    @param[in] err The error code.
+    @param[in] frame The received websocket frame.
+    */
+    void onFrameReceived(boost::system::error_code err, ws13::Frame::SharedPtr frame)
+    {
+        HIVELOG_TRACE_BLOCK(m_log, "onFrameReceived()");
+
+        if (!err)
+        {
+            //HIVELOG_INFO(m_log, "FRAME: " << dump::hex(frame->getContent()));
+            pingPongRestartIdle();
+        }
+    }
+
+private:
+
+    /// @brief Restart the ping/pong IDLE timer.
+    void pingPongRestartIdle()
+    {
+        return; // ping/pong timeouts are disabled for a while because websocket
+                // service at the server side doesn't support pong responses yet!
+
+        m_pingPong.ping_attempt = 0; // reset current ping/pong attempt counter
+
+        HIVELOG_DEBUG(m_log, "starting ping/pong idle timeout (" << m_pingPong.idle_timeout_ms << " ms)");
+        m_pingPong.timer.expires_from_now(boost::posix_time::milliseconds(m_pingPong.idle_timeout_ms));
+        m_pingPong.timer.async_wait(boost::bind(&This::onPingPongIdleTimedOut,
+            shared_from_this(), boost::asio::placeholders::error));
+    }
+
+
+    /// @brief The IDLE timeout finished.
+    /**
+    @param[in] err The error code.
+    */
+    void onPingPongIdleTimedOut(boost::system::error_code err)
+    {
+        HIVELOG_DEBUG(m_log, "ping/pong idle timeout [" << err << "]");
+
+        if (!err)
+        {
+            asyncSendPingFrame();
+            startPingPongTimeout();
+        }
+        else if (err == boost::asio::error::operation_aborted)
+        {
+            // do nothing
+        }
+        else
+        {
+            if (m_actionReceivedCallback)
+                m_ios.post(boost::bind(m_actionReceivedCallback, err, json::Value()));
+            else
+                HIVELOG_WARN_STR(m_log, "no action callback, ignored");
+        }
+    }
+
+
+    /// @brief Send PING frame.
+    void asyncSendPingFrame(bool masking = true)
+    {
+        m_ws->asyncSendFrame(ws13::Frame::create(ws13::Frame::Ping(), masking),
+            ws13::WebSocket::SendFrameCallback());
+    }
+
+
+    /// @brief Start Pong timeout.
+    void startPingPongTimeout()
+    {
+        m_pingPong.ping_attempt += 1; // next attempt
+
+        HIVELOG_DEBUG(m_log, "starting ping/pong timeout (" << m_pingPong.pong_timeout_ms
+            << " ms), attempt #" << m_pingPong.ping_attempt);
+        m_pingPong.timer.expires_from_now(boost::posix_time::milliseconds(m_pingPong.pong_timeout_ms));
+        m_pingPong.timer.async_wait(boost::bind(&This::onPongTimedOut,
+            shared_from_this(), boost::asio::placeholders::error));
+    }
+
+
+    /// @brief The PONG timeout finished.
+    /**
+    @param[in] err The error code.
+    */
+    virtual void onPongTimedOut(boost::system::error_code err)
+    {
+        HIVELOG_DEBUG(m_log, "ping/pong timeout [" << err << "]");
+
+        if (!err)
+        {
+            if (m_pingPong.ping_attempt >= m_pingPong.ping_retry_limit)
+            {
+                if (m_actionReceivedCallback)
+                    m_ios.post(boost::bind(m_actionReceivedCallback, boost::asio::error::timed_out, json::Value()));
+                else
+                    HIVELOG_WARN_STR(m_log, "no action callback, ignored");
+
+                close(true);
+            }
+            else
+            {
+                asyncSendPingFrame();
+                startPingPongTimeout();
+            }
+        }
+        else //if (err == boost::asio::error::operation_aborted)
+        {
+            // do nothing
+        }
+    }
+
 private:
     boost::asio::io_service &m_ios; ///< @brief The IO service.
     http::Client::SharedPtr m_http; ///< @brief The HTTP client.
@@ -301,6 +421,29 @@ private:
     hive::log::Logger m_log;        ///< @brief The logger.
     http::Url m_baseUrl;            ///< @brief The base URL.
     size_t m_timeout_ms;            ///< @brief The HTTP request timeout, milliseconds.
+
+private: // Ping/Pong
+
+    /// @brief Ping/Pong related fields.
+    struct PingPong
+    {
+        boost::asio::deadline_timer timer; ///< @brief The timer.
+        size_t idle_timeout_ms; ///< @brief The IDLE timeout, milliseconds.
+        size_t pong_timeout_ms; ///< @brief The PONG timeout, milliseconds.
+        size_t ping_retry_limit; ///< @brief The maximum number of retries.
+        size_t ping_attempt;     ///< @brief The current attempt number.
+
+        /// @brief The main constructor.
+        PingPong(boost::asio::io_service &ios)
+            : timer(ios)
+            , idle_timeout_ms(10000)
+            , pong_timeout_ms(5000)
+            , ping_retry_limit(3)
+            , ping_attempt(0)
+        {}
+    };
+
+    PingPong m_pingPong;
 };
 
 
@@ -652,6 +795,14 @@ private:
                     Serializer::fromJson(jaction["command"], command);
                     cb->onInsertCommand(err, device, command);
                 }
+            }
+        }
+        else
+        {
+            // report errors as 'onConnected' !?
+            if (boost::shared_ptr<IDeviceServiceEvents> cb = m_callbacks.lock())
+            {
+                cb->onConnected(err);
             }
         }
 
