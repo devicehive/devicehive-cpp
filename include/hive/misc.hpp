@@ -355,7 +355,7 @@ Out base64_decode(In first, In last, Out out)
             if (dd != '=')
             {
                 const int d = TABLE[dd];
-                if (c < 0)
+                if (d < 0)
                     throw std::runtime_error("invalid base64 data");
                 *out++ = ((c<<6)&0xC0) | d;             // [00----cc][00dddddd] => [zzzzzzzz]
             }
