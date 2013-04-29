@@ -1715,7 +1715,7 @@ hive::log::Logger a("/app/test/A");
 hive::log::Logger b("/app/test/B");
 ~~~
 
-All loggers are organized in tree hierarchy (name based with '/' separator).
+All loggers are organized in tree hierarchy (name based with `'/'` separator).
 The root of hierarhy is special hive::log::Logger::root() logger instance
 which is also available via empty name.
 For the example above the logger hiearachy will be:

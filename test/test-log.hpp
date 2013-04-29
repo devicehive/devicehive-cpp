@@ -3,7 +3,7 @@
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
 #include <hive/log.hpp>
-#include <examples/logcfg.hpp>
+#include <examples/logger_cfg.hpp>
 
 #define HIVELOG_DISABLE_DEBUG
 #include <hive/log.hpp>
@@ -85,7 +85,7 @@ void test_log_1()
     jcfg["loggers"]["/API"]["targets"].append("myfile");
 
     std::cout << toStrH(jcfg) << "\n";
-    logcfg::apply(jcfg);
+    logger_cfg::apply(jcfg);
 }
 
 } // local namespace

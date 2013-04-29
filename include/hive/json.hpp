@@ -1661,6 +1661,8 @@ public:
 
     @param[in,out] os The output stream.
     @param[in] str The string to write.
+    @param[in] escaping The *escaping* string flag.
+    @param[in] forceQuote Force to use quotes flag.
     @return The output stream.
     */
     static OStream& writeString(OStream &os, String const& str, bool escaping, bool forceQuote)

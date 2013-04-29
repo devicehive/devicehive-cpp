@@ -2,8 +2,8 @@
 @brief The log configuration example.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 */
-#ifndef __EXAMPLES_LOGCFG_HPP_
-#define __EXAMPLES_LOGCFG_HPP_
+#ifndef __EXAMPLES_LOGGER_CFG_HPP_
+#define __EXAMPLES_LOGGER_CFG_HPP_
 
 #include <hive/json.hpp>
 #include <hive/log.hpp>
@@ -14,7 +14,7 @@
 
 
 /// @brief The log configuration.
-namespace logcfg
+namespace logger_cfg
 {
 
 /// @brief The log configuration.
@@ -493,6 +493,6 @@ inline void apply(hive::String const& fileName)
     }
 }
 
-} // logcfg namespace
+} // logger_cfg namespace
 
-#endif //__EXAMPLES_LOGCFG_HPP_
+#endif //__EXAMPLES_LOGGER_CFG_HPP_
