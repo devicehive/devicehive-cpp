@@ -1,5 +1,5 @@
 /** @file
-@brief The zigbee gateway application.
+@brief The ZigBee gateway application.
 @author Sergey Polichnoy <sergey.polichnoy@dataart.com>
 @see @ref page_examples
 */
@@ -17,7 +17,7 @@
 #endif // HIVE_DISABLE_SSL
 
 
-/// @brief The zigbee gateway application entry point.
+/// @brief The ZigBee gateway application entry point.
 /**
 @param[in] argc The number of command line arguments.
 @param[in] argv The command line arguments.

@@ -273,10 +273,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\examples\logcfg.hpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\examples\simple_dev.hpp"
 				>
 			</File>
