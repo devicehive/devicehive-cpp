@@ -36,40 +36,6 @@ namespace hive
     */
     namespace http
     {
-        // helpers
-        namespace impl
-        {
-
-/// @brief Check for the scpecial character.
-/**
-The special characters are: "()<>@,;:\"/[]?={}", space and tab.
-
-@param[in] ch The input character to test.
-@return `true` if input character is one of the special character.
-*/
-inline bool is_tspecial(int ch)
-{
-    switch (ch)
-    {
-        case '(': case ')': case '<': case '>': case '@':
-        case ',': case ';': case ':': case '\\': case '"':
-        case '/': case '[': case ']': case '?': case '=':
-        case '{': case '}': case ' ': case '\t':
-            return true;
-    }
-
-    return false;
-}
-
-
-/// @hideinitializer @brief The new line string.
-const char CRLF[] = "\r\n";
-
-/// @hideinitializer @brief The empty line and new line string.
-const char CRLFx2[] = "\r\n\r\n";
-
-        } // helpers
-
 
 /// @brief The URL.
 /**
@@ -87,7 +53,6 @@ There also equality operators == and != are available.
 
 Please use Builder class to build advanced URLs.
 */
-// TODO: check components encode/decode
 class Url
 {
 public:
@@ -140,9 +105,13 @@ public:
     Url(String const& proto, String const& user,
         String const& host, String const& port, String const& path,
         String const& query, String const& fragment)
-        : m_proto(proto), m_user(user),
-          m_host(host), m_port(port), m_path(path),
-          m_query(query), m_fragment(fragment)
+        : m_proto(proto)
+        , m_user(user)
+        , m_host(host)
+        , m_port(port)
+        , m_path(path)
+        , m_query(query)
+        , m_fragment(fragment)
     {}
 
 
@@ -290,7 +259,7 @@ public:
     @see Components enumeration for possible values.
     @return A string representation of the URL.
     */
-    String toString(int components = ALL) const
+    String toStr(int components = ALL) const
     {
         OStringStream res;
 
@@ -300,7 +269,7 @@ public:
 
         // user name & password
         if ((components&USER_INFO) && !m_user.empty())
-            encode(res, m_user) << "@";
+            misc::url_encode(res, m_user) << "@";
 
         // host
         if ((components&HOST) && !m_host.empty())
@@ -312,136 +281,18 @@ public:
 
         // path
         if ((components&PATH) && !m_path.empty())
-            res << m_path; //encode(res, m_path);
+            res << m_path; //misc::url_encode(res, m_path);
 
         // query
         if ((components&QUERY) && !m_query.empty())
-            res << "?" << m_query; //encode(res << "?", m_query);
+            res << "?" << m_query; //misc::url_encode(res << "?", m_query);
 
         // fragment
         if ((components&FRAGMENT) && !m_fragment.empty())
-            res << "#" << m_fragment; // encode(res << "#", m_fragment);
+            res << "#" << m_fragment; // misc::url_encode(res << "#", m_fragment);
 
         return res.str();
     }
-
-
-/// @name URL encode/decode
-/// @{
-public:
-
-    /// @brief Encode URL.
-    /**
-    @param[in,out] os The output stream.
-    @param[in] str The string to encode.
-    @return The output stream.
-    */
-    static OStream& encode(OStream & os, String const& str)
-    {
-        const size_t N = str.size();
-        for (size_t i = 0; i < N; ++i)
-        {
-            const char ch = str[i];
-
-            switch (ch)
-            {
-                default: // no escaping
-                    if (32 < ch && ch < 127)
-                    {
-                        os.put(ch);
-                        break;
-                    }
-                    // no break;
-
-                case ' ': // escaping
-                case '$': case '&': case '+': case ',': case '/': case ':':
-                case ';': case '=': case '?': case '@': case '"': case '<':
-                case '>': case '#': case '%': case '{': case '}': case '|':
-                case '\\': case '^': case '~': case '[': case ']': case '`':
-                {
-                    os.put('%');
-                    os.put(misc::int2hex((ch>>4)&0x0f));
-                    os.put(misc::int2hex(ch&0x0f));
-                } break;
-            }
-        }
-
-        return os;
-    }
-
-
-    /// @brief Encode URL.
-    /**
-    @param[in] str The string to encode.
-    @return The encoded string.
-    */
-    static String encode(String const& str)
-    {
-        OStringStream oss;
-        encode(oss, str);
-        return oss.str();
-    }
-
-
-    /// @brief Decode URL.
-    /**
-    @param[in,out] os The output stream.
-    @param[in] str The string to decode.
-    @return The output stream.
-    */
-    static OStream& decode(OStream & os, String const& str)
-    {
-        const size_t N = str.size();
-        for (size_t i = 0; i < N; ++i)
-        {
-            const char ch = str[i];
-
-            switch (ch)
-            {
-                //case '+': // ??? space character
-                //    os.put(' ');
-                //    break;
-
-                case '%': // hexidecimal value
-                    if (i+2 < N)
-                    {
-                        const char a = str[i+1];
-                        const char b = str[i+2];
-
-                        const int aa = misc::hex2int(a);
-                        const int bb = misc::hex2int(b);
-
-                        if (0 <= aa && 0 <= bb)
-                        {
-                            os.put((aa<<4) | bb);
-                            i += 2;
-                            break;
-                        }
-                    }
-                    // no break;
-
-                default: // no escaping
-                    os.put(ch);
-                    break;
-            }
-        }
-
-        return os;
-    }
-
-
-    /// @brief Decode URL.
-    /**
-    @param[in] str The string to decode.
-    @return The decoded string.
-    */
-    static String decode(String const& str)
-    {
-        OStringStream oss;
-        decode(oss, str);
-        return oss.str();
-    }
-/// @}
 
 private:
 
@@ -458,7 +309,7 @@ private:
             const size_t len = (p - url);
 
             m_proto.assign(url, p);
-            //m_proto = decode(m_proto);
+            //m_proto = misc::url_decode(m_proto);
             boost::algorithm::to_lower(m_proto);
 
             url += len + 3;
@@ -471,7 +322,7 @@ private:
             if (url[len] == '@')
             {
                 m_user.assign(url, url + len);
-                m_user = decode(m_user);
+                m_user = misc::url_decode(m_user);
                 url += len + 1;
             }
             else if (url[len] == ':')
@@ -480,7 +331,7 @@ private:
                 if (url[len+len2] == '@')
                 {
                     m_user.assign(url, url + len+len2);
-                    m_user = decode(m_user);
+                    m_user = misc::url_decode(m_user);
                     url += len+len2 + 1;
                 }
             }
@@ -495,7 +346,7 @@ private:
         {
             const size_t len = std::strcspn(url, ":/?#");
             m_host.assign(url, url + len);
-            //m_host = decode(m_host);
+            //m_host = misc::url_decode(m_host);
             url += len;
         }
 
@@ -521,7 +372,7 @@ private:
         {
             const size_t len = std::strcspn(url, "?#");
             m_path.assign(url, url + len);
-            m_path = decode(m_path);
+            m_path = misc::url_decode(m_path);
             url += len;
         }
         else
@@ -532,7 +383,7 @@ private:
         {
             const size_t len = std::strcspn(++url, "#");
             m_query.assign(url, url + len);
-            m_query = decode(m_query);
+            m_query = misc::url_decode(m_query);
             url += len;
         }
 
@@ -540,7 +391,7 @@ private:
         if (url[0] == '#')
         {
             m_fragment.assign(++url);
-            m_fragment = decode(m_fragment);
+            m_fragment = misc::url_decode(m_fragment);
         }
     }
 
@@ -607,11 +458,11 @@ public:
     @param[in] url The base URL.
     */
     explicit Builder(Url const& url)
-        : m_proto(url.getProtocol()),
-          m_user(url.getUserInfo()),
-          m_host(url.getHost()),
-          m_port(url.getPort()),
-          m_fragment(url.getFragment())
+        : m_proto(url.getProtocol())
+        , m_user(url.getUserInfo())
+        , m_host(url.getHost())
+        , m_port(url.getPort())
+        , m_fragment(url.getFragment())
     {
         parsePath(url.getPath());
         parseQuery(url.getQuery());
@@ -788,10 +639,24 @@ const char Last_Modified[]      = "Last-Modified";      ///< @hideinitializer @b
 const char User_Agent[]         = "User-Agent";         ///< @hideinitializer @brief The "User-Agent" header name.
 const char Location[]           = "Location";           ///< @hideinitializer @brief The "Location" header name.
 const char Upgrade[]            = "Upgrade";            ///< @hideinitializer @brief The "Upgrade" header name.
+const char Authorization[]      = "Authorization";      ///< @hideinitializer @brief The "Authorization" header name.
 
         // TODO: add more headers here
 
         } // header namespace
+
+
+        // helpers
+        namespace impl
+        {
+
+/// @hideinitializer @brief The new line string.
+const char CRLF[] = "\r\n";
+
+/// @hideinitializer @brief The empty line and new line string.
+const char CRLFx2[] = "\r\n\r\n";
+
+        } // helpers
 
 
 /// @brief The HTTP message.
@@ -816,8 +681,8 @@ protected:
     The HTTP 1.1 version is used by default.
     */
     Message()
-        : m_versionMajor(1),
-          m_versionMinor(1)
+        : m_versionMajor(1)
+        , m_versionMinor(1)
     {}
 
 public:
@@ -829,21 +694,19 @@ public:
 
 /// @name The HTTP version
 /// @{
-private:
-    UInt32 m_versionMajor; ///< @brief The major HTTP version.
-    UInt32 m_versionMinor; ///< @brief The minor HTTP version.
-
 public:
 
     /// @brief Set the HTTP version.
     /**
     @param[in] major The major HTTP version.
     @param[in] minor The minor HTTP version.
+    @return Self reference.
     */
-    void setVersion(UInt32 major, UInt32 minor)
+    Message& setVersion(UInt32 major, UInt32 minor)
     {
         m_versionMajor = major;
         m_versionMinor = minor;
+        return *this;
     }
 
 
@@ -864,36 +727,6 @@ public:
 
 /// @name HTTP headers
 /// @{
-private:
-
-    /// @brief The less functor.
-    /**
-    Compares string no case.
-    */
-    struct iLess
-        : public std::binary_function<String, String, bool>
-    {
-        /// @brief Compare two strings.
-        /**
-        @param[in] a The first string.
-        @param[in] b The second string.
-        @return `true` if first string is less than second.
-        */
-        bool operator()(String const& a, String const& b) const
-        {
-            return boost::ilexicographical_compare(a, b);
-        }
-    };
-
-    /// @brief The header container type.
-    /**
-    Uses case insensitive comparison for header names.
-    */
-    typedef std::map<String, String, iLess> HeaderMap;
-
-    /// @brief The headers.
-    HeaderMap m_headers;
-
 public:
 
     /// @brief Get header.
@@ -929,22 +762,26 @@ public:
 
     @param[in] name The header name.
     @param[in] value The header value.
+    @return Self reference.
     @see @ref header namespace for possible names
     */
-    void addHeader(String const& name, String const& value)
+    Message& addHeader(String const& name, String const& value)
     {
         m_headers[name] = value;
+        return *this;
     }
 
 
     /// @brief Remove header.
     /**
     @param[in] name The header name.
+    @return Self reference.
     @see @ref header namespace for possible names
     */
-    void removeHeader(String const& name)
+    Message& removeHeader(String const& name)
     {
         m_headers.erase(name);
+        return *this;
     }
 
 
@@ -970,20 +807,17 @@ public:
 
 /// @name Body content
 /// @{
-private:
-
-    /// @brief The custom content.
-    String m_content;
-
 public:
 
     /// @brief Set content string.
     /**
     @param[in] content The custom content.
+    @return Self reference.
     */
-    void setContent(String const& content)
+    Message& setContent(String const& content)
     {
         m_content = content;
+        return *this;
     }
 
 
@@ -1021,6 +855,39 @@ public:
         return os;
     }
 /// @}
+
+private:
+
+    /// @brief The less functor.
+    /**
+    Compares string no case.
+    */
+    struct iLess
+        : public std::binary_function<String, String, bool>
+    {
+        /// @brief Compare two strings.
+        /**
+        @param[in] a The first string.
+        @param[in] b The second string.
+        @return `true` if first string is less than second.
+        */
+        bool operator()(String const& a, String const& b) const
+        {
+            return boost::ilexicographical_compare(a, b);
+        }
+    };
+
+    /// @brief The header container type.
+    /**
+    Uses case insensitive comparison for header names.
+    */
+    typedef std::map<String, String, iLess> HeaderMap;
+
+
+    UInt32 m_versionMajor; ///< @brief The major HTTP version.
+    UInt32 m_versionMinor; ///< @brief The minor HTTP version.
+    HeaderMap m_headers; ///< @brief The headers.
+    String m_content; ///< @brief The custom content.
 };
 
 
@@ -1041,6 +908,17 @@ The request HTTP method and the URL cannot be changed after creation.
 class Request:
     public Message
 {
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] method The HTTP method.
+    @param[in] url The URL.
+    */
+    Request(String const& method, Url const& url)
+        : m_method(method), m_url(url)
+    {}
+
 public:
 
     /// @brief The shared pointer type.
@@ -1073,21 +951,26 @@ public:
     /// @brief Create PUT request.
     /**
     @param[in] url The URL.
+    @return The new PUT request instance.
+    */
+    static SharedPtr PUT(Url const& url)
+    {
+        return create("PUT", url);
+    }
+
+
+    /// @brief Create PUT request with content.
+    /**
+    @param[in] url The URL.
     @param[in] contentType The optional content type.
     @param[in] content The optional content.
     @return The new PUT request instance.
     */
-    static SharedPtr PUT(Url const& url,
-        String const& contentType = String(),
-        String const& content = String())
+    static SharedPtr PUT(Url const& url, String const& contentType, String const& content)
     {
-        SharedPtr req = create("PUT", url);
-
-        if (!contentType.empty())
-            req->addHeader(header::Content_Type, contentType);
-        if (!content.empty())
-            req->setContent(content);
-
+        SharedPtr req = PUT(url);
+        req->addHeader(header::Content_Type, contentType);
+        req->setContent(content);
         return req;
     }
 
@@ -1095,34 +978,28 @@ public:
     /// @brief Create POST request.
     /**
     @param[in] url The URL.
+    @return The new POST request instance.
+    */
+    static SharedPtr POST(Url const& url)
+    {
+        return create("POST", url);
+    }
+
+
+    /// @brief Create POST request with content.
+    /**
+    @param[in] url The URL.
     @param[in] contentType The optional content type.
     @param[in] content The optional content.
     @return The new POST request instance.
     */
-    static SharedPtr POST(Url const& url,
-        String const& contentType = String(),
-        String const& content = String())
+    static SharedPtr POST(Url const& url, String const& contentType, String const& content)
     {
-        SharedPtr req = create("POST", url);
-
-        if (!contentType.empty())
-            req->addHeader(header::Content_Type, contentType);
-        if (!content.empty())
-            req->setContent(content);
-
+        SharedPtr req = POST(url);
+        req->addHeader(header::Content_Type, contentType);
+        req->setContent(content);
         return req;
     }
-
-protected:
-
-    /// @brief The main constructor.
-    /**
-    @param[in] method The HTTP method.
-    @param[in] url The URL.
-    */
-    Request(String const& method, Url const& url)
-        : m_method(method), m_url(url)
-    {}
 
 public:
 
@@ -1151,7 +1028,8 @@ public:
     */
     OStream& writeFirstLine(OStream & os) const
     {
-        return os << getMethod() << " " << getUrl().getPath()
+        return os << getMethod() << " "
+            << getUrl().toStr(Url::PATH|Url::QUERY)
             << " HTTP/" << getVersionMajor() << "."
             << getVersionMinor() << impl::CRLF;
     }
@@ -1176,7 +1054,7 @@ public:
         if (!hasHeader(header::Host))
         {
             os << header::Host << ": "
-                << getUrl().toString(Url::HOST|Url::PORT)
+                << getUrl().toStr(Url::HOST|Url::PORT)
                 << impl::CRLF;
         }
 
@@ -1188,6 +1066,10 @@ private:
     String m_method; ///< @brief The HTTP method.
     Url m_url;       ///< @brief The URL.
 };
+
+
+/// @brief The HTTP request shared pointer type.
+typedef Request::SharedPtr RequestPtr;
 
 
 /// @brief Write the whole request to the output stream.
@@ -1279,6 +1161,18 @@ They are created by the Client automatically.
 class Response:
     public Message
 {
+protected:
+
+    /// @brief The default constructor.
+    /**
+    @param[in] status The status code.
+    @param[in] reason The status phrase.
+    */
+    Response(int status, String const& reason)
+        : m_statusCode(status),
+          m_statusPhrase(reason)
+    {}
+
 public:
 
     /// @brief The shared pointer type.
@@ -1296,34 +1190,19 @@ public:
         return SharedPtr(new Response(status, reason));
     }
 
-protected:
-
-    /// @brief The default constructor.
-    /**
-    @param[in] status The status code.
-    @param[in] reason The status phrase.
-    */
-    Response(int status, String const& reason)
-        : m_statusCode(status),
-          m_statusPhrase(reason)
-    {}
-
-
 /// @name Response status
 /// @{
-private:
-    int m_statusCode; ///< @brief The status code.
-    String m_statusPhrase; ///< @brief The status phrase.
-
 public:
 
     /// @brief Set the status code.
     /**
     @param[in] status The status code.
+    @return Self reference.
     */
-    void setStatusCode(int status)
+    Response& setStatusCode(int status)
     {
         m_statusCode = status;
+        return *this;
     }
 
 
@@ -1340,10 +1219,12 @@ public:
     /// @brief Set the status phrase.
     /**
     @param[in] reason The status phrase.
+    @return Self reference.
     */
-    void setStatusPhrase(String const& reason)
+    Response& setStatusPhrase(String const& reason)
     {
         m_statusPhrase = reason;
+        return *this;
     }
 
 
@@ -1354,6 +1235,16 @@ public:
     String const& getStatusPhrase() const
     {
         return m_statusPhrase;
+    }
+
+
+    /// @brief Is status code successful?
+    /**
+    @return `true` if status code is in range [200..299].
+    */
+    bool isStatusSuccessful() const
+    {
+        return 200 <= m_statusCode && m_statusCode < 300;
     }
 /// @}
 
@@ -1390,7 +1281,15 @@ public:
         writeContent(os);
         return os;
     }
+
+private:
+    int m_statusCode; ///< @brief The status code.
+    String m_statusPhrase; ///< @brief The status phrase.
 };
+
+
+/// @brief The HTTP response shared pointer type.
+typedef Response::SharedPtr ResponsePtr;
 
 
 /// @brief Write the whole response to the output stream.
@@ -1424,18 +1323,10 @@ public:
     typedef boost::asio::io_service IOService; ///< @brief The IO service type.
     typedef boost::system::error_code ErrorCode; ///< @brief The error code type.
     typedef boost::asio::ip::tcp::resolver Resolver; ///< @brief The resolver type.
+    typedef boost::asio::ip::tcp::endpoint Endpoint; ///< @brief The endpoint type.
     typedef boost::asio::streambuf StreamBuf; ///< @brief The stream buffer type.
     typedef boost::asio::mutable_buffers_1 MutableBuffers; ///< @brief The mutable buffers.
     typedef boost::asio::const_buffers_1 ConstBuffers; ///< @brief The constant buffers.
-
-public:
-
-    /// @brief The shared pointer type.
-    typedef boost::shared_ptr<Connection> SharedPtr;
-
-    // real connections
-    class Simple;
-    class Secure;
 
 protected:
 
@@ -1448,6 +1339,15 @@ public:
     /// @brief The trivial destructor.
     virtual ~Connection()
     {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<Connection> SharedPtr;
+
+    // real connections
+    class Simple;
+    class Secure;
 
 public:
 
@@ -1467,6 +1367,13 @@ public:
     @return The corresponding IO service.
     */
     virtual IOService& get_io_service() = 0;
+
+
+    /// @brief Get the remote endpoint.
+    /**
+    @return The remote endpoint.
+    */
+    virtual Endpoint remote_endpoint() const = 0;
 
 
     /// @brief Close the connection.
@@ -1536,6 +1443,9 @@ private:
     StreamBuf m_buffer;
 };
 
+/// @brief The HTTP connection shared pointer type.
+typedef Connection::SharedPtr ConnectionPtr;
+
 
 /// @brief The simple HTTP connection.
 /**
@@ -1576,11 +1486,11 @@ public:
 
 public:
 
-    /// @brief Get the socket.
+    /// @brief Get the socket stream.
     /**
     @return The socket.
     */
-    TcpSocket& getSocket()
+    TcpSocket& getStream()
     {
         return m_socket;
     }
@@ -1591,6 +1501,13 @@ public: // Connection
     virtual IOService& get_io_service()
     {
         return m_socket.get_io_service();
+    }
+
+
+    /// @copydoc Connection::remote_endpoint()
+    virtual Endpoint remote_endpoint() const
+    {
+        return m_socket.remote_endpoint();
     }
 
 
@@ -1612,7 +1529,7 @@ public: // Connection
     {
         // attempt a connection to each endpoint in the list
         boost::asio::async_connect(
-            getSocket(), epi, boost::bind(callback,
+            m_socket, epi, boost::bind(callback,
                 boost::asio::placeholders::error));
     }
 
@@ -1631,7 +1548,7 @@ public: // Connection
     /// @copydoc Connection::async_write_some()
     virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback)
     {
-        getSocket().async_write_some(bufs,
+        m_socket.async_write_some(bufs,
             boost::bind(callback, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
@@ -1640,7 +1557,7 @@ public: // Connection
     /// @copydoc Connection::async_read_some()
     virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback)
     {
-        getSocket().async_read_some(bufs,
+        m_socket.async_read_some(bufs,
             boost::bind(callback, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
@@ -1713,15 +1630,22 @@ public: // Connection
     }
 
 
+    /// @copydoc Connection::remote_endpoint()
+    virtual Endpoint remote_endpoint() const
+    {
+        return m_stream.lowest_layer().remote_endpoint();
+    }
+
+
     /// @copydoc Connection::close()
     virtual void close()
     {
         ErrorCode terr;
 
-        getStream().lowest_layer().shutdown(TcpSocket::shutdown_both, terr);
+        m_stream.lowest_layer().shutdown(TcpSocket::shutdown_both, terr);
         // ignore error code?
 
-        getStream().lowest_layer().close(terr);
+        m_stream.lowest_layer().close(terr);
         // ignore error code?
     }
 
@@ -1730,7 +1654,7 @@ public: // Connection
     virtual void async_connect(Resolver::iterator epi, ConnectCallback callback)
     {
         // attempt a connection to each endpoint in the list
-        boost::asio::async_connect(getStream().lowest_layer(), epi,
+        boost::asio::async_connect(m_stream.lowest_layer(), epi,
             boost::bind(callback, boost::asio::placeholders::error));
     }
 
@@ -1738,7 +1662,7 @@ public: // Connection
     /// @copydoc Connection::async_handshake()
     virtual void async_handshake(int type, HandshakeCallback callback)
     {
-        getStream().async_handshake(
+        m_stream.async_handshake(
             boost::asio::ssl::stream_base::handshake_type(type),
             boost::bind(callback, boost::asio::placeholders::error));
     }
@@ -1747,7 +1671,7 @@ public: // Connection
     /// @copydoc Connection::async_write_some()
     virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback)
     {
-        getStream().async_write_some(bufs,
+        m_stream.async_write_some(bufs,
             boost::bind(callback, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
@@ -1756,7 +1680,7 @@ public: // Connection
     /// @copydoc Connection::async_read_some()
     virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback)
     {
-        getStream().async_read_some(bufs,
+        m_stream.async_read_some(bufs,
             boost::bind(callback, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
@@ -1795,6 +1719,33 @@ public:
     typedef boost::asio::ip::tcp::endpoint Endpoint; ///< @brief The endpoint type.
     typedef boost::asio::deadline_timer Timer;       ///< @brief The timer type.
 
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] ios The IO service.
+    @param[in] name The client name.
+    */
+    explicit Client(IOService &ios, String const& name)
+        : m_ios(ios)
+        , m_log("/hive/http/client/" + name)
+        , m_nameCache(10*60000) // 10 minutes
+#if !defined(HIVE_DISABLE_SSL)
+        , m_context(boost::asio::ssl::context::sslv23)
+#endif // HIVE_DISABLE_SSL
+    {
+        HIVELOG_TRACE_STR(m_log, "created");
+    }
+
+public:
+
+    /// @brief The trivial destructor.
+    virtual ~Client()
+    {
+        assert(m_taskList.empty() && "not all tasks are finished");
+        HIVELOG_TRACE_STR(m_log, "deleted");
+    }
+
 public:
 
     /// @brief The shared pointer type.
@@ -1812,43 +1763,6 @@ public:
         return SharedPtr(new Client(ios, name));
     }
 
-
-    /// @brief The trivial destructor.
-    virtual ~Client()
-    {
-        HIVELOG_TRACE_STR(m_log, "deleted");
-    }
-
-protected:
-
-    /// @brief The main constructor.
-    /**
-    @param[in] ios The IO service.
-    @param[in] name The client name.
-    */
-    explicit Client(IOService &ios, String const& name)
-        : m_ios(ios)
-#if !defined(HIVE_DISABLE_SSL)
-        , m_context(boost::asio::ssl::context::sslv23)
-#endif // HIVE_DISABLE_SSL
-        , m_log("/hive/http/client/" + name)
-    {
-        HIVELOG_TRACE_STR(m_log, "created");
-    }
-
-private:
-
-    /// @brief The IO service.
-    IOService &m_ios;
-
-#if !defined(HIVE_DISABLE_SSL)
-    /// @brief The SSL context.
-    Connection::Secure::SslContext m_context;
-#endif // HIVE_DISABLE_SSL
-
-    /// @brief The HTTP logger.
-    log::Logger m_log;
-
 public:
 
     /// @brief Get the IO service.
@@ -1862,38 +1776,114 @@ public:
 
 public:
 
-    /// @brief The callback type.
+    /// @brief The one request/response task.
     /**
-    The callback signature should be the following:
-
-    ~~~{.cpp}
-    void cb(boost::system::error_code err,
-        http::Request::SharedPtr request,
-        http::Response::SharedPtr response,
-        http::Connection::SharedPtr connection)
-    ~~~
-
-    Note that response may be NULL!
+    Contains data related to one request/response pair.
     */
-    typedef boost::function4<void, ErrorCode,
-        Request::SharedPtr, Response::SharedPtr,
-            Connection::SharedPtr> Callback2;
+    class Task
+    {
+        friend class Client;
+    public:
+        typedef boost::shared_ptr<Task> SharedPtr; ///< @brief The shared pointer type.
 
+        ConnectionPtr connection;   ///< @brief The HTTP or HTTPS connection.
+        RequestPtr    request;      ///< @brief The request object.
+        ResponsePtr   response;     ///< @brief The response object.
+        ErrorCode     errorCode;    ///< @brief The task error code.
+
+    public:
+
+        /// @brief The callback method type.
+        typedef boost::function0<void> Callback;
+
+        /// @brief Call this method when task is done.
+        /**
+        This callback will be called when this task is finished (successful or not).
+
+        @param[in] cb The callback to call.
+        */
+        void callWhenDone(Callback cb)
+        {
+            if (!m_callback)
+                m_callback = cb;
+            else
+                m_callback = boost::bind(&Task::zcall2, m_callback, cb);
+        }
+
+    public:
+
+        /// @brief Cancel all task operations.
+        /**
+        This method cancels current task.
+        */
+        void cancel()
+        {
+            m_cancelled = true;
+            m_resolver.cancel();
+            if (connection)
+                connection->close();
+        }
+
+    private:
+        boost::function0<void> m_callback; ///< @brief The callback method.
+
+        bool m_timer_started; ///< @brief The timer "started" flag.
+        Timer m_timer;    ///< @brief The deadline timer.
+
+        Resolver m_resolver; ///< @brief The host name resolver.
+
+        bool m_cancelled; ///< @brief The "cancelled" flag.
+        size_t m_rx_len; ///< @brief The expected content-length.
+
+    private:
+
+        /// @brief Call two callbacks.
+        /**
+        @param[in] cb1 The first callback.
+        @param[in] cb2 The second callback.
+        */
+        static void zcall2(Callback cb1, Callback cb2)
+        {
+            cb1();
+            cb2();
+        }
+
+    private:
+
+        /// @brief The main constructor.
+        /**
+        @param[in] ios The IO service.
+        @param[in] req The request.
+        */
+        Task(IOService &ios, RequestPtr req)
+            : request(req)
+            , m_timer_started(false)
+            , m_timer(ios)
+            , m_resolver(ios)
+            , m_cancelled(false)
+            , m_rx_len(0)
+        {}
+    };
+
+    /// @brief The Task shared pointer type.
+    typedef Task::SharedPtr TaskPtr;
+
+public:
 
     /// @brief Send request asynchronously.
     /**
     @param[in] request The HTTP request to send.
-    @param[in] callback The response callback function.
     @param[in] timeout_ms The request timeout, milliseconds.
         If it's zero, no any deadline timers will be started.
+    @return The new task instance.
     */
-    void send2(Request::SharedPtr request, Callback2 callback, size_t timeout_ms)
+    TaskPtr send(Request::SharedPtr request, size_t timeout_ms)
     {
         HIVELOG_TRACE_BLOCK(m_log, "send()");
         assert(request && "no request");
 
         // create new task for the request
-        Task::SharedPtr task(new Task(m_ios, request, callback));
+        TaskPtr task(new Task(m_ios, request));
 
         if (0 < timeout_ms)
         {
@@ -1901,134 +1891,43 @@ public:
             {
                 HIVELOG_ERROR(m_log, "cannot start deadline timer: ["
                     << err << "] " << err.message());
-                m_ios.post(boost::bind(callback, err,
-                    request, Response::SharedPtr(),
-                        Connection::SharedPtr()));
-                return; // no task started
+                return TaskPtr(); // no task started
             }
 
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
                 << request->getMethod() << " request to <"
-                << request->getUrl().getHost() << "> with "
+                << request->getUrl().toStr() << "> with "
                 << timeout_ms << " ms timeout:\n" << *request);
         }
         else
         {
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
                 << request->getMethod() << " request to <"
-                << request->getUrl().getHost()
+                << request->getUrl().toStr()
                 << "> without timeout:\n" << *request);
         }
 
-        m_tasks.push_back(task);
+        m_taskList.push_back(task);
         asyncResolve(task);
+        return task;
     }
 
 
-    /// @brief The callback type.
+    /// @brief Cancel all tasks.
     /**
-    The callback signature should be the following:
-
-    ~~~{.cpp}
-    void cb(boost::system::error_code err,
-        http::Request::SharedPtr request,
-        http::Response::SharedPtr response)
-    ~~~
-
-    Note that response may be NULL!
-    */
-    typedef boost::function3<void, ErrorCode,
-        Request::SharedPtr, Response::SharedPtr> Callback;
-
-
-    /// @brief Send request asynchronously.
-    /**
-    @param[in] request The HTTP request to send.
-    @param[in] callback The response callback function.
-    @param[in] timeout_ms The request timeout, milliseconds.
-        If it's zero, no any deadline timers will be started.
-    */
-    void send(Request::SharedPtr request, Callback callback, size_t timeout_ms)
-    {
-        send2(request, boost::bind(callback, _1, _2, _3), timeout_ms);
-    }
-
-
-    /// @brief Cancel all requests.
-    /**
-    All active requests will be finished with `boost::asio::error::operation_aborted` error code.
+    All active tasks will be finished with `boost::asio::error::operation_aborted` error code.
     */
     void cancelAll()
     {
         HIVELOG_TRACE_BLOCK(m_log, "cancelAll()");
-        while (!m_tasks.empty())
+        TaskList::iterator i = m_taskList.begin();
+        TaskList::iterator e = m_taskList.end();
+        for (; i != e; ++i)
         {
-            Task::SharedPtr task = m_tasks.front();
-            done(task, boost::asio::error::operation_aborted);
+            TaskPtr task = *i;
             task->cancel();
         }
     }
-
-private:
-
-    /// @brief The one task (request/response).
-    /**
-    Contains data related to one request/response pair.
-    */
-    class Task
-    {
-    public:
-        typedef boost::shared_ptr<Task> SharedPtr; ///< @brief The shared pointer type.
-
-        Request::SharedPtr  request;  ///< @brief The request object.
-        Response::SharedPtr response; ///< @brief The response object.
-
-        Callback2 callback; ///< @brief The callback method.
-
-        bool timer_started; ///< @brief The timer "started" flag.
-        Timer timer;    ///< @brief The deadline timer.
-
-        Resolver resolver; ///< @brief The host name resolver.
-        Connection::SharedPtr connection; ///< @brief The HTTP or HTTPS connection.
-
-        bool cancelled; ///< @brief The "cancelled" flag.
-        size_t rx_len; ///< @brief The expected content-length.
-
-    public:
-
-        /// @brief The main constructor.
-        /**
-        @param[in] ios The IO service.
-        @param[in] req The request.
-        @param[in] cb The callback.
-        */
-        Task(IOService &ios, Request::SharedPtr req, Callback2 cb)
-            : request(req)
-            , callback(cb)
-            , timer_started(false)
-            , timer(ios)
-            , resolver(ios)
-            , cancelled(false)
-            , rx_len(0)
-        {}
-
-    public:
-
-        /// @brief Cancel all operations.
-        void cancel()
-        {
-            cancelled = true;
-            resolver.cancel();
-            if (connection)
-                connection->close();
-        }
-    };
-
-private:
-
-    /// @brief The task list type.
-    typedef std::list<Task::SharedPtr> TaskList;
-    TaskList m_tasks; ///< @brief The task list.
 
 private:
 
@@ -2038,19 +1937,19 @@ private:
 
     @param[in] task The task.
     */
-    void finish(Task::SharedPtr task)
+    void finish(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "finish(task)");
 
         Connection::StreamBuf &sbuf = task->connection->getBuffer();
         Connection::StreamBuf::const_buffers_type data = sbuf.data();
 
-        if (task->rx_len != std::numeric_limits<size_t>::max())
+        if (task->m_rx_len != std::numeric_limits<size_t>::max())
         {
             task->response->setContent(String(
                 boost::asio::buffers_begin(data),
-                boost::asio::buffers_begin(data) + task->rx_len));
-            sbuf.consume(task->rx_len);
+                boost::asio::buffers_begin(data) + task->m_rx_len));
+            sbuf.consume(task->m_rx_len);
         }
         else // copy whole buffer
         {
@@ -2074,28 +1973,23 @@ private:
     @param[in] task The task to remove.
     @param[in] err The error code.
     */
-    void done(Task::SharedPtr task, ErrorCode err)
+    void done(TaskPtr task, ErrorCode err)
     {
         HIVELOG_TRACE_BLOCK(m_log, "done(task)");
 
-        if (task->timer_started)
+        task->errorCode = err;
+        if (task->m_timer_started)
         {
-            task->timer.cancel();
-            task->timer_started = false;
+            task->m_timer.cancel();
+            task->m_timer_started = false;
         }
-        if (task->callback)
+        if (task->m_callback)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} request to call callback");
-
-            // callback will be called later, outside this method
-            m_ios.post(boost::bind(task->callback,
-                err, task->request, task->response,
-                    task->connection));
-            task->callback = Callback2();
+            task->m_callback(); // call it
+            task->m_callback = Task::Callback();
         }
 
-        m_tasks.remove(task);
+        m_taskList.remove(task);
     }
 
 /// @name Task timeout
@@ -2108,20 +2002,20 @@ private:
     @param[in] timeout_ms The timeout in milliseconds.
     @return The error code.
     */
-    ErrorCode asyncStartTimeout(Task::SharedPtr task, size_t timeout_ms)
+    ErrorCode asyncStartTimeout(TaskPtr task, size_t timeout_ms)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncStartTimeout(task)");
         ErrorCode err;
 
         // initialize timer
-        task->timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms), err);
+        task->m_timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms), err);
         if (!err)
         {
             // start it
-            task->timer.async_wait(
+            task->m_timer.async_wait(
                 boost::bind(&Client::onTimedOut, shared_from_this(),
                     task, boost::asio::placeholders::error));
-            task->timer_started = true;
+            task->m_timer_started = true;
         }
 
         return err;
@@ -2133,7 +2027,7 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onTimedOut(Task::SharedPtr task, ErrorCode err)
+    void onTimedOut(TaskPtr task, ErrorCode err)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onTimedOut(task)");
 
@@ -2159,7 +2053,7 @@ private:
     }
 /// @}
 
-/// @name Resolve the host
+/// @name Resolve the host name
 /// @{
 private:
 
@@ -2167,7 +2061,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncResolve(Task::SharedPtr task)
+    void asyncResolve(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncResolve(task)");
 
@@ -2175,13 +2069,24 @@ private:
         String const& service = url.getPort().empty()
             ? url.getProtocol() : url.getPort();
 
-        // start async resolve operation
-        HIVELOG_DEBUG(m_log, "{" << task.get() << "} start async resolve <"
-            << url.getHost() << ">, \"" << service << "\" service");
-        task->resolver.async_resolve(Resolver::query(url.getHost(), service),
-            boost::bind(&Client::onResolved, shared_from_this(),
-                task, boost::asio::placeholders::error,
-                boost::asio::placeholders::iterator));
+        Endpoint cachedEndpoint;
+        const String hostName = url.toStr(Url::PROTOCOL|Url::HOST|Url::PORT);
+        if (m_nameCache.enabled() && m_nameCache.find(hostName, cachedEndpoint))
+        {
+            Resolver::iterator epi = Resolver::iterator::create(cachedEndpoint, url.getHost(), service);
+            m_ios.post(boost::bind(&Client::onResolved, shared_from_this(), task, ErrorCode(), epi));
+            HIVELOG_DEBUG(m_log, "{" << task.get() << "} resolved from name cache!");
+        }
+        else
+        {
+            // start async resolve operation
+            HIVELOG_DEBUG(m_log, "{" << task.get() << "} start async resolve <"
+                << url.getHost() << ">, \"" << service << "\" service");
+            task->m_resolver.async_resolve(Resolver::query(url.getHost(), service),
+                boost::bind(&Client::onResolved, shared_from_this(),
+                    task, boost::asio::placeholders::error,
+                    boost::asio::placeholders::iterator));
+        }
     }
 
 
@@ -2191,23 +2096,23 @@ private:
     @param[in] err The error code.
     @param[in] epi The endpoint iterator.
     */
-    void onResolved(Task::SharedPtr task, ErrorCode err, Resolver::iterator epi)
+    void onResolved(TaskPtr task, ErrorCode err, Resolver::iterator epi)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onResolved(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} <"
                 << task->request->getUrl().getHost()
-                << "> resolved as:\n" << dump(epi));
+                << "> resolved as: " << dump(epi));
 
             asyncConnect(task, epi);
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async resolve cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2229,14 +2134,15 @@ private:
     @param[in] task The task.
     @param[in] epi The endpoint iterator.
     */
-    void asyncConnect(Task::SharedPtr task, Resolver::iterator epi)
+    void asyncConnect(TaskPtr task, Resolver::iterator epi)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncConnect(task)");
 
-        if (boost::iequals(task->request->getUrl().getProtocol(), "https")) // secure connection?
+        String const& proto = task->request->getUrl().getProtocol();
+        if (boost::iequals(proto, "https") || boost::iequals(proto, "wss")) // secure connection?
         {
 #if !defined(HIVE_DISABLE_SSL)
-            // TODO: select one of unused connection?
+            // TODO: select an unused connection?
             Connection::Secure::SharedPtr conn = Connection::Secure::create(m_ios, m_context);
             conn->getStream().set_verify_mode(boost::asio::ssl::verify_none); // TODO: boost::asio::ssl::verify_peer
             conn->getStream().set_verify_callback(
@@ -2252,7 +2158,7 @@ private:
         }
         else
         {
-            // TODO: select one of unused connection?
+            // TODO: select an unused connection?
             task->connection = Connection::Simple::create(m_ios);
         }
 
@@ -2270,21 +2176,28 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onConnected(Task::SharedPtr task, ErrorCode err)
+    void onConnected(TaskPtr task, ErrorCode err)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onConnected(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             // TODO: handle Expect 100 header?
 
+            if (m_nameCache.enabled()) // update name cache
+            {
+                Url const& url = task->request->getUrl();
+                const String hostName = url.toStr(Url::PROTOCOL|Url::HOST|Url::PORT);
+                m_nameCache.update(hostName, task->connection->remote_endpoint());
+            }
+
             asyncHandshake(task);
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async connection cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2304,7 +2217,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncHandshake(Task::SharedPtr task)
+    void asyncHandshake(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncHandshake(task)");
 
@@ -2327,19 +2240,19 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onHandshaked(Task::SharedPtr task, ErrorCode err)
+    void onHandshaked(TaskPtr task, ErrorCode err)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onHandshaked(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             asyncWriteRequest(task);
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async handshake cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2379,7 +2292,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncWriteRequest(Task::SharedPtr task)
+    void asyncWriteRequest(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncWriteRequest(task)");
 
@@ -2404,19 +2317,19 @@ private:
     @param[in] err The error code.
     @param[in] len The number of bytes transferred.
     */
-    void onRequestWritten(Task::SharedPtr task, ErrorCode err, size_t len)
+    void onRequestWritten(TaskPtr task, ErrorCode err, size_t len)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onRequestWritten(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             asyncReadStatus(task);
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async request sending cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2436,7 +2349,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncReadStatus(Task::SharedPtr task)
+    void asyncReadStatus(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadStatus(task)");
 
@@ -2456,11 +2369,11 @@ private:
     @param[in] err The error code.
     @param[in] len The number of bytes transferred.
     */
-    void onStatusRead(Task::SharedPtr task, ErrorCode err, size_t len)
+    void onStatusRead(TaskPtr task, ErrorCode err, size_t len)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onStatusRead(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             std::istreambuf_iterator<char> buf_beg(&task->connection->getBuffer());
             const std::istreambuf_iterator<char> buf_end;
@@ -2489,11 +2402,11 @@ private:
                 done(task, boost::asio::error::no_data); // boost::asio::error::failure
             }
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async status line receiving cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2513,7 +2426,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncReadHeaders(Task::SharedPtr task)
+    void asyncReadHeaders(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadHeaders(task)");
 
@@ -2533,11 +2446,11 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onHeadersRead(Task::SharedPtr task, ErrorCode err, size_t)
+    void onHeadersRead(TaskPtr task, ErrorCode err, size_t)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onHeadersRead(task)");
 
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             Connection::StreamBuf &sbuf = task->connection->getBuffer();
             std::istreambuf_iterator<char> buf_beg(&sbuf);
@@ -2547,10 +2460,10 @@ private:
             {
                 const String len_s = task->response->getHeader(header::Content_Length);
                 if (!len_s.empty())
-                    task->rx_len = boost::lexical_cast<size_t>(len_s);
+                    task->m_rx_len = boost::lexical_cast<size_t>(len_s);
 
                 // stop if we got all content data
-                if (task->rx_len <= sbuf.size())
+                if (task->m_rx_len <= sbuf.size())
                 {
                     finish(task);
                     done(task, err);
@@ -2565,11 +2478,11 @@ private:
                 done(task, boost::asio::error::no_data); // boost::asio::error::failure
             }
         }
-        else if (boost::asio::error::operation_aborted == err && task->cancelled)
+        else if (task->m_cancelled)
         {
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async headers receiving cancelled");
-            // do nothing
+            done(task, boost::asio::error::operation_aborted);
         }
         else
         {
@@ -2589,7 +2502,7 @@ private:
     /**
     @param[in] task The task.
     */
-    void asyncReadContent(Task::SharedPtr task)
+    void asyncReadContent(TaskPtr task)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadContent(task)");
 
@@ -2610,15 +2523,15 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     */
-    void onContentRead(Task::SharedPtr task, ErrorCode err, size_t)
+    void onContentRead(TaskPtr task, ErrorCode err, size_t)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onContentRead(task)");
 
         Connection::StreamBuf &sbuf = task->connection->getBuffer();
-        if (!err && !task->cancelled)
+        if (!err && !task->m_cancelled)
         {
             // stop if we got all content data
-            if (task->rx_len <= sbuf.size())
+            if (task->m_rx_len <= sbuf.size())
             {
                 finish(task);
                 done(task, err);
@@ -2626,11 +2539,17 @@ private:
             else // continue reading
                 asyncReadContent(task);
         }
+        else if (task->m_cancelled)
+        {
+            HIVELOG_DEBUG(m_log, "{" << task.get()
+                << "} async content receiving cancelled");
+            done(task, boost::asio::error::operation_aborted);
+        }
         else if (err == boost::asio::error::eof)
         {
             // clear error if we got the whole content
-            if (task->rx_len == std::numeric_limits<size_t>::max()
-                || task->rx_len <= sbuf.size())
+            if (task->m_rx_len == std::numeric_limits<size_t>::max()
+                || task->m_rx_len <= sbuf.size())
                     err = ErrorCode();
 
             finish(task);
@@ -2646,6 +2565,7 @@ private:
     }
 /// @}
 
+
 /// @name Dump tools
 /// @{
 private:
@@ -2658,16 +2578,22 @@ private:
     static String dump(Resolver::iterator epi)
     {
         OStringStream oss;
+        oss << "[";
 
         const Resolver::iterator ie;
         for (Resolver::iterator i = epi; i != ie; ++i)
         {
             const Endpoint endpoint(*i);
             const boost::asio::ip::address addr = endpoint.address();
-            oss << "\t-" << (addr.is_v6() ? "v6" : (addr.is_v4() ? "v4" : "??"))
-                << " " << addr.to_string() << ":" << endpoint.port() << "\n";
+
+            if (i != epi)
+                oss << ", ";
+
+            oss << addr.to_string() << ":" << endpoint.port()
+                << (addr.is_v6() ? "-v6" : (addr.is_v4() ? "-v4" : ""));
         }
 
+        oss << "]";
         return oss.str();
     }
 
@@ -2770,6 +2696,28 @@ private:
     }
 
 
+    /// @brief Check for the scpecial character.
+    /**
+    The special characters are: "()<>@,;:\"/[]?={}", space and tab.
+
+    @param[in] ch The input character to test.
+    @return `true` if input character is one of the special character.
+    */
+    static bool is_tspecial(int ch)
+    {
+        switch (ch)
+        {
+            case '(': case ')': case '<': case '>': case '@':
+            case ',': case ';': case ':': case '\\': case '"':
+            case '/': case '[': case ']': case '?': case '=':
+            case '{': case '}': case ' ': case '\t':
+                return true;
+        }
+
+        return false;
+    }
+
+
     /// @brief Parse the headers.
     /**
     @param[in] first The begin of input stream.
@@ -2805,7 +2753,7 @@ private:
                 case FIRST_HEADER_LINE_START:
                     if (ch == '\r')
                         state = FINAL_LINEFEED;
-                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || impl::is_tspecial(ch))
+                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || is_tspecial(ch))
                         state = FAIL;
                     else
                     {
@@ -2824,7 +2772,7 @@ private:
                     }
                     else if (ch == ' ' || ch == '\t')
                         state = HEADER_LWS;
-                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || impl::is_tspecial(ch))
+                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || is_tspecial(ch))
                         state = FAIL;
                     else
                     {
@@ -2853,7 +2801,7 @@ private:
                 case HEADER_NAME:
                     if (ch == ':')
                         state = SPACE_BEFORE_HEADER_VALUE;
-                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || impl::is_tspecial(ch))
+                    else if (!misc::is_char(ch) || misc::is_ctl(ch) || is_tspecial(ch))
                         state = FAIL;
                     else
                         name.push_back(ch);
@@ -2887,200 +2835,122 @@ private:
         return false;
     }
 /// @}
-};
 
 
-typedef    Request::SharedPtr    RequestPtr;  ///< @brief The HTTP request shared pointer type.
-typedef   Response::SharedPtr   ResponsePtr;  ///< @brief The HTTP response shared pointer type.
-typedef Connection::SharedPtr ConnectionPtr;  ///< @brief The HTTP connection shared pointer type.
-typedef     Client::SharedPtr     ClientPtr;  ///< @brief The HTTP client shared pointer type.
+private:
 
-
-/// @name Base64 encoding
-/// @{
-
-/// @brief Encode the custom binary buffer.
-/**
-The output buffer should be 4/3 times big than input buffer.
-
-@param[in] first The begin of input buffer.
-@param[in] last The end of output buffer.
-@param[in] out The begin of output buffer.
-@return The end of output buffer.
-*/
-template<typename In, typename Out>
-Out base64_encode(In first, In last, Out out)
-{
-    const char TABLE[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-
-    // [xxxxxxxx][yyyyyyyy][zzzzzzzz] => [aaaaaa][bbbbbb][cccccc][dddddd]
-    while (first != last)
+    /// @name The DNS name cache.
+    class NameCache
     {
-        const int x = UInt8(*first++);          // byte #0
+    public:
 
-        int a = (x>>2) & 0x3F;      // [xxxxxx--] => [00xxxxxx]
-        int b = (x<<4) & 0x3F;      // [------xx] => [00xx0000]
-        int c = 64;                 // '=' by default
-        int d = 64;                 // '=' by default
+        /// @brief Default constructor.
+        /**
+        @param[in] lifetime_ms The entry lifetime in milliseconds.
+        */
+        explicit NameCache(size_t lifetime_ms)
+            : m_lifetime(lifetime_ms)
+        {}
 
-        if (first != last)
+
+        /// @brief Is enabled?
+        /**
+        @return `true` if cache is enabled.
+        */
+        bool enabled() const
         {
-            const int y = UInt8(*first++);      // byte #1
-
-            b |= (y>>4) & 0x0F;     // [yyyy----] => [00xxyyyy]
-            c  = (y<<2) & 0x3F;     // [----yyyy] => [00yyyy00]
-
-            if (first != last)
-            {
-                const int z = UInt8(*first++);   // byte #2
-
-                c |= (z>>6) & 0x03; // [zz------] => [00yyyyzz]
-                d  =  z     & 0x3F; // [--zzzzzz] => [00zzzzzz]
-            }
+            return 0 < m_lifetime;
         }
 
-        *out++ = TABLE[a];
-        *out++ = TABLE[b];
-        *out++ = TABLE[c];
-        *out++ = TABLE[d];
-    }
+    public:
 
-    return out;
-}
+        /// @brief Update the entry.
+        /**
+        @param[in] host The host name.
+        @param[in] endpoint The host endpoint.
+        */
+        void update(String const& host, Endpoint const& endpoint)
+        {
+            // TODO: do not reset lifetime of existing items?
+            m_cache[host] = Entry(endpoint);
+        }
 
 
-/// @brief Decode the custom binary buffer.
-/**
-The output buffer should be 4/3 times less than input buffer.
+        /// @brief Remove the entry.
+        /**
+        @param[in] host The host name.
+        */
+        void remove(String const& host)
+        {
+            m_cache.erase(host);
+        }
 
-@param[in] first The begin of input buffer.
-@param[in] last The end of output buffer.
-@param[in] out The begin of output buffer.
-@return The end of output buffer.
-@throw std::runtime_error on invalid data.
-*/
-template<typename In, typename Out>
-Out base64_decode(In first, In last, Out out)
-{
-    const Int8 TABLE[] =
-    {
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,62,  -1,-1,-1,63,
-        52,53,54,55,  56,57,58,59,  60,61,-1,-1,  -1,-1,-1,-1,
-        -1, 0, 1, 2,   3, 4, 5, 6,   7, 8, 9,10,  11,12,13,14,
-        15,16,17,18,  19,20,21,22,  23,24,25,-1,  -1,-1,-1,-1,
-        -1,26,27,28,  29,30,31,32,  33,34,35,36,  37,38,39,40,
-        41,42,43,44,  45,46,47,48,  49,50,51, 1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,
-        -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1,  -1,-1,-1,-1
+
+        /// @brief Get the endpoint from name cache.
+        /**
+        @param[in] host The host name.
+        @param[out] endpoint The host endpoint.
+        @return `false` if name entry not found.
+        */
+        bool find(String const& host, Endpoint &endpoint)
+        {
+            typedef std::map<String, Entry>::iterator Iterator;
+            const Iterator i = m_cache.find(host);
+            if (i != m_cache.end())
+            {
+                const Entry entry = i->second;
+
+                const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+                if ((now - entry.created).total_milliseconds() < m_lifetime)
+                {
+                    endpoint = i->second.endpoint;
+                    return true;
+                }
+                else
+                    m_cache.erase(i); // lifetime expired!
+            }
+
+            return false; // not found
+        }
+
+    private:
+
+        /// @brief The cache entry.
+        struct Entry
+        {
+            Endpoint endpoint;
+            boost::posix_time::ptime created;
+
+            explicit Entry(Endpoint const& ep)
+                : endpoint(ep)
+                , created(boost::posix_time::microsec_clock::universal_time())
+            {}
+
+            Entry()
+            {}
+        };
+
+        std::map<String, Entry> m_cache; ///< @brief The DNS name cache.
+        size_t m_lifetime; ///< @brief The DNS name entry lifetime, milliseconds.
     };
 
+private:
+    IOService &m_ios; ///< @brief The IO service.
+    hive::log::Logger m_log; ///< @brief The HTTP logger.
+    NameCache m_nameCache; ///< @brief The local DNS name cache.
 
-    // [aaaaaa][bbbbbb][cccccc][dddddd] => [xxxxxxxx][yyyyyyyy][zzzzzzzz]
-    // [aaaaaa][bbbbbb][cccc00][=]      => [xxxxxxxx][yyyyyyyy]
-    // [aaaaaa][bb0000][=][=]           => [xxxxxxxx]
-    while (first != last)
-    {
-        const int aa =                   UInt8(*first++);
-        const int bb = (first != last) ? UInt8(*first++) : 0;
-        const int cc = (first != last) ? UInt8(*first++) : 0;
-        const int dd = (first != last) ? UInt8(*first++) : 0;
+#if !defined(HIVE_DISABLE_SSL)
+    /// @brief The SSL context.
+    Connection::Secure::SslContext m_context;
+#endif // HIVE_DISABLE_SSL
 
-        const int a = TABLE[aa];
-        const int b = TABLE[bb];
+    /// @brief The task list type.
+    typedef std::list<TaskPtr> TaskList;
+    TaskList m_taskList; ///< @brief The task list.
+};
 
-
-        if (a < 0 || b < 0)
-            throw std::runtime_error("invalid base64 data");
-        *out++ = (a<<2) | ((b>>4)&0x03);                // [00aaaaaa][00bb----] => [xxxxxxxx]
-
-        if (cc != '=')
-        {
-            const int c = TABLE[cc];
-            if (c < 0)
-                throw std::runtime_error("invalid base64 data");
-            *out++ = ((b<<4)&0xF0) | ((c>>2)&0x0F);     // [00--bbbb][00cccc--] => [yyyyyyyy]
-
-            if (dd != '=')
-            {
-                const int d = TABLE[dd];
-                if (c < 0)
-                    throw std::runtime_error("invalid base64 data");
-                *out++ = ((c<<6)&0xC0) | d;             // [00----cc][00dddddd] => [zzzzzzzz]
-            }
-            else
-            {
-                if (c&0x03) // sanity check
-                    throw std::runtime_error("invalid base64 data");
-            }
-        }
-        else
-        {
-            if ((b&0x0F) || dd != '=' || first != last) // sanity check
-                throw std::runtime_error("invalid base64 data");
-        }
-    }
-
-    return out;
-}
-
-
-/// @brief Encode the custom binary data.
-/**
-@param[in] first The begin of input data.
-@param[in] last The end of input data.
-@return The base64 data.
-*/
-template<typename In> inline
-String base64_encode(In first, In last)
-{
-    const size_t ilen = std::distance(first, last);
-    const size_t olen = ((ilen+2)/3)*4; // ceil(4/3*len)
-
-    String buf(olen, '\0');
-    buf.erase(base64_encode(first,
-        last, buf.begin()), buf.end());
-    return buf;
-}
-
-
-/// @brief Encode the custom binary vector.
-/**
-@param[in] data The input data.
-@return The base64 data.
-*/
-template<typename T, typename A> inline
-String base64_encode(std::vector<T,A> const& data)
-{
-    return base64_encode(data.begin(), data.end());
-}
-
-
-/// @brief Decode the base64 data.
-/**
-@param[in] data The base64 data.
-@return The binary data.
-@throw std::runtime_error on invalid data.
-*/
-inline std::vector<UInt8> base64_decode(String const& data)
-{
-    const size_t ilen = data.size();
-    const size_t olen = ((ilen+3)/4)*3; // ceil(3/4*len)
-
-    std::vector<UInt8> buf(olen);
-    buf.erase(base64_decode(data.begin(),
-        data.end(), buf.begin()), buf.end());
-    return buf;
-}
-
-/// @}
+/// @brief The HTTP client shared pointer type.
+typedef Client::SharedPtr ClientPtr;
 
     } // http namespace
 
@@ -3118,14 +2988,14 @@ to the standard output:
 using namespace hive;
 
 //// callback: print the request/response to standard output
-void on_print(boost::system::error_code err, http::RequestPtr request, http::ResponsePtr response)
+void on_print(http::Client::TaskPtr task)
 {
-    if (request)
-        std::cout << "REQUEST:\n" << *request << "\n";
-    if (response)
-        std::cout << "RESPONSE:\n" << *response << "\n";
-    if (err)
-        std::cout << "ERROR: " << err.message() << "\n";
+    if (task->request)
+        std::cout << "REQUEST:\n" << *task->request << "\n";
+    if (task->response)
+        std::cout << "RESPONSE:\n" << *task->response << "\n";
+    if (task->errorCode)
+        std::cout << "ERROR: " << task->errorCode.message() << "\n";
 }
 
 //// application entry point
@@ -3137,7 +3007,8 @@ int main()
 
     http::Url url("http://www.boost.org/LICENSE_1_0.txt");
     http::RequestPtr req = http::Request::GET(url);
-    client->send(req, on_print, 10000);
+    if (http::Client::TaskPtr task = client->send(req, 10000))
+        task->callWhenDone(boost::bind(on_print, task));
 
     ios.run();
     return 0;

@@ -12,10 +12,8 @@ Basic tools:
   - support for proxies
   - support for redirects
 - LOG module:
-  - support for logging level filter (limit) for some targets
   - support for message filters
   - support for text configurations
-  - support for custom formats
 - robust binary streams: support for exceptions
 - documentation and examples for all modules
 

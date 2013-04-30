@@ -43,7 +43,8 @@ to the most important):
 and a few auxiliary levels:
   - hive::log::LEVEL_ALL is used to log everything
   - hive::log::LEVEL_OFF no any logging at all
-  - hive::log::LEVEL_AS_PARENT is used in loggers hierarchy
+  - hive::log::LEVEL_AS_PARENT is used in loggers hierarchy to indicate
+        that the logging level is the same as its parent logging level
 */
 enum Level
 {
@@ -55,7 +56,7 @@ enum Level
     LEVEL_ERROR,    ///< @brief The **ERROR** level.
     LEVEL_FATAL,    ///< @brief The **FATAL** level.
     LEVEL_OFF,      ///< @brief No logging.
-    LEVEL_AS_PARENT ///< @brief The same as parent.
+    LEVEL_AS_PARENT ///< @brief The same as parent's.
 };
 
 
@@ -117,11 +118,11 @@ This is base class for all log message formats.
 Derived classes should override the format() virtual method.
 
 The create() factory method should be used
-to get new instances of the Format class.
+to get a new instance of the Format class.
 
-By default uses simple format:
+By default simple format is used:
 ~~~
-timestamp logger level prefix message
+timestamp logger level message
 ~~~
 This format is always available through defaultFormat() static method.
 
@@ -130,7 +131,7 @@ is available through customFormat() static method. For example, default format
 is equivalent to "%T %N %L %M\n". The following format options are allowed:
 
 | option | description                    |
-|--------|-------------------------------|
+|--------|--------------------------------|
 | `%%T`  | the timestamp                  |
 | `%%N`  | the logger name                |
 | `%%L`  | the logging level              |
@@ -150,10 +151,10 @@ protected:
 
     /// @brief The main constructor.
     /**
-    @param[in] fmt The custom format string.
+    @param[in] format The custom format string.
     */
-    explicit Format(String const& fmt)
-        : m_format(fmt)
+    explicit Format(String const& format)
+        : m_format(format)
     {}
 
 public:
@@ -170,13 +171,13 @@ public:
 
     /// @brief The factory method.
     /**
-    @param[in] fmt The custom format string.
+    @param[in] format The custom format string.
         Empty string for the default format.
     @return The new format instance.
     */
-    static SharedPtr create(String const& fmt = String())
+    static SharedPtr create(String const& format = String())
     {
-        return SharedPtr(new Format(fmt));
+        return SharedPtr(new Format(format));
     }
 
 public:
@@ -193,7 +194,7 @@ public:
 
 public:
 
-    /// @brief Do the log message formatting.
+    /// @brief Do a log message formatting.
     /**
     Uses defaultFormat() or customFormat() method as an implementation.
 
@@ -209,15 +210,14 @@ public:
     }
 
 
-    /// @brief %Format the log message (default format).
+    /// @brief %Format a log message (default format).
     /**
     @param[in,out] os The output stream.
     @param[in] msg The log message to format.
     */
     static void defaultFormat(OStream &os, Message const& msg)
     {
-        os //<< "<<<"
-            << msg.timestamp << ' ';
+        os << msg.timestamp << ' ';
         if (msg.loggerName)
             os << msg.loggerName << ' ';
         os << getLevelName(msg.level)
@@ -226,12 +226,11 @@ public:
             os << msg.prefix;
         if (msg.message)
             os << msg.message;
-        os //<< ">>>"
-            << '\n';
+        os << '\n';
     }
 
 
-    /// @brief %Format the log message (custom format).
+    /// @brief %Format a log message (custom format).
     /**
     @param[in,out] os The output stream.
     @param[in] msg The log message to format.
@@ -276,6 +275,8 @@ public:
                             os << msg.message;
                         break;
 
+                    // TODO: source file name and line number
+
                     default:        // unknown format
                         os.put(ch);
                         os.put(ext);
@@ -308,9 +309,9 @@ public:
             case LEVEL_ALL:         return "ALL";
             case LEVEL_OFF:         return "OFF";
             case LEVEL_AS_PARENT:   return "PARENT";
-        }
 
-        return "UNKNOWN";
+            default:                return "UNKNOWN";
+        }
     }
 
 protected:
@@ -330,7 +331,8 @@ or hive::log::Format::defaultFormat() if no any format provided.
 
 There is a simple filter feature - you can provide the minimum logging level.
 All log messages with the logging level below this limit will be ignored.
-This simple message filter is disabled by default.
+This simple message filter is disabled by default, i.e. the minimum logging
+level is hive::log::LEVEL_ALL.
 */
 class Target
 {
@@ -355,7 +357,7 @@ public:
 
     /// @brief The factory method.
     /**
-    @return The new "NULL" target instance.
+    @return The new **NULL** target instance.
     */
     static SharedPtr create()
     {
@@ -364,7 +366,7 @@ public:
 
 public:
 
-    /// @brief Send log message to the target.
+    /// @brief Send a log message to the target.
     /**
     @param[in] msg The log message.
     */
@@ -431,9 +433,10 @@ protected:
 
 /// @brief The "Stream" target.
 /**
-Sends log messages to an external stream, for example: `std::cerr` or `std::cout`.
+Sends log messages to an external stream such as `std::cerr` or `std::cout`.
 
-Note, the stream object is stored as reference. Mind the stream lifetime.
+@warning The stream object is stored as reference.
+         Mind the external stream object lifetime.
 */
 class Target::Stream:
     private NonCopyable,
@@ -443,7 +446,7 @@ protected:
 
     /// @brief The main constructor.
     /**
-    @param[in] os The output stream.
+    @param[in] os The external stream.
     */
     explicit Stream(OStream &os)
         : m_os(os)
@@ -457,7 +460,7 @@ public:
 
     /// @brief The factory method.
     /**
-    @param[in] os The output stream.
+    @param[in] os The external stream.
     @return The new "Stream" target instance.
     */
     static SharedPtr create(OStream &os)
@@ -490,6 +493,9 @@ public:
 public:
 
     /// @copydoc Target::send()
+    /**
+    Writes the log message to the external stream.
+    */
     virtual void send(Message const& msg) const
     {
         // apply simple message filter
@@ -503,7 +509,7 @@ public:
     }
 
 protected:
-    OStream & m_os; ///< @brief The output stream reference.
+    OStream & m_os; ///< @brief The external stream.
 };
 
 
@@ -535,7 +541,9 @@ is full the "backup" procedure will be started:
 
 Note, it's not recommended to provide log file size limit with no backups.
 
-By default there is no any file size limit and therefore no backups.
+By default there is no any file size limit and therefore no any backups.
+
+Log file is always open in *append* mode.
 */
 class Target::File:
     private NonCopyable,
@@ -575,6 +583,29 @@ public:
 
 public:
 
+    /// @brief Set the "auto-flush" logging level.
+    /**
+    @param[in] autoFlushLevel The "auto-flush" logging level.
+    @return The self reference.
+    */
+    File& setAutoFlushLevel(Level autoFlushLevel)
+    {
+        m_autoFlushLevel = autoFlushLevel;
+        return *this;
+    }
+
+
+    /// @brief Get the "auto-flush" logging level.
+    /**
+    @return The "auto-flush" logging level.
+    */
+    Level getAutoFlushLevel() const
+    {
+        return m_autoFlushLevel;
+    }
+
+public:
+
     /// @brief Set the log file size limit.
     /**
     @param[in] maxFileSize The maximum file size in bytes.
@@ -587,6 +618,17 @@ public:
     }
 
 
+    /// @brief Get the log file size limit.
+    /**
+    @return The maximum file size in bytes.
+    */
+    size_t getMaxFileSize() const
+    {
+        return size_t(m_maxFileSize);
+    }
+
+public:
+
     /// @brief Set the maximum number of backups.
     /**
     @param[in] N The maximum number of backups.
@@ -598,9 +640,22 @@ public:
         return *this;
     }
 
+
+    /// @brief Get the maximum number of backups.
+    /**
+    @return The maximum number of backups.
+    */
+    size_t getNumberOfBackups() const
+    {
+        return m_numOfBackups;
+    }
+
 public:
 
     /// @copydoc Target::send()
+    /**
+    Writes the log message to the file stream.
+    */
     virtual void send(Message const& msg) const
     {
         // apply simple message filter
@@ -614,7 +669,7 @@ public:
 
             m_file.clear();
             m_file.open(m_fileName.c_str(),
-                std::ios::app); // append!
+                std::ios::binary|std::ios::app); // append!
         }
 
         if (m_file.is_open()) // write message
@@ -660,7 +715,7 @@ private:
             {
                 String prev = buildFileName(i-1, W);
                 ::rename(prev.c_str(), next.c_str());
-                next = prev;
+                next.swap(prev);
             }
 
             // reset the current log file
@@ -722,10 +777,10 @@ private:
 
 /// @brief The "Tie" target.
 /**
-Sends log messages to the several targets.
+Sends log messages to the several child targets.
 
-You can add many child targets using add() method.
-There is no way to remove child target, it's only
+You could add many child targets using add() method.
+There is no way to remove a child target, it's only
 possible to remove all child targets using clear().
 
 The add() method returns self reference so you can
@@ -754,6 +809,9 @@ class Target::Tie:
 protected:
 
     /// @brief The default constructor.
+    /**
+    No any child targets.
+    */
     Tie()
     {}
 
@@ -765,7 +823,7 @@ public:
 
     /// @brief The factory method.
     /**
-    If you need more than four child targets use add() method.
+    If you need more than four child targets, use add() method instead.
 
     @param[in] a The first child target. May be NULL.
     @param[in] b The second child target. May be NULL.
@@ -773,7 +831,8 @@ public:
     @param[in] d The fourth child target. May be NULL.
     @return The new "Tie" target instance.
     */
-    static SharedPtr create(Target::SharedPtr a = Target::SharedPtr(),
+    static SharedPtr create(
+        Target::SharedPtr a = Target::SharedPtr(),
         Target::SharedPtr b = Target::SharedPtr(),
         Target::SharedPtr c = Target::SharedPtr(),
         Target::SharedPtr d = Target::SharedPtr())
@@ -789,6 +848,9 @@ public:
 public:
 
     /// @copydoc Target::send()
+    /**
+    Sends the log message to the all child targets.
+    */
     virtual void send(Message const& msg) const
     {
         // apply simple message filter
@@ -846,14 +908,18 @@ protected:
 This is the main class of the logging tools.
 
 All loggers organized into tree hierarchy. The root logger available
-through root() static method. By default root() logger send messages
-to the standard error stream at the **WARN** level.
+through root() static method. By default root() logger sends messages
+to the standard error stream at the **WARN** level minimum.
 */
 class Logger
 {
 private:
 
     /// @brief Implementation.
+    /**
+    This class is used as hidden implementation to support
+    easy copying of hive::log::Logger instances.
+    */
     class Impl
     {
     public:
@@ -883,13 +949,14 @@ private:
         /// @brief The log childs.
         std::vector<SharedPtr> childs;
 
+    public:
 
         /// @brief Find child by name.
         /**
         @param[in] name The logger name.
         @return The child or NULL.
         */
-        SharedPtr find(String const& name)
+        SharedPtr find(String const& name) const
         {
             const size_t N = childs.size();
             for (size_t i = 0; i < N; ++i)
@@ -917,9 +984,7 @@ private:
 
     /// @brief The default constructor.
     /**
-    Is used for "root" logger.
-
-    The log level is **WARN** and the target is `std::cerr` stream by default.
+    Is used for root logger.
     */
     Logger()
         : m_impl(getRootImpl())
@@ -1107,6 +1172,9 @@ private:
 
     /// @brief Get root implementation.
     /**
+    The log level is **WARN** and the target
+    is `std::cerr` stream by default.
+
     @return The root logger implementation.
     */
     static Impl::SharedPtr getRootImpl()
@@ -1203,6 +1271,8 @@ private:
 
 /// @brief Send complex log message.
 /**
+This macro formats the log message using hive::OStringStream object.
+
 @param[in] logger The logger.
 @param[in] message The log message.
 @param[in] level The logging level.
@@ -1596,15 +1666,16 @@ base class of all log targets. It also works like a **NULL** target -
 all messages just disappear.
 
 There are a few standard targets:
-  - hive::log::Target::Stream sends log messages to the external stream like `std::cerr`.
-  - hive::log::Target::File sends log messages to the text file.
-  - hive::log::Target::Tie sends log messages to the several child targets.
+  - hive::log::Target::Stream sends log messages to an external stream like `std::cerr`.
+  - hive::log::Target::File sends log messages to a text file.
+  - hive::log::Target::Tie sends log messages to several child targets.
 
 It is easy to create new log target by overriding
 hive::log::Target::send() virtual method.
 
-Each target may be binded with custom message format
-hive::log::Target::setFormat() which will be used for all log messages.
+Each target may be binded with custom message format through
+hive::log::Target::setFormat() which will be used for all
+log messages written to this target.
 
 It is possible to filter log messages by hive::log::Target::setMinimumLevel().
 All messages with logging level less than that limit will disappear (i.e. won't
@@ -1644,10 +1715,10 @@ hive::log::Logger a("/app/test/A");
 hive::log::Logger b("/app/test/B");
 ~~~
 
-All loggers are organized in tree hierarchy (name based with '/' separator).
+All loggers are organized in tree hierarchy (name based with `'/'` separator).
 The root of hierarhy is special hive::log::Logger::root() logger instance
 which is also available via empty name.
-For example above the loggerhiearachy will be:
+For the example above the logger hiearachy will be:
   - the root logger hive::log::Logger::root()
     - `"app"`
       - `"test"`

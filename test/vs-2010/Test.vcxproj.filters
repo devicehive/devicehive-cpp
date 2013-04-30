@@ -39,15 +39,6 @@
     <ClInclude Include="..\test-dump.hpp">
       <Filter>test</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp">
-      <Filter>DeviceHive</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\DeviceHive\gateway.hpp">
-      <Filter>DeviceHive</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\DeviceHive\xbee.hpp">
-      <Filter>DeviceHive</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\hive\defs.hpp">
       <Filter>hive</Filter>
     </ClInclude>
@@ -93,7 +84,19 @@
     <ClInclude Include="..\..\include\hive\bin.hpp">
       <Filter>hive</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\DeviceHive\cloud7.hpp">
+    <ClInclude Include="..\..\include\DeviceHive\gateway.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\restful.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\service.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\websocket.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\xbee.hpp">
       <Filter>DeviceHive</Filter>
     </ClInclude>
   </ItemGroup>

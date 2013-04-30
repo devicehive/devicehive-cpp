@@ -18,11 +18,262 @@
 #   include <boost/bind.hpp>
 #endif // HIVE_PCH
 
+#include <set>
 
 /// @brief The simplest example.
 namespace basic_app
 {
     using namespace hive;
+
+
+/// @brief The custom delayed task.
+class DelayedTask
+{
+    typedef DelayedTask This; ///< @brief The type alias.
+
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] ios The IO service.
+    */
+    DelayedTask(boost::asio::io_service &ios)
+        : m_timer(ios)
+        , m_started(false)
+        , m_cancelled(false)
+    {}
+
+public:
+
+    /// @brief The trivial destructor.
+    virtual ~DelayedTask()
+    {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<DelayedTask> SharedPtr;
+
+    /// @brief The factory method.
+    /**
+    @param[in] ios The IO service.
+    @param[in] timeout_ms The timeout, milliseconds.
+    @return The delayed task instance.
+    */
+    static SharedPtr create(boost::asio::io_service &ios, long timeout_ms)
+    {
+        SharedPtr pthis(new This(ios));
+
+        if (timeout_ms > 0)
+        {
+            pthis->m_timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms));
+            pthis->m_timer.async_wait(
+                boost::bind(&This::onTimer, pthis,
+                boost::asio::placeholders::error));
+            pthis->m_started = true;
+        }
+        else
+        {
+            // call as soon as possible
+            ios.post(boost::bind(&This::onTimer, pthis,
+                boost::system::error_code()));
+        }
+
+        return pthis;
+    }
+
+
+    /// @brief Cancel the task.
+    /**
+    This method cancels current task.
+    */
+    void cancel()
+    {
+        m_cancelled = true;
+        if (m_started)
+            m_timer.cancel();
+    }
+
+public:
+
+    /// @brief The callback type.
+    typedef boost::function0<void> Callback;
+
+
+    /// @brief Call this method when task is done.
+    /**
+    This callback will be called when this task is finished (successful or not).
+
+    @param[in] cb The callback to call.
+    */
+    void callWhenDone(Callback cb)
+    {
+        if (!m_callback)
+            m_callback = cb;
+        else
+            m_callback = boost::bind(&This::zcall2, m_callback, cb);
+    }
+
+private:
+
+    /// @brief Call two callbacks.
+    /**
+    @param[in] cb1 The first callback.
+    @param[in] cb2 The second callback.
+    */
+    static void zcall2(Callback cb1, Callback cb2)
+    {
+        cb1();
+        cb2();
+    }
+
+private:
+
+    /// @brief Run the delayed task.
+    void onTimer(boost::system::error_code err)
+    {
+        if (!err && !m_cancelled)
+        {
+            if (Callback cb = m_callback)
+            {
+                m_callback = Callback();
+                cb(); // call the method!
+            }
+        }
+        else
+            m_callback = Callback();
+    }
+
+private:
+    boost::asio::deadline_timer m_timer; ///< @brief The deadline timer.
+    boost::function0<void> m_callback; ///< @brief The callback method.
+
+    bool m_started; ///< @brief The timer "started" flag.
+    bool m_cancelled; ///< @brief The "cancelled" flag.
+};
+
+
+/// @brief The set of custom delayed tasks.
+class DelayedTaskList:
+    public boost::enable_shared_from_this<DelayedTaskList>
+{
+    typedef DelayedTaskList This; ///< @brief The type alias.
+
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] ios The IO service.
+    */
+    DelayedTaskList(boost::asio::io_service &ios)
+        : m_ios(ios)
+    {}
+
+public:
+
+    /// @brief The trivial destructor.
+    virtual ~DelayedTaskList()
+    {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<DelayedTaskList> SharedPtr;
+
+
+    /// @brief The factory method.
+    /**
+    @param[in] ios The IO service.
+    */
+    static SharedPtr create(boost::asio::io_service &ios)
+    {
+        return SharedPtr(new This(ios));
+    }
+
+public:
+
+    /// @brief Cancel all delayed tasks.
+    void cancelAll()
+    {
+        typedef std::set<DelayedTask::SharedPtr>::iterator Iterator;
+        Iterator i = m_tasks.begin();
+        Iterator e = m_tasks.end();
+        for (; i != e; ++i)
+        {
+            (*i)->cancel();
+        }
+
+        m_tasks.clear();
+    }
+
+public:
+
+    /// @brief The "call later" callback type.
+    typedef DelayedTask::Callback Callback;
+
+
+    /// @brief Create the delayed task.
+    /**
+    @param[in] timeout_ms The delay timeout, milliseconds.
+    @return The delayed task instance.
+    */
+    DelayedTask::SharedPtr callLater(long timeout_ms)
+    {
+        DelayedTask::SharedPtr task = DelayedTask::create(m_ios, timeout_ms);
+
+        m_tasks.insert(task); // push_back(task)
+        task->callWhenDone(
+            boost::bind(&This::onDone,
+            shared_from_this(), task));
+
+        return task;
+    }
+
+
+    /// @brief Call the task later.
+    /**
+    @param[in] timeout_ms The delay timeout, milliseconds.
+    @param[in] callback The callback to call later.
+    @return The delayed task instance.
+    */
+    DelayedTask::SharedPtr callLater(long timeout_ms, Callback callback)
+    {
+        DelayedTask::SharedPtr task = callLater(timeout_ms);
+        task->callWhenDone(callback);
+        return task;
+    }
+
+
+    /// @brief Call the task as soon as possible.
+    /**
+    @param[in] callback The callback to call later.
+    @return The delayed task instance.
+    */
+    DelayedTask::SharedPtr callLater(Callback callback)
+    {
+        DelayedTask::SharedPtr task = callLater(0);
+        task->callWhenDone(callback);
+        return task;
+    }
+
+private:
+
+    /// @brief The "task done" callback.
+    /**
+    @param[in] task The delayed task.
+    */
+    void onDone(DelayedTask::SharedPtr task)
+    {
+        m_tasks.erase(task); // remove(task)
+    }
+
+private:
+    boost::asio::io_service &m_ios; ///< @brief The IO service.
+
+    /// @brief The set of delayed tasks.
+    std::set<DelayedTask::SharedPtr> m_tasks;
+};
+
 
 /// @brief The application skeleton.
 /**
@@ -50,6 +301,7 @@ protected:
     Application()
         : m_signals(m_ios)
         , m_log("Application")
+        , m_delayed(DelayedTaskList::create(m_ios))
         , m_terminated(0)
     {
         // initialize signals
@@ -90,12 +342,20 @@ public:
     /// @brief Run the application.
     void run()
     {
-        start();
-
-        while (!terminated())
+        try
         {
-            m_ios.reset();
-            m_ios.run();
+            start();
+
+            while (!terminated())
+            {
+                m_ios.reset();
+                m_ios.run();
+            }
+        }
+        catch (std::exception const& ex)
+        {
+            HIVELOG_FATAL(m_log, ex.what());
+            throw;
         }
     }
 
@@ -132,6 +392,7 @@ protected:
     */
     virtual void stop()
     {
+        m_delayed->cancelAll();
         m_signals.cancel();
         m_terminated += 1;
         //m_ios.stop();
@@ -212,7 +473,9 @@ private:
 protected:
     boost::asio::io_service m_ios; ///< @brief The IO service.
     boost::asio::signal_set m_signals; ///< @brief The signal set.
-    log::Logger m_log; ///< @brief The application logger.
+    hive::log::Logger m_log; ///< @brief The application logger.
+
+    DelayedTaskList::SharedPtr m_delayed; ///< @brief List of delayed tasks.
 
 private:
     volatile int m_terminated; ///< @brief The "terminated" flag.
@@ -228,7 +491,12 @@ Creates the Application instance and calls its Application::run() method.
 */
 inline void main(int argc, const char* argv[])
 {
-    log::Logger::root().setLevel(log::LEVEL_TRACE);
+    { // configure logging
+        using namespace hive::log;
+
+        Logger::root().setLevel(LEVEL_TRACE);
+    }
+
     Application::create(argc, argv)->run();
 }
 

@@ -146,7 +146,7 @@ void test_ws13_0()
 // test application entry point
 void test_ws13_1()
 {
-    log::Logger::root().setLevel(log::LEVEL_TRACE);
+    hive::log::Logger::root().setLevel(hive::log::LEVEL_TRACE);
 
     boost::asio::io_service ios;
 

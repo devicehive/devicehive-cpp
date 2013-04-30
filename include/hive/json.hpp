@@ -24,7 +24,7 @@
 #   define HIVE_JSON_SINGLE_QUOTED_STRING   1
 #endif // HIVE_JSON_SINGLE_QUOTED_STRING
 
-// extension: simple strings [0-9A-Za-z]
+// extension: simple strings [0-9A-Za-z_]
 #if !defined(HIVE_JSON_SIMPLE_STRING)
 #   define HIVE_JSON_SIMPLE_STRING          1
 #endif // HIVE_JSON_SIMPLE_STRING
@@ -1534,10 +1534,11 @@ public:
     @param[in] humanFriendly The *human-fiendly* format flag.
     @param[in] indent The first line indent.
         Is used for *human-friendly* format.
+    @param[in] escaping The *escaping* string flag.
     @return The output stream.
     */
     static OStream& write(OStream &os, Value const& jval,
-        bool humanFriendly, size_t indent = 0)
+        bool humanFriendly, size_t indent = 0, bool escaping = true)
     {
         switch (jval.getType())
         {
@@ -1558,7 +1559,7 @@ public:
                 break;
 
             case Value::TYPE_STRING:
-                writeQuotedString(os, jval.asString());
+                writeString(os, jval.asString(), escaping, true);
                 break;
 
             case Value::TYPE_ARRAY:
@@ -1578,7 +1579,8 @@ public:
                         }
                         write(os, jval[i],
                             humanFriendly,
-                            indent+1);
+                            indent + 1,
+                            escaping);
                     }
                     if (humanFriendly)
                     {
@@ -1610,13 +1612,14 @@ public:
                             writeIndent(os,
                                 indent+1);
                         }
-                        writeQuotedString(os, name);
+                        writeString(os, name, escaping, false);
                         os.put(':');
                         if (humanFriendly)
                             os.put(' ');
                         write(os, val,
                             humanFriendly,
-                            indent+1);
+                            indent + 1,
+                            escaping);
                     }
                     if (humanFriendly)
                     {
@@ -1648,6 +1651,63 @@ public:
         for (size_t i = 0; i < N; ++i)
             os.put(' ');
         return os;
+    }
+
+
+    /// @brief Write quoted/unquoted string to an output stream.
+    /**
+    This method writes the string in queted or unquoted format.
+    All special and UNICODE characters are escaped.
+
+    @param[in,out] os The output stream.
+    @param[in] str The string to write.
+    @param[in] escaping The *escaping* string flag.
+    @param[in] forceQuote Force to use quotes flag.
+    @return The output stream.
+    */
+    static OStream& writeString(OStream &os, String const& str, bool escaping, bool forceQuote)
+    {
+        if (escaping || !isSimple(str))
+            return writeQuotedString(os, str);
+        else  if (forceQuote || str.empty())
+            return os << "\"" << str << "\"";
+        else
+            return os << str;
+    }
+
+
+    /// @brief Check if a character is simple.
+    /**
+    @param[in] ch The character to check.
+    @return `true` if character is in range [0-9A-Za-z_].
+    */
+    static bool isSimple(int ch)
+    {
+        return ('0' <= ch && ch <= '9')
+            || ('A' <= ch && ch <= 'Z')
+            || ('a' <= ch && ch <= 'z')
+            || ('_' == ch);
+    }
+
+
+    /// @brief Check if a string is simple.
+    /**
+    @param[in] str The string the check.
+    @return `true` if string contains simple characters only.
+    */
+    static bool isSimple(String const& str)
+    {
+        const size_t N = str.size();
+        for (size_t i = 0; i < N; ++i)
+        {
+            const int ch = (unsigned char)(str[i]);
+            // TODO: handle utf-8 strings!!!
+
+            if (!isSimple(ch))
+                return false;
+        }
+
+        return true; // simple string
     }
 
 
@@ -1761,6 +1821,19 @@ inline String toStrH(Value const& jval)
 {
     OStringStream oss;
     Formatter::write(oss, jval, true);
+    return oss.str();
+}
+
+
+/// @brief Convert JSON value to *human-friendly* string without escaping.
+/** @relates Value
+@param[in] jval The JSON value.
+@return The JSON string.
+*/
+inline String toStrHH(Value const& jval)
+{
+    OStringStream oss;
+    Formatter::write(oss, jval, true, 0, false);
     return oss.str();
 }
 
@@ -1914,8 +1987,8 @@ public:
                 throw error::SyntaxError("cannot parse integer value");
         }
 
-        // double-quoted string
-        else if (Traits::eq(cx, '\"'))
+        // double-quoted or single-quoted string
+        else if (Traits::eq(cx, '\"') || (HIVE_JSON_SINGLE_QUOTED_STRING && Traits::eq(cx, '\'')))
         {
             String val;
             if (parseQuotedString(is, val))
@@ -1939,11 +2012,11 @@ public:
             Value().swap(jval);
         }
 
-        // extension: simple strings [0-9A-Za-z] without quotes
+        // extension: simple strings [0-9A-Za-z_] without quotes
         else if (HIVE_JSON_SIMPLE_STRING)
         {
             String val;
-            if (parseString(is, val))
+            if (parseSimpleString(is, val))
                 Value(val).swap(jval);
             else
                 throw error::SyntaxError("cannot parse simple string");
@@ -2138,7 +2211,7 @@ public:
 
     /// @brief Parse simple string from an input stream.
     /**
-    A simple string consists of characters from the [0-9A-Za-z] set.
+    A simple string consists of characters from the [0-9A-Za-z_] set.
     @param[in,out] is The input stream.
     @param[out] str The parsed string.
     @return `true` if string successfully parsed.
@@ -2153,9 +2226,7 @@ public:
             if (Traits::eq_int_type(meta, Traits::eof()))
                 return false; // end of stream
 
-            if (('0' <= meta && meta <= '9')
-                || ('A' <= meta && meta <= 'Z')
-                || ('a' <= meta && meta <= 'z'))
+            if (Formatter::isSimple(meta))
             {
                 oss.put(Traits::to_char_type(meta)); // just save
                 is.ignore(1);
@@ -2163,7 +2234,7 @@ public:
             else
             {
                 str = oss.str();
-                return true; // OK
+                return !str.empty(); // OK
             }
         }
 

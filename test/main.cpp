@@ -54,13 +54,10 @@ int main(int argc, const char *argv[])
 #elif defined(XTEST_UNIT)   // custom unit-test
         XTEST_UNIT();
 #else                       // manual
-        if (1) basic_app::main(argc, argv);
-        if (0) simple_dev::main(argc, argv, false); // RESTful
-        if (0) simple_dev::main(argc, argv, true);  // WebSocket
-        if (0) simple_gw::main(argc, argv, false);  // RESTful
-        if (0) simple_gw::main(argc, argv, true);   // WebSocket
-        if (0) zigbee_gw::main(argc, argv, false);  // RESTful
-        if (0) zigbee_gw::main(argc, argv, true);   // WebSocket
+        if (0) basic_app::main(argc, argv);
+        if (0) simple_dev::main(argc, argv);
+        if (1) simple_gw::main(argc, argv);
+        if (0) zigbee_gw::main(argc, argv);
 
         if (0) test_defs0();
         if (0) test_swab0();
@@ -71,8 +68,8 @@ int main(int argc, const char *argv[])
         if (0) test_http1();
         if (0) test_ws13_0();
         if (0) test_ws13_1();
-        if (0) test_log0();
-        if (0) test_log1();
+        if (0) test_log_0();
+        if (0) test_log_1();
 #endif // XTEST_UNIT
     }
     catch (std::exception const& ex)

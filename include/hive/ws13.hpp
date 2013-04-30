@@ -100,10 +100,12 @@ public:
     /// @brief Append data to the end of message.
     /**
     @param[in] data The data to append.
+    @return Self reference.
     */
-    void appendData(OctetString const& data)
+    Message& appendData(OctetString const& data)
     {
         m_data.append(data);
+        return *this;
     }
 
 public:
@@ -999,7 +1001,7 @@ public:
         for (size_t i = 0; i < N; ++i)
             key[i] = rand()&0xFF;
 
-        return http::base64_encode(key);
+        return misc::base64_encode(key);
     }
 
 
@@ -1011,7 +1013,7 @@ public:
     static String buildAcceptKey(String const& key)
     {
         const OctetString check = impl::sha1(key + KEY_UUID);
-        return http::base64_encode(check.begin(), check.end());
+        return misc::base64_encode(check.begin(), check.end());
     }
 
 
@@ -1045,10 +1047,9 @@ public:
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncConnect()");
 
-        HIVELOG_DEBUG(m_log, "try to connect to " << url.toString());
-        httpClient->send2(getHandshakeRequest(url, key),
-            boost::bind(&This::onConnect, shared_from_this(),
-            _1, _2, _3, _4, httpClient, callback), timeout_ms);
+        HIVELOG_DEBUG(m_log, "try to connect to " << url.toStr());
+        if (http::Client::TaskPtr task = httpClient->send(getHandshakeRequest(url, key), timeout_ms))
+            task->callWhenDone(boost::bind(&This::onConnect, shared_from_this(), task, httpClient, callback));
     }
 
 
@@ -1095,29 +1096,25 @@ private:
 
     /// @brief The connect operation completed.
     /**
-    @param[in] err The error code.
-    @param[in] request The HTTP request.
-    @param[in] response The HTTP response.
-    @param[in] connection The HTTP connection.
+    @param[in] task The HTTP task.
     @param[in] httpClient The HTTP client.
     @param[in] callback The callback.
     */
-    void onConnect(boost::system::error_code err, http::RequestPtr request,
-        http::ResponsePtr response, http::ConnectionPtr connection,
-        http::ClientPtr httpClient, ConnectCallback callback)
+    void onConnect(http::Client::TaskPtr task, http::ClientPtr httpClient, ConnectCallback callback)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onConnect()");
 
-        if (!err && request && response && connection)
+        boost::system::error_code err = task->errorCode;
+        if (!err && task->request && task->response && task->connection)
         {
             // TODO: check for "101 Switching Protocols" status code
 
             // check the accept key
-            const String akey = response->getHeader(header::Accept);
-            const String rkey = request->getHeader(header::Key);
+            const String akey = task->response->getHeader(header::Accept);
+            const String rkey = task->request->getHeader(header::Key);
             if (akey == buildAcceptKey(rkey))
             {
-                m_conn = connection;
+                m_conn = task->connection;
                 m_trx = TRX::create(m_log.getName(), *m_conn);
                 HIVELOG_INFO(m_log, "connection created");
 
@@ -1482,7 +1479,7 @@ private:
 private:
     http::ConnectionPtr m_conn; ///< @brief The corresponding HTTP connection.
     TRX::SharedPtr m_trx; ///< @brief The tranceiver.
-    log::Logger m_log; ///< @brief The logger.
+    hive::log::Logger m_log; ///< @brief The logger.
 };
 
 
