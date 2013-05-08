@@ -361,7 +361,7 @@ public:
     */
     SharedPtr shared_from_this()
     {
-        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
+        return boost::dynamic_pointer_cast<This>(Base::shared_from_this());
     }
 
 protected:
@@ -413,7 +413,7 @@ private: // IDeviceServiceEvents
 
             // try to switch to websocket protocol
             if (!m_disableWebsockets && !info.alternativeUrl.empty())
-                if (devicehive::RestfulService::SharedPtr rest = boost::shared_dynamic_cast<devicehive::RestfulService>(m_service))
+                if (devicehive::RestfulService::SharedPtr rest = boost::dynamic_pointer_cast<devicehive::RestfulService>(m_service))
             {
                 HIVELOG_INFO(m_log, "switching to Websocket service: " << info.alternativeUrl);
                 rest->cancelAll();
@@ -464,7 +464,7 @@ private: // IDeviceServiceEvents
                 devicehive::EquipmentPtr eq = device->findEquipmentByCode(code);
                 if (boost::iequals(command->name, "UpdateLedState"))
                 {
-                    if (LedControl::SharedPtr led = boost::shared_dynamic_cast<LedControl>(eq))
+                    if (LedControl::SharedPtr led = boost::dynamic_pointer_cast<LedControl>(eq))
                     {
                         String state = command->params["state"].asString();
                         led->setState(state);
@@ -511,7 +511,7 @@ private:
         for (size_t i = 0; i < N; ++i)
         {
             devicehive::EquipmentPtr eq = m_device->equipment[i];
-            if (TempSensor::SharedPtr sensor = boost::shared_dynamic_cast<TempSensor>(eq))
+            if (TempSensor::SharedPtr sensor = boost::dynamic_pointer_cast<TempSensor>(eq))
             {
                 String const val = sensor->getValue();
                 if (sensor->haveToSend(val))
@@ -545,7 +545,7 @@ private:
         for (size_t i = 0; i < N; ++i)
         {
             devicehive::EquipmentPtr eq = m_device->equipment[i];
-            if (LedControl::SharedPtr led = boost::shared_dynamic_cast<LedControl>(eq))
+            if (LedControl::SharedPtr led = boost::dynamic_pointer_cast<LedControl>(eq))
             {
                 led->setState(state);
 

@@ -158,7 +158,7 @@ public:
     */
     SharedPtr shared_from_this()
     {
-        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
+        return boost::dynamic_pointer_cast<This>(Base::shared_from_this());
     }
 
 protected:
@@ -300,7 +300,7 @@ private: // IDeviceServiceEvents
 
             // try to switch to websocket protocol
             if (!m_disableWebsockets && !info.alternativeUrl.empty())
-                if (devicehive::RestfulService::SharedPtr rest = boost::shared_dynamic_cast<devicehive::RestfulService>(m_service))
+                if (devicehive::RestfulService::SharedPtr rest = boost::dynamic_pointer_cast<devicehive::RestfulService>(m_service))
             {
                 HIVELOG_INFO(m_log, "switching to Websocket service: " << info.alternativeUrl);
                 rest->cancelAll();
