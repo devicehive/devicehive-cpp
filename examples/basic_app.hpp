@@ -515,11 +515,6 @@ But it contains a few key objects which are widely used by derived classes.
 See basic_app::Application documentation for more details
 or examples/basic_app.hpp file for full source code.
 
-Also there are two modules which can be used to extend functionality
-of your application:
-    - basic_app::ServerModule which allows you to use cloud6::ServerAPI
-    - basic_app::SerialModule which allows you to use serial port
-
 @example examples/basic_app.hpp
 */
 

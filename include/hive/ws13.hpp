@@ -1105,7 +1105,7 @@ private:
         HIVELOG_TRACE_BLOCK(m_log, "onConnect()");
 
         boost::system::error_code err = task->errorCode;
-        if (!err && task->request && task->response && task->connection)
+        if (!err && task->request && task->response && task->getConnection())
         {
             // TODO: check for "101 Switching Protocols" status code
 
@@ -1114,7 +1114,7 @@ private:
             const String rkey = task->request->getHeader(header::Key);
             if (akey == buildAcceptKey(rkey))
             {
-                m_conn = task->connection;
+                m_conn = task->takeConnection();
                 m_trx = TRX::create(m_log.getName(), *m_conn);
                 HIVELOG_INFO(m_log, "connection created");
 
