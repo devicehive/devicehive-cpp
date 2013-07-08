@@ -1963,7 +1963,7 @@ public:
         }
 
         m_taskList.push_back(task);
-        asyncResolve(task);
+        asyncResolve(task, true);
         return task;
     }
 
@@ -2128,22 +2128,39 @@ private:
 
     /// @brief Start asynchronous resolve operation.
     /**
+    First attempt uses protocol name as a service,
+    the second attempt uses port number.
+
     @param[in] task The task.
+    @param[in] firstAttempt The 'first-attempt' flag.
     */
-    void asyncResolve(TaskPtr task)
+    void asyncResolve(TaskPtr task, bool firstAttempt)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncResolve(task)");
 
         Url const& url = task->request->getUrl();
-        String const& service = url.getPort().empty()
-            ? url.getProtocol() : url.getPort();
+        String service;
+        if (firstAttempt) // try the protocol name first
+        {
+            if (url.getPort().empty())
+                service = url.getProtocol();
+            else
+            {
+                // if there is explicit port number provided
+                // there is no point to do a second attempt
+                service = url.getPort();
+                firstAttempt = false;
+            }
+        }
+        else // try the port number otherwise
+            service = boost::lexical_cast<String>(url.getPortNumber());
 
         Endpoint cachedEndpoint;
         const String hostName = url.toStr(Url::PROTOCOL|Url::HOST|Url::PORT);
         if (m_nameCache.enabled() && m_nameCache.find(hostName, cachedEndpoint))
         {
             Resolver::iterator epi = Resolver::iterator::create(cachedEndpoint, url.getHost(), service);
-            m_ios.post(boost::bind(&Client::onResolved, shared_from_this(), task, ErrorCode(), epi));
+            m_ios.post(boost::bind(&Client::onResolved, shared_from_this(), task, ErrorCode(), epi, firstAttempt));
             HIVELOG_DEBUG(m_log, "{" << task.get() << "} resolved from name cache!");
         }
         else
@@ -2154,7 +2171,8 @@ private:
             task->m_resolver.async_resolve(Resolver::query(url.getHost(), service),
                 boost::bind(&Client::onResolved, shared_from_this(),
                     task, boost::asio::placeholders::error,
-                    boost::asio::placeholders::iterator));
+                    boost::asio::placeholders::iterator,
+                        firstAttempt));
         }
     }
 
@@ -2164,8 +2182,9 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     @param[in] epi The endpoint iterator.
+    @param[in] firstAttempt The 'first-attempt' flag.
     */
-    void onResolved(TaskPtr task, ErrorCode err, Resolver::iterator epi)
+    void onResolved(TaskPtr task, ErrorCode err, Resolver::iterator epi, bool firstAttempt)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onResolved(task)");
 
@@ -2182,6 +2201,19 @@ private:
             HIVELOG_DEBUG(m_log, "{" << task.get()
                 << "} async resolve cancelled");
             done(task, boost::asio::error::operation_aborted);
+        }
+        else if (firstAttempt)
+        {
+            HIVELOG_WARN(m_log, "{" << task.get() << "} <"
+                << task->request->getUrl().getHost()
+                << "> async resolve error: ["
+                << err << "] " << err.message());
+            HIVELOG_DEBUG(m_log, "{" << task.get()
+                << "} resolve with port number instead of protocol name");
+
+            // resolve with port number
+            // instead of protocol name
+            asyncResolve(task, false);
         }
         else
         {
