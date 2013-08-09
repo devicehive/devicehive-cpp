@@ -19,6 +19,8 @@
 #   include <map>
 #endif // HIVE_PCH
 
+// TODO: use boost::multi_index_container for JSON objects!
+
 // extension: single quoted strings
 #if !defined(HIVE_JSON_SINGLE_QUOTED_STRING)
 #   define HIVE_JSON_SINGLE_QUOTED_STRING   1

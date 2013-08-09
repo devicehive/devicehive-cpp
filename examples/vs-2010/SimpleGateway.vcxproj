@@ -82,8 +82,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp" />
     <ClInclude Include="..\..\include\DeviceHive\gateway.hpp" />
+    <ClInclude Include="..\..\include\DeviceHive\restful.hpp" />
+    <ClInclude Include="..\..\include\DeviceHive\service.hpp" />
+    <ClInclude Include="..\..\include\DeviceHive\websocket.hpp" />
     <ClInclude Include="..\..\include\hive\bin.hpp" />
     <ClInclude Include="..\..\include\hive\defs.hpp" />
     <ClInclude Include="..\..\include\hive\dump.hpp" />
@@ -93,6 +95,7 @@
     <ClInclude Include="..\..\include\hive\misc.hpp" />
     <ClInclude Include="..\..\include\hive\pch.hpp" />
     <ClInclude Include="..\..\include\hive\swab.hpp" />
+    <ClInclude Include="..\..\include\hive\ws13.hpp" />
     <ClInclude Include="..\basic_app.hpp" />
     <ClInclude Include="..\simple_gw.hpp" />
   </ItemGroup>
