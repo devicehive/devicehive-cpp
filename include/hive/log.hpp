@@ -555,13 +555,14 @@ protected:
     /**
     @param[in] fileName The log file name.
     @param[in] autoFlushLevel The "auto-flush" logging level.
+    @param[in] startNewFile If `true` then starts new file on first log message.
     */
-    File(String const& fileName, Level autoFlushLevel)
+    File(String const& fileName, Level autoFlushLevel, bool startNewFile)
         : m_fileName(fileName)
         , m_autoFlushLevel(autoFlushLevel)
         , m_maxFileSize(0)
         , m_numOfBackups(0)
-        , m_needNewFile(false)
+        , m_needNewFile(startNewFile)
     {}
 
 public:
@@ -574,11 +575,12 @@ public:
     /**
     @param[in] fileName The log file name.
     @param[in] autoFlushLevel The "auto-flush" logging level.
+    @param[in] startNewFile If `true` then starts new file on first log message.
     @return The new "File" target instance.
     */
-    static SharedPtr create(String const& fileName, Level autoFlushLevel = LEVEL_WARN)
+    static SharedPtr create(String const& fileName, Level autoFlushLevel = LEVEL_WARN, bool startNewFile = false)
     {
-        return SharedPtr(new File(fileName, autoFlushLevel));
+        return SharedPtr(new File(fileName, autoFlushLevel, startNewFile));
     }
 
 public:
@@ -602,6 +604,20 @@ public:
     Level getAutoFlushLevel() const
     {
         return m_autoFlushLevel;
+    }
+
+public:
+
+    /// @brief Start new file on the next log message.
+    /**
+    Call this method if you want to start a new log file.
+    On the next log message the new file will be created.
+    Previous log files will be saved according to backup settings.
+    */
+    File& startNew()
+    {
+        m_needNewFile = true;
+        return *this;
     }
 
 public:
