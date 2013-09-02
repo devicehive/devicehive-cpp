@@ -15,6 +15,7 @@ Defines #HIVE_PCH macro if precompiled headers are enabled.
 #include <boost/smart_ptr.hpp>
 #include <boost/function.hpp>
 #include <boost/cstdint.hpp>
+#include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 

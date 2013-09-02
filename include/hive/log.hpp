@@ -11,6 +11,7 @@
 #if !defined(HIVE_PCH)
 #   include <boost/shared_ptr.hpp>
 #   include <boost/weak_ptr.hpp>
+#   include <boost/thread.hpp>
 #   include <iostream>
 #   include <sstream>
 #   include <fstream>
@@ -84,8 +85,7 @@ public:
     int         line;     ///< @brief The source line number.
 
     boost::posix_time::ptime timestamp; ///< @brief The log message timestamp.
-
-    // TODO: thread identifier
+    boost::thread::id        threadId;  ///< @brief The thread identifier.
 
 public:
 
@@ -108,6 +108,7 @@ public:
         , file(file_)
         , line(line_)
         , timestamp(boost::posix_time::microsec_clock::universal_time())
+        , threadId(boost::this_thread::get_id())
     {}
 };
 
@@ -136,6 +137,7 @@ is equivalent to "%T %N %L %M\n". The following format options are allowed:
 | `%%N`  | the logger name                |
 | `%%L`  | the logging level              |
 | `%%M`  | the log message (with prefix)  |
+| `%%I`  | the thread identifier          |
 
 The auxiliary getLevelName() static method might be used to convert
 logging level into the text representation.
@@ -273,6 +275,10 @@ public:
                             os << msg.prefix;
                         if (msg.message)
                             os << msg.message;
+                        break;
+
+                    case 'I':       // thread id
+                        os << msg.threadId;
                         break;
 
                     // TODO: source file name and line number
