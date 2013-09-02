@@ -240,6 +240,125 @@ inline String url_decode(String const& str)
 /// @}
 
 
+/// @name Base16 encoding
+/// @{
+
+/// @brief Encode the custom binary buffer.
+/**
+The output buffer should be 2 times big than input buffer.
+
+@param[in] first The begin of input buffer.
+@param[in] last The end of output buffer.
+@param[in] out The begin of output buffer.
+@return The end of output buffer.
+*/
+template<typename In, typename Out>
+Out base16_encode(In first, In last, Out out)
+{
+    while (first != last)
+    {
+        const int x = UInt8(*first++);
+
+        *out++ = int2hex((x>>4)&0x0f);
+        *out++ = int2hex(x&0x0f);
+    }
+
+    return out;
+}
+
+
+/// @brief Decode the custom binary buffer.
+/**
+The output buffer should be 2 times less than input buffer.
+
+@param[in] first The begin of input buffer.
+@param[in] last The end of output buffer.
+@param[in] out The begin of output buffer.
+@return The end of output buffer.
+@throw std::runtime_error on invalid data.
+*/
+template<typename In, typename Out>
+Out base16_decode(In first, In last, Out out)
+{
+    while (first != last)
+    {
+        const int aa =                   UInt8(*first++);
+        const int bb = (first != last) ? UInt8(*first++) : 0;
+
+        const int a = hex2int(aa);
+        const int b = hex2int(bb);
+
+        if (a < 0 || b < 0)
+            throw std::runtime_error("invalid base64 data");
+        *out++ = (a<<4) | b;
+    }
+
+    return out;
+}
+
+
+/// @brief Encode the custom binary data.
+/**
+@param[in] first The begin of input data.
+@param[in] last The end of input data.
+@return The base16 data.
+*/
+template<typename In> inline
+String base16_encode(In first, In last)
+{
+    const size_t ilen = std::distance(first, last);
+    const size_t olen = ilen*2;
+
+    String buf(olen, '\0');
+    buf.erase(base16_encode(first,
+        last, buf.begin()), buf.end());
+    return buf;
+}
+
+
+/// @brief Encode the custom binary vector.
+/**
+@param[in] data The input data.
+@return The base16 data.
+*/
+template<typename T, typename A> inline
+String base16_encode(std::vector<T,A> const& data)
+{
+    return base16_encode(data.begin(), data.end());
+}
+
+
+/// @brief Encode the custom binary string.
+/**
+@param[in] data The input data.
+@return The base16 data.
+*/
+inline String base16_encode(String const& data)
+{
+    return base16_encode(data.begin(), data.end());
+}
+
+
+/// @brief Decode the base16 data.
+/**
+@param[in] data The base16 data.
+@return The binary data.
+@throw std::runtime_error on invalid data.
+*/
+inline std::vector<UInt8> base16_decode(String const& data)
+{
+    const size_t ilen = data.size();
+    const size_t olen = (ilen+1)/2; // ceil(1/2*len)
+
+    std::vector<UInt8> buf(olen);
+    buf.erase(base16_decode(data.begin(),
+        data.end(), buf.begin()), buf.end());
+    return buf;
+}
+
+/// @}
+
+
 /// @name Base64 encoding
 /// @{
 

@@ -249,15 +249,19 @@
 			Name="DeviceHive"
 			>
 			<File
-				RelativePath="..\..\include\DeviceHive\cloud6.hpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\DeviceHive\cloud7.hpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\include\DeviceHive\gateway.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\DeviceHive\restful.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\DeviceHive\service.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\DeviceHive\websocket.hpp"
 				>
 			</File>
 			<File
