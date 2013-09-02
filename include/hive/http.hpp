@@ -640,6 +640,8 @@ const char User_Agent[]         = "User-Agent";         ///< @hideinitializer @b
 const char Location[]           = "Location";           ///< @hideinitializer @brief The "Location" header name.
 const char Upgrade[]            = "Upgrade";            ///< @hideinitializer @brief The "Upgrade" header name.
 const char Authorization[]      = "Authorization";      ///< @hideinitializer @brief The "Authorization" header name.
+const char SetCookie[]          = "Set-Cookie";         ///< @hideinitializer @brief The "Set-Cookie" header name.
+const char Cookie[]             = "Cookie";             ///< @hideinitializer @brief The "Cookie" header name.
 
         // TODO: add more headers here
 
@@ -727,12 +729,63 @@ public:
 
 /// @name HTTP headers
 /// @{
+private:
+
+    /// @brief The less functor.
+    /**
+    Compares string no case.
+    */
+    struct iLess
+        : public std::binary_function<String, String, bool>
+    {
+        /// @brief Compare two strings.
+        /**
+        @param[in] a The first string.
+        @param[in] b The second string.
+        @return `true` if first string is less than second.
+        */
+        bool operator()(String const& a, String const& b) const
+        {
+            return boost::ilexicographical_compare(a, b);
+        }
+    };
+
+    /// @brief The header container type.
+    /**
+    Uses case insensitive comparison for header names.
+    */
+    typedef std::multimap<String, String, iLess> HeaderMap;
+
 public:
 
-    /// @brief Get header.
+    /// @brief The header iterator type.
+    typedef HeaderMap::const_iterator HeaderIterator;
+
+
+    /// @brief Get the begin of headers.
+    /**
+    @return The begin iterator.
+    */
+    HeaderIterator headersBegin() const
+    {
+        return m_headers.begin();
+    }
+
+
+    /// @brief Get the end of headers.
+    /**
+    @return The end iterator.
+    */
+    HeaderIterator headersEnd() const
+    {
+        return m_headers.end();
+    }
+
+
+    /// @brief Get first header.
     /**
     @param[in] name The header name.
-    @return The header value or empty string if header doesn't exists.
+    @return The header value or empty string if header doesn't exist.
     @see @ref header namespace for possible names
     */
     String getHeader(String const& name) const
@@ -758,8 +811,6 @@ public:
 
     /// @brief Add header.
     /**
-    If header already exists the previous value will be lost.
-
     @param[in] name The header name.
     @param[in] value The header value.
     @return Self reference.
@@ -767,7 +818,7 @@ public:
     */
     Message& addHeader(String const& name, String const& value)
     {
-        m_headers[name] = value;
+        m_headers.insert(std::make_pair(name, value));
         return *this;
     }
 
@@ -857,33 +908,6 @@ public:
 /// @}
 
 private:
-
-    /// @brief The less functor.
-    /**
-    Compares string no case.
-    */
-    struct iLess
-        : public std::binary_function<String, String, bool>
-    {
-        /// @brief Compare two strings.
-        /**
-        @param[in] a The first string.
-        @param[in] b The second string.
-        @return `true` if first string is less than second.
-        */
-        bool operator()(String const& a, String const& b) const
-        {
-            return boost::ilexicographical_compare(a, b);
-        }
-    };
-
-    /// @brief The header container type.
-    /**
-    Uses case insensitive comparison for header names.
-    */
-    typedef std::map<String, String, iLess> HeaderMap;
-
-
     UInt32 m_versionMajor; ///< @brief The major HTTP version.
     UInt32 m_versionMinor; ///< @brief The minor HTTP version.
     HeaderMap m_headers; ///< @brief The headers.
