@@ -23,6 +23,7 @@
 
 // TODO: logger configuration from file
 // TODO: description & examples
+// TODO: HIVE_LOG_DISABLE_THREADS macro to disable all mutexes and locks
 
 namespace hive
 {
@@ -508,6 +509,8 @@ public:
         if (msg.level < getMinimumLevel())
             return;
 
+        boost::unique_lock<boost::mutex> lock(m_mutex);
+
         if (Format::SharedPtr fmt = getFormat())
             fmt->format(m_os, msg);
         else
@@ -516,6 +519,7 @@ public:
 
 protected:
     OStream & m_os; ///< @brief The external stream.
+    mutable boost::mutex m_mutex; ///< @brief The mutex to protect external stream access.
 };
 
 
@@ -684,6 +688,8 @@ public:
         if (msg.level < getMinimumLevel())
             return;
 
+        boost::unique_lock<boost::mutex> lock(m_mutex);
+
         if (!m_file.is_open()) // try to open/reopen
         {
             if (m_needNewFile)
@@ -794,6 +800,7 @@ private:
     mutable bool m_needNewFile; ///< @brief The need new file flag.
 
     mutable std::ofstream m_file; ///< @brief The file stream.
+    mutable boost::mutex m_mutex; ///< @brief The mutex to protect file access.
 };
 
 
