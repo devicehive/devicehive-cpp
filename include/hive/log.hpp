@@ -509,7 +509,7 @@ public:
         if (msg.level < getMinimumLevel())
             return;
 
-        boost::unique_lock<boost::mutex> lock(m_mutex);
+        boost::lock_guard<boost::mutex> lock(m_mutex);
 
         if (Format::SharedPtr fmt = getFormat())
             fmt->format(m_os, msg);
@@ -688,7 +688,7 @@ public:
         if (msg.level < getMinimumLevel())
             return;
 
-        boost::unique_lock<boost::mutex> lock(m_mutex);
+        boost::lock_guard<boost::mutex> lock(m_mutex);
 
         if (!m_file.is_open()) // try to open/reopen
         {
