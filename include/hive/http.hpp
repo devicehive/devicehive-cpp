@@ -418,10 +418,10 @@ inline bool operator==(Url const& a, Url const& b)
 {
     return a.getProtocol() == b.getProtocol()
         && a.getUserInfo() == b.getUserInfo()
-        && a.getHost() == b.getHost()
-        && a.getPort() == b.getPort()
-        && a.getPath() == b.getPath()
-        && a.getQuery() == b.getQuery()
+        && a.getHost()     == b.getHost()
+        && a.getPort()     == b.getPort()
+        && a.getPath()     == b.getPath()
+        && a.getQuery()    == b.getQuery()
         && a.getFragment() == b.getFragment();
 }
 
@@ -441,9 +441,8 @@ inline bool operator!=(Url const& a, Url const& b)
 
 /// @brief The URL builder.
 /**
-NOT FULLY IMPLEMENTED YET.
+This class helps to build an Url from components.
 */
-// TODO: implement this class.
 class Url::Builder
 {
 public:
@@ -481,6 +480,72 @@ public:
             formatQuery(), m_fragment);
     }
 
+/// @name Protocol, user, host, port and fragment
+/// @{
+public:
+
+    /// @brief Set new protocol.
+    /**
+    @param[in] proto The new protocol.
+    @return Self reference.
+    */
+    Builder& setProtocol(String const& proto)
+    {
+        m_proto = proto;
+        return *this;
+    }
+
+
+    /// @brief Set user name and password.
+    /**
+    @param[in] userName The user name.
+    @param[in] password The optional password.
+    @return Self reference.
+    */
+    Builder& setUserInfo(String const& userName, String const& password = String())
+    {
+        m_user = password.empty() ? userName
+               : userName + ":" + password;
+        return *this;
+    }
+
+
+    /// @brief Set host.
+    /**
+    @param[in] host The new host.
+    @return Self reference.
+    */
+    Builder& setHost(String const& host)
+    {
+        m_host = host;
+        return *this;
+    }
+
+
+    /// @brief Set port.
+    /**
+    @param[in] port The new port.
+    @return Self reference.
+    */
+    Builder& setPort(String const& port)
+    {
+        m_port = port;
+        return *this;
+    }
+
+
+    /// @brief Set fragment.
+    /**
+    @param[in] fragment The new fragment.
+    @return Self reference.
+    */
+    Builder& setFragment(String const& fragment)
+    {
+        m_fragment = fragment;
+        return *this;
+    }
+/// @}
+
 /// @name Path components
 /// @{
 public:
@@ -488,7 +553,7 @@ public:
     /// @brief Append new path components.
     /**
     @param[in] path The path components to add.
-    @return The this reference.
+    @return Self reference.
     */
     Builder& appendPath(String const& path)
     {
@@ -499,7 +564,7 @@ public:
 
     /// @brief Remove all path components.
     /**
-    @return The this reference.
+    @return Self reference.
     */
     Builder& clearPath()
     {
@@ -516,7 +581,7 @@ public:
     /// @brief Append new query components.
     /**
     @param[in] query The query components to add.
-    @return The this reference.
+    @return Self reference.
     */
     Builder& appendQuery(String const& query)
     {
@@ -527,7 +592,7 @@ public:
 
     /// @brief Remove all query components.
     /**
-    @return The this reference.
+    @return Self reference.
     */
     Builder& clearQuery()
     {
@@ -536,8 +601,6 @@ public:
     }
 
 /// @}
-
-// TODO: a lot of methods to manipulate URL properties: get/set proto, user, host, port, fragment
 
 private:
 
@@ -551,8 +614,10 @@ private:
         String comp;
 
         while (std::getline(iss, comp, '/'))
+        {
             if (!comp.empty())
                 m_path.push_back(comp);
+        }
     }
 
 
@@ -586,8 +651,10 @@ private:
         String comp;
 
         while (std::getline(iss, comp, '&'))
+        {
             if (!comp.empty())
                 m_query.push_back(comp);
+        }
     }
 
 
