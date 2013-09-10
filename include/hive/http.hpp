@@ -2040,14 +2040,14 @@ public:
                 return TaskPtr(); // no task started
             }
 
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
+            HIVELOG_INFO(m_log, "Task{" << task.get() << "} sending "
                 << request->getMethod() << " request to <"
                 << request->getUrl().toStr() << "> with "
                 << timeout_ms << " ms timeout:\n" << *request);
         }
         else
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
+            HIVELOG_INFO(m_log, "Task{" << task.get() << "} sending "
                 << request->getMethod() << " request to <"
                 << request->getUrl().toStr()
                 << "> without timeout:\n" << *request);
@@ -2105,7 +2105,7 @@ private:
             sbuf.consume(sbuf.size());
         }
 
-        HIVELOG_DEBUG(m_log, "{" << task.get()
+        HIVELOG_INFO(m_log, "Task{" << task.get()
             << "} got response:\n"
             << *task->response);
     }
@@ -2129,10 +2129,10 @@ private:
             task->m_timer.cancel();
             task->m_timer_started = false;
         }
-        if (task->m_callback)
+        if (Task::Callback cb = task->m_callback)
         {
-            task->m_callback(); // call it
             task->m_callback = Task::Callback();
+            cb(); // call it
         }
 
         m_taskList.remove(task);
@@ -2143,11 +2143,12 @@ private:
             const String hconn = task->response
                                ? task->response->getHeader(http::header::Connection)
                                : String();
-            if (boost::iequals(hconn, "keep-alive"))
+            if (boost::iequals(hconn, "keep-alive")) // TODO: or !boost::iequals(hconn, "close")
             {
                 m_connCache.push_back(pconn);
-                HIVELOG_DEBUG(m_log, "{" << task.get()
-                    << "} keep-alive connection is cached");
+                HIVELOG_DEBUG(m_log, "Task{" << task.get()
+                    << "} - keep-alive Connection{"
+                    << pconn.get() << "} is cached");
             }
         }
     }
@@ -2193,19 +2194,19 @@ private:
 
         if (!err) // timeout expired
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} timed out");
+            HIVELOG_INFO(m_log, "Task{" << task.get() << "} timed out");
             done(task, boost::asio::error::timed_out);
             task->cancel();
         }
         else if (boost::asio::error::operation_aborted == err)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
                 << "} timeout cancelled");
             // do nothing
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
+            HIVELOG_ERROR(m_log, "Task{" << task.get()
                 << "} timeout error: [" << err
                 << "] " << err.message());
             done(task, err);
@@ -2252,12 +2253,12 @@ private:
         {
             Resolver::iterator epi = Resolver::iterator::create(cachedEndpoint, url.getHost(), service);
             m_ios.post(boost::bind(&Client::onResolved, shared_from_this(), task, ErrorCode(), epi, firstAttempt));
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} resolved from name cache!");
+            HIVELOG_DEBUG(m_log, "Task{" << task.get() << "} resolved from name cache!");
         }
         else
         {
             // start async resolve operation
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} start async resolve <"
+            HIVELOG_DEBUG(m_log, "Task{" << task.get() << "} start async resolve <"
                 << url.getHost() << ">, \"" << service << "\" service");
             task->m_resolver.async_resolve(Resolver::query(url.getHost(), service),
                 boost::bind(&Client::onResolved, shared_from_this(),
@@ -2281,7 +2282,7 @@ private:
 
         if (!err && !task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} <"
+            HIVELOG_DEBUG(m_log, "Task{" << task.get() << "} <"
                 << task->request->getUrl().getHost()
                 << "> resolved as: " << dump(epi));
 
@@ -2289,18 +2290,19 @@ private:
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
                 << "} async resolve cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else if (firstAttempt)
         {
-            HIVELOG_WARN(m_log, "{" << task.get() << "} <"
+            HIVELOG_WARN(m_log, "Task{" << task.get() << "} <"
                 << task->request->getUrl().getHost()
                 << "> async resolve error: ["
                 << err << "] " << err.message());
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} resolve with port number instead of protocol name");
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
+                << "} resolve with port number "
+                   "instead of protocol name");
 
             // resolve with port number
             // instead of protocol name
@@ -2308,7 +2310,7 @@ private:
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get() << "} <"
+            HIVELOG_ERROR(m_log, "Task{" << task.get() << "} <"
                 << task->request->getUrl().getHost()
                 << "> async resolve error: ["
                 << err << "] " << err.message());
@@ -2338,7 +2340,7 @@ private:
             {
                 if (!pconn->is_alive())
                 {
-                    HIVELOG_DEBUG(m_log, "connection is dead, will be removed");
+                    HIVELOG_DEBUG(m_log, "Connection{" << pconn.get() << "} is dead, will be removed");
                     m_connCache.erase(i); // should be safe to erase item while iterating the list
                     continue;
                 }
@@ -2393,7 +2395,7 @@ private:
                 cached = false;
             }
 #else
-            HIVELOG_WARN(m_log, "{" << task.get()
+            HIVELOG_WARN(m_log, "Task{" << task.get()
                 << "} SSL connections not supported");
             done(task, boost::asio::error::operation_not_supported);
             return;
@@ -2410,16 +2412,18 @@ private:
 
         if (cached)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} got connection from cache");
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
+                << "} got Connection{" << task->m_connection.get()
+                << "} from cache!");
 
             m_ios.post(boost::bind(&Client::onHandshaked, shared_from_this(),
                 task, boost::system::error_code()));
         }
         else
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} start async connection");
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
+                << "} start async Connection{"
+                << task->m_connection.get() << "}");
 
             task->m_connection->async_connect(epi,
                 boost::bind(&Client::onConnected, shared_from_this(),
@@ -2452,13 +2456,13 @@ private:
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
                 << "} async connection cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
+            HIVELOG_ERROR(m_log, "Task{" << task.get()
                 << "} async connection error: ["
                 << err << "] " << err.message());
             done(task, err);
@@ -2479,7 +2483,7 @@ private:
         HIVELOG_TRACE_BLOCK(m_log, "asyncHandshake(task)");
 
         // send whole request
-        HIVELOG_DEBUG(m_log, "{" << task.get()
+        HIVELOG_DEBUG(m_log, "Task{" << task.get()
             << "} start async handshake");
         task->m_connection->async_handshake(
 #if !defined(HIVE_DISABLE_SSL)
@@ -2507,13 +2511,13 @@ private:
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
                 << "} async handshake cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
+            HIVELOG_ERROR(m_log, "Task{" << task.get()
                 << "} async handshake error: ["
                 << err << "] " << err.message());
             done(task, err);
@@ -2534,7 +2538,7 @@ private:
 
         HIVELOG_DEBUG(m_log, "verify certificate: " << preverified);
 
-        // TODO: check certificate
+        // TODO: check certificate, use ssl::rfc2818_verification class
         return preverified;
     }
 
@@ -2559,7 +2563,7 @@ private:
         task->request->write(os);
 
         // send whole request
-        HIVELOG_DEBUG(m_log, "{" << task.get()
+        HIVELOG_DEBUG(m_log, "Task{" << task.get()
             << "} start async request sending");
         boost::asio::async_write(*task->m_connection, sbuf,
             boost::bind(&Client::onRequestWritten,
@@ -2584,13 +2588,13 @@ private:
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
                 << "} async request sending cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
+            HIVELOG_ERROR(m_log, "Task{" << task.get()
                 << "} async request sending error: ["
                 << err << "] " << err.message());
             done(task, err);
@@ -2610,7 +2614,7 @@ private:
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadStatus(task)");
 
-        HIVELOG_DEBUG(m_log, "{" << task.get()
+        HIVELOG_DEBUG(m_log, "Task{" << task.get()
             << "} start async status line receiving");
         boost::asio::async_read_until(*task->m_connection,
             task->m_connection->getBuffer(), impl::CRLF,
@@ -2645,7 +2649,7 @@ private:
                 task->response = Response::create(status, reason);
                 task->response->setVersion(vmajor, vminor);
 
-                HIVELOG_DEBUG(m_log, "{" << task.get() << "} got status line: "
+                HIVELOG_DEBUG(m_log, "Task{" << task.get() << "} got status line: "
                     << dumpStatusLine(task->response));
 
                 // TODO: handle 100-Continue response
@@ -2654,20 +2658,20 @@ private:
             }
             else
             {
-                HIVELOG_ERROR(m_log, "{" << task.get()
+                HIVELOG_ERROR(m_log, "Task{" << task.get()
                     << "} no data for status line");
                 done(task, boost::asio::error::no_data); // boost::asio::error::failure
             }
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
                 << "} async status line receiving cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
+            HIVELOG_ERROR(m_log, "Task{" << task.get()
                 << "} async status line receiving error: ["
                 << err << "] " << err.message());
             done(task, err);
@@ -2688,7 +2692,7 @@ private:
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadHeaders(task)");
 
         // start "header" reading
-        HIVELOG_DEBUG(m_log, "{" << task.get()
+        HIVELOG_DEBUG(m_log, "Task{" << task.get()
             << "} start async headers receiving");
         boost::asio::async_read_until(*task->m_connection,
             task->m_connection->getBuffer(), impl::CRLFx2,
@@ -2730,20 +2734,20 @@ private:
             }
             else
             {
-                HIVELOG_ERROR(m_log, "{" << task.get()
+                HIVELOG_ERROR(m_log, "Task{" << task.get()
                     << "} no data for headers");
                 done(task, boost::asio::error::no_data); // boost::asio::error::failure
             }
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
                 << "} async headers receiving cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
+            HIVELOG_ERROR(m_log, "Task{" << task.get()
                 << "} async headers receiving error: ["
                 << err << "] " << err.message());
             done(task, err);
@@ -2764,7 +2768,7 @@ private:
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadContent(task)");
 
         // start "content" reading
-        HIVELOG_DEBUG(m_log, "{" << task.get()
+        HIVELOG_DEBUG(m_log, "Task{" << task.get()
             << "} start async content receiving");
         boost::asio::async_read(*task->m_connection,
             task->m_connection->getBuffer(),
@@ -2798,7 +2802,7 @@ private:
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
                 << "} async content receiving cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
@@ -2814,7 +2818,7 @@ private:
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
+            HIVELOG_ERROR(m_log, "Task{" << task.get()
                 << "} async content receiving error: ["
                 << err << "] " << err.message());
             done(task, err);
@@ -3175,14 +3179,16 @@ private:
         /// @brief The cache entry.
         struct Entry
         {
-            Endpoint endpoint;
-            boost::posix_time::ptime created;
+            Endpoint endpoint;                  ///< @brief Endpoint address.
+            boost::posix_time::ptime created;   ///< @brief Creation time.
 
+            /// @brief The main constructor.
             explicit Entry(Endpoint const& ep)
                 : endpoint(ep)
                 , created(boost::posix_time::microsec_clock::universal_time())
             {}
 
+            /// @brief The default constructor.
             Entry()
             {}
         };
