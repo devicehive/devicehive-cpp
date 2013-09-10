@@ -73,7 +73,7 @@ public:
     @param[in] url The URL string to parse.
     @throws std::invalid_argument If the URL string is invalid.
     */
-    explicit Url(const char* url)
+    /*explicit*/ Url(const char* url)
     {
         parse(url);
     }
@@ -84,7 +84,7 @@ public:
     @param[in] url The URL string to parse.
     @throws std::invalid_argument If the URL string is invalid.
     */
-    explicit Url(String const& url)
+    /*explicit*/ Url(String const& url)
     {
         parse(url.c_str());
     }
