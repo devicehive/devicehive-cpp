@@ -1467,16 +1467,13 @@ public:
     virtual Endpoint remote_endpoint() const = 0;
 
 
-    /// @brief Check the connection is still alive.
-    /**
-    @return `true` if connection is still alive.
-    */
-    virtual bool is_alive() = 0;
+    /// @brief Cancel any asynchronous operations.
+    virtual void cancel() = 0;
 
 
     /// @brief Close the connection.
     /**
-        Cancels all asynchronous operations.
+    Cancels all asynchronous operations.
     */
     virtual void close() = 0;
 
@@ -1609,14 +1606,13 @@ public: // Connection
     }
 
 
-    /// @copydoc Connection::is_alive()
-    virtual bool is_alive()
+    /// @copydoc Connection::cancel()
+    virtual void cancel()
     {
-        // TODO: check it's working!!!
-        boost::system::error_code err;
-        const std::vector<UInt8> bufs; // empty buffer!
-        m_socket.write_some(boost::asio::buffer(bufs), err);
-        return !err;
+        ErrorCode terr;
+
+        m_socket.cancel(terr);
+        // ignore error code?
     }
 
 
@@ -1746,14 +1742,13 @@ public: // Connection
     }
 
 
-    /// @copydoc Connection::is_alive()
-    virtual bool is_alive()
+    /// @copydoc Connection::cancel()
+    virtual void cancel()
     {
-        // TODO: check it's working!!!
-        boost::system::error_code err;
-        const std::vector<UInt8> bufs; // empty buffer!
-        m_stream.write_some(boost::asio::buffer(bufs), err);
-        return !err;
+        ErrorCode terr;
+
+        m_stream.lowest_layer().cancel(terr);
+        // ignore error code?
     }
 
 
@@ -1862,6 +1857,7 @@ public:
     /// @brief The trivial destructor.
     virtual ~Client()
     {
+        // TODO: close all keep-alive monitors!
         assert(m_taskList.empty() && "not all tasks are finished");
         HIVELOG_TRACE_STR(m_log, "deleted");
     }
@@ -2075,6 +2071,25 @@ public:
         }
     }
 
+
+    /// @brief Clear all keep-alive connections.
+    /**
+    All keep-alive connection will be cancelled and closed.
+    */
+    void clearKeepAliveConnections()
+    {
+        HIVELOG_TRACE_BLOCK(m_log, "clearKeepAliveConnections()");
+        ConnList::iterator i = m_connCache.begin();
+        ConnList::iterator e = m_connCache.end();
+        for (; i != e; ++i)
+        {
+            ConnectionPtr pconn = *i;
+            pconn->cancel();
+        }
+
+        m_connCache.clear();
+    }
+
 private:
 
     /// @brief Finish the task.
@@ -2149,6 +2164,7 @@ private:
                 HIVELOG_DEBUG(m_log, "Task{" << task.get()
                     << "} - keep-alive Connection{"
                     << pconn.get() << "} is cached");
+                asyncStartKeepAliveMonitor(pconn);
             }
         }
     }
@@ -2338,19 +2354,13 @@ private:
             ConnectionPtr pconn = *i;
             if (pconn->remote_endpoint() == endpoint)
             {
-                if (!pconn->is_alive())
-                {
-                    HIVELOG_DEBUG(m_log, "Connection{" << pconn.get() << "} is dead, will be removed");
-                    m_connCache.erase(i); // should be safe to erase item while iterating the list
-                    continue;
-                }
-
 #if !defined(HIVE_DISABLE_SSL)
                 if (secure)
                 {
                     if (boost::dynamic_pointer_cast<Connection::Secure>(pconn))
                     {
-                        m_connCache.erase(i); // should be safe to erase item while iterating the list
+                        m_connCache.erase(i);
+                        pconn->cancel(); // stop monitor
                         return pconn;
                     }
                 }
@@ -2359,7 +2369,8 @@ private:
                 {
                     if (boost::dynamic_pointer_cast<Connection::Simple>(pconn))
                     {
-                        m_connCache.erase(i); // should be safe to erase item while iterating the list
+                        m_connCache.erase(i);
+                        pconn->cancel(); // stop monitor
                         return pconn;
                     }
                 }
@@ -2826,6 +2837,60 @@ private:
     }
 /// @}
 
+/// @name Keep-alive connection monitor
+/// @{
+private:
+
+    /// @brief Start asynchronous keep-alive monitor.
+    /**
+    @param[in] pconn The keep-alive connection.
+    */
+    void asyncStartKeepAliveMonitor(ConnectionPtr pconn)
+    {
+        HIVELOG_TRACE_BLOCK(m_log, "asyncStartKeepAliveMonitor(pconn)");
+
+        HIVELOG_DEBUG(m_log, "Connection{" << pconn.get()
+            << "} start async receiving (keep-alive monitor)");
+        static char dummy = 0;
+        boost::asio::async_read(*pconn, boost::asio::buffer(&dummy, 1),
+            boost::bind(&Client::onKeepAliveMonitorRead, shared_from_this(),
+                pconn, boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+
+
+    /// @brief Keep-alive monitor operation completed.
+    /**
+    @param[in] pconn The keep-alive connection.
+    @param[in] err The error code.
+    @param[in] len The number of bytes transferred.
+    */
+    void onKeepAliveMonitorRead(ConnectionPtr pconn, ErrorCode err, size_t len)
+    {
+        HIVELOG_TRACE_BLOCK(m_log, "onKeepAliveMonitorRead(task)");
+
+        if (!err)
+        {
+            HIVELOG_WARN(m_log, "Connection{" << pconn.get()
+                << "} got unexpected data, ignored");
+            asyncStartKeepAliveMonitor(pconn);
+        }
+        else if (err == boost::asio::error::operation_aborted)
+        {
+            HIVELOG_DEBUG(m_log, "Connection{" << pconn.get()
+                << "} async keep-alive monitor cancelled");
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log, "Connection{" << pconn.get()
+                << "} async keep-alive monitor receiving error: ["
+                << err << "] " << err.message());
+            HIVELOG_DEBUG(m_log, "Connection{" << pconn.get()
+                << "} is dead, will be removed");
+            m_connCache.remove(pconn);
+        }
+    }
+/// @}
 
 /// @name Dump tools
 /// @{
