@@ -1849,6 +1849,9 @@ protected:
         , m_context(boost::asio::ssl::context::sslv23)
 #endif // HIVE_DISABLE_SSL
     {
+#if !defined(HIVE_DISABLE_SSL)
+        m_context.set_options(boost::asio::ssl::context::default_workarounds);
+#endif // HIVE_DISABLE_SSL
         HIVELOG_TRACE_STR(m_log, "created");
     }
 
