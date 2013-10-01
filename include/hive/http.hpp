@@ -697,6 +697,7 @@ private:
 const char Host[]               = "Host";               ///< @hideinitializer @brief The "Host" header name.
 const char Allow[]              = "Allow";              ///< @hideinitializer @brief The "Allow" header name.
 const char Accept[]             = "Accept";             ///< @hideinitializer @brief The "Accept" header name.
+const char Accept_Encoding[]    = "Accept-Encoding";    ///< @hideinitializer @brief The "Accept-Encoding" header name.
 const char Connection[]         = "Connection";         ///< @hideinitializer @brief The "Connection" header name.
 const char Content_Encoding[]   = "Content-Encoding";   ///< @hideinitializer @brief The "Content-Encoding" header name.
 const char Content_Length[]     = "Content-Length";     ///< @hideinitializer @brief The "Content-Length" header name.
@@ -709,6 +710,7 @@ const char Upgrade[]            = "Upgrade";            ///< @hideinitializer @b
 const char Authorization[]      = "Authorization";      ///< @hideinitializer @brief The "Authorization" header name.
 const char SetCookie[]          = "Set-Cookie";         ///< @hideinitializer @brief The "Set-Cookie" header name.
 const char Cookie[]             = "Cookie";             ///< @hideinitializer @brief The "Cookie" header name.
+const char Proxy_Connection[]   = "Proxy-Connection";   ///< @hideinitializer @brief The "Proxy-Connection" header name.
 
         // TODO: add more headers here
 
@@ -1926,6 +1928,8 @@ public:
         This method is used to take connection from the HTTP client,
         i.e. prevent the connection caching.
 
+        It's unsafe to take connection before the task is finished.
+
         @return The current connection or `NULL`.
         */
         ConnectionPtr takeConnection()
@@ -2156,20 +2160,44 @@ private:
         m_taskList.remove(task);
 
         // cache the connection
+        if (!task->m_cancelled && isKeepAlive(task))        // if task is cancelled, its connection is closed
         if (ConnectionPtr pconn = task->takeConnection())
         {
-            const String hconn = task->response
-                               ? task->response->getHeader(http::header::Connection)
-                               : String();
-            if (boost::iequals(hconn, "keep-alive")) // TODO: or !boost::iequals(hconn, "close")
+            m_connCache.push_back(pconn);
+            HIVELOG_DEBUG(m_log, "Task{" << task.get()
+                << "} - keep-alive Connection{" << pconn.get()
+                << "} is cached (cache size is " << m_connCache.size() << ")");
+            asyncStartKeepAliveMonitor(pconn);
+        }
+    }
+
+
+    /// @brief Check if connection can be cached.
+    /**
+    @param[in] task The task to check.
+    @return `true` if connection can be cached.
+    */
+    bool isKeepAlive(TaskPtr task)
+    {
+        if (task->request && task->response)
+        {
+            const String conn_h = task->response->getHeader(http::header::Connection);
+            const int vmaj = task->request->getVersionMajor();
+            const int vmin = task->request->getVersionMinor();
+
+            if (vmaj==1 && vmin==0) // HTTP 1.0
             {
-                m_connCache.push_back(pconn);
-                HIVELOG_DEBUG(m_log, "Task{" << task.get()
-                    << "} - keep-alive Connection{"
-                    << pconn.get() << "} is cached");
-                asyncStartKeepAliveMonitor(pconn);
+                if (boost::iequals(conn_h, "keep-alive"))
+                    return true; // can be cached
+            }
+            else                    // HTTP 1.1 or above
+            {
+                if (!boost::iequals(conn_h, "close"))
+                    return true; // can be cached
             }
         }
+
+        return false; // no point to cache connection
     }
 
 /// @name Task timeout
