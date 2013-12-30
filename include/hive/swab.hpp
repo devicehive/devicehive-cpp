@@ -47,7 +47,6 @@ Defined as:
 #   include <stdlib.h>
 #elif defined(__APPLE__)              //osx                                                                                                                                                                  
 #   include <machine/endian.h>
-#   include <libkern/OSByteOrder.h>
 #else                                 // nix
 #   include <endian.h>
 #endif // WIN32
