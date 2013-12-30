@@ -45,6 +45,8 @@ Defined as:
 
 #if defined(WIN32) || defined(_WIN32) // win
 #   include <stdlib.h>
+#elif defined(__APPLE__)              //osx                                                                                                                                                                  
+#   include <machine/endian.h>
 #else                                 // nix
 #   include <endian.h>
 #endif // WIN32
