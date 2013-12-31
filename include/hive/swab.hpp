@@ -72,7 +72,7 @@ inline UInt16 swab_16(UInt16 x)
     return _byteswap_ushort(x);
 #elif defined(__APPLE__)               // osx                                                                                                                                                                
     // GCC 4.6 lacks __builtin_bswap16                                                                                                                           
-#if defined(__clang__) && (__GNUC__ >=4 && __GNUC_MINOR__ > 6)
+#if defined(__clang__) && __GNUC__ >=4 && (__GNUC_MINOR__ > 6 || __GNUC__ > 4)
     return __builtin_bswap16(x);
 #else
     return ((x & 0xff00) >> 8) | ((x & 0x00ff) << 8);
