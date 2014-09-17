@@ -111,6 +111,7 @@ public:
     {
         // TODO: cancel only related requests
         m_http->cancelAll();
+        m_http->clearKeepAliveConnections();
     }
 
 
@@ -576,8 +577,15 @@ private:
 
         if (err)
         {
-            HIVELOG_WARN(m_log, "failed to get \"" << hint
-                << "\": [" << err << "] " << err.message());
+            if (err == boost::asio::error::operation_aborted)
+            {
+                HIVELOG_DEBUG(m_log, "\"" << hint << "\": cancelled");
+            }
+            else
+            {
+                HIVELOG_WARN(m_log, "failed to get \"" << hint
+                    << "\": [" << err << "] " << err.message());
+            }
         }
         else if (!task->response)
         {

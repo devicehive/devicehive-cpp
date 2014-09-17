@@ -64,7 +64,7 @@ public:
     {
         SharedPtr pthis(new This(ios));
 
-        if (timeout_ms > 0)
+        if (0 < timeout_ms)
         {
             pthis->m_timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms));
             pthis->m_timer.async_wait(
