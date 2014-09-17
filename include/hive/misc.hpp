@@ -142,7 +142,7 @@ This function writes the URL-encoded string to the output stream.
 @param[in] str The string to encode.
 @return The output stream.
 */
-inline OStream& url_encode(OStream & os, String const& str)
+inline OStream& url_encode(OStream &os, String const& str)
 {
     const size_t N = str.size();
     for (size_t i = 0; i < N; ++i)
@@ -191,7 +191,7 @@ This function writes the URL-decoded string to the output stream.
 @return The output stream.
 @throw std::runtime_error on invalid data.
 */
-inline OStream& url_decode(OStream & os, String const& str)
+inline OStream& url_decode(OStream &os, String const& str)
 {
     const size_t N = str.size();
     for (size_t i = 0; i < N; ++i)

@@ -886,7 +886,7 @@ public:
     @return `true` if data payload successfully parsed.
     */
     template<typename PayloadT>
-    bool getPayload(PayloadT & payload) const
+    bool getPayload(PayloadT &payload) const
     {
         if (HEADER_LEN+FOOTER_LEN <= m_content.size())
         {
@@ -980,7 +980,7 @@ public:
     @param[out] result The parse result. May be NULL.
     @return Parsed frame or NULL.
     */
-    static SharedPtr parseFrame(boost::asio::streambuf & sb, ParseResult *result)
+    static SharedPtr parseFrame(boost::asio::streambuf &sb, ParseResult *result)
     {
         size_t n_skip = 0; // number of bytes to skip
         const boost::asio::streambuf::const_buffers_type bufs = sb.data();

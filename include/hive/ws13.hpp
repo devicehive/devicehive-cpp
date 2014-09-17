@@ -235,7 +235,7 @@ public:
     @return `true` if data payload successfully parsed.
     */
     template<typename PayloadT>
-    bool getPayload(PayloadT & payload) const
+    bool getPayload(PayloadT &payload) const
     {
         if (2 <= m_content.size())
         {
@@ -433,7 +433,7 @@ public:
     @param[out] result The parse result. May be NULL.
     @return Parsed frame or NULL.
     */
-    static SharedPtr parseFrame(boost::asio::streambuf & sb, ParseResult *result)
+    static SharedPtr parseFrame(boost::asio::streambuf &sb, ParseResult *result)
     {
         size_t n_skip = 0; // number of bytes to skip
         const boost::asio::streambuf::const_buffers_type bufs = sb.data();
@@ -525,7 +525,7 @@ public:
     /**
     @param[in,out] bs The output binary stream.
     */
-    void format(bin::OStream & bs) const
+    void format(bin::OStream &bs) const
     {}
 
 
@@ -534,7 +534,7 @@ public:
     @param[in,out] bs The input binary stream.
     @return `true` if successfully parsed.
     */
-    bool parse(bin::IStream & bs)
+    bool parse(bin::IStream &bs)
     {
         return true;
     }
@@ -548,7 +548,7 @@ protected:
     @param[in,out] bs The input binary stream.
     @return The parsed data.
     */
-    static OctetString getAll(bin::IStream & bs)
+    static OctetString getAll(bin::IStream &bs)
     {
         OStringStream oss;
         oss << bs.getStream().rdbuf();
@@ -589,7 +589,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(bin::OStream & bs) const
+    void format(bin::OStream &bs) const
     {
         bs.putBuffer(data.data(),
             data.size());
@@ -597,7 +597,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(bin::IStream & bs)
+    bool parse(bin::IStream &bs)
     {
         data = getAll(bs);
         return true;
@@ -636,7 +636,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(bin::OStream & bs) const
+    void format(bin::OStream &bs) const
     {
         bs.putBuffer(text.data(),
             text.size());
@@ -644,7 +644,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(bin::IStream & bs)
+    bool parse(bin::IStream &bs)
     {
         text = getAll(bs);
         return true;
@@ -683,7 +683,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(bin::OStream & bs) const
+    void format(bin::OStream &bs) const
     {
         bs.putBuffer(data.data(),
             data.size());
@@ -691,7 +691,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(bin::IStream & bs)
+    bool parse(bin::IStream &bs)
     {
         data = getAll(bs);
         return true;
@@ -770,7 +770,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(bin::OStream & bs) const
+    void format(bin::OStream &bs) const
     {
         bs.putUInt16BE(statusCode);
         bs.putBuffer(reason.data(),
@@ -779,7 +779,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(bin::IStream & bs)
+    bool parse(bin::IStream &bs)
     {
         statusCode = bs.getUInt16BE(); // optional
         reason = getAll(bs); // up to end
@@ -819,7 +819,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(bin::OStream & bs) const
+    void format(bin::OStream &bs) const
     {
         bs.putBuffer(data.data(),
             data.size());
@@ -827,7 +827,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(bin::IStream & bs)
+    bool parse(bin::IStream &bs)
     {
         data = getAll(bs); // up to end
         return true;
@@ -867,7 +867,7 @@ public:
 public:
 
     /// @copydoc Frame::Payload::format()
-    void format(bin::OStream & bs) const
+    void format(bin::OStream &bs) const
     {
         bs.putBuffer(data.data(),
             data.size());
@@ -875,7 +875,7 @@ public:
 
 
     /// @copydoc Frame::Payload::parse()
-    bool parse(bin::IStream & bs)
+    bool parse(bin::IStream &bs)
     {
         data = getAll(bs); // up to end
         return true;

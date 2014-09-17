@@ -111,7 +111,7 @@ public:
         if (!m_callback)
             m_callback = cb;
         else
-            m_callback = boost::bind(&This::zcall2, m_callback, cb);
+            m_callback = boost::bind(&This::tie, m_callback, cb);
     }
 
 private:
@@ -121,7 +121,7 @@ private:
     @param[in] cb1 The first callback.
     @param[in] cb2 The second callback.
     */
-    static void zcall2(Callback cb1, Callback cb2)
+    static void tie(Callback cb1, Callback cb2)
     {
         cb1();
         cb2();

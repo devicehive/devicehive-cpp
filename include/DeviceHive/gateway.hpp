@@ -463,7 +463,7 @@ public:
     @param[out] payload The frame data payload to parse.
     @return `true` if data payload successfully parsed.
     */
-    bool getPayload(String & payload) const
+    bool getPayload(String &payload) const
     {
         if (HEADER_LEN+FOOTER_LEN <= m_content.size())
         {
@@ -580,7 +580,7 @@ public:
     @param[in,out] result The parse result. May be NULL.
     @return Parsed frame or NULL.
     */
-    static SharedPtr parseFrame(boost::asio::streambuf & sb, ParseResult *result)
+    static SharedPtr parseFrame(boost::asio::streambuf &sb, ParseResult *result)
     {
         const boost::asio::streambuf::const_buffers_type bufs = sb.data();
         size_t n_skip = 0; // number of bytes to skip
@@ -983,7 +983,7 @@ public:
         @param[in] layout The layout.
         @return The JSON value.
         */
-        static json::Value bin2json(bin::IStream & bs, Layout::SharedPtr layout)
+        static json::Value bin2json(bin::IStream &bs, Layout::SharedPtr layout)
         {
             json::Value jval;
 
@@ -1012,7 +1012,7 @@ public:
         @param[in] layoutElement The layout element.
         @return The JSON value.
         */
-        static json::Value bin2json(bin::IStream & bs, Layout::Element::SharedPtr layoutElement)
+        static json::Value bin2json(bin::IStream &bs, Layout::Element::SharedPtr layoutElement)
         {
             switch (layoutElement->dataType)
             {
@@ -1089,7 +1089,7 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layout The layout.
         */
-        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::SharedPtr layout)
+        static void json2bin(json::Value const& jval, bin::OStream &bs, Layout::SharedPtr layout)
         {
             Layout::ElementIterator i = layout->elementsBegin();
             Layout::ElementIterator e = layout->elementsEnd();
@@ -1114,7 +1114,7 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layoutElement The layout element.
         */
-        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::Element::SharedPtr layoutElement)
+        static void json2bin(json::Value const& jval, bin::OStream &bs, Layout::Element::SharedPtr layoutElement)
         {
             // TODO: more checks on data types!!!
             switch (layoutElement->dataType)
@@ -1378,7 +1378,7 @@ protected:
     */
     virtual boost::system::error_code openSerial()
     {
-        boost::asio::serial_port & port = m_serial;
+        boost::asio::serial_port &port = m_serial;
         boost::system::error_code err;
 
         port.close(err); // (!) ignore error

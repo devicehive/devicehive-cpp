@@ -137,6 +137,7 @@ is equivalent to "%T %N %L %M\n". The following format options are allowed:
 | `%%T`  | the timestamp                  |
 | `%%N`  | the logger name                |
 | `%%L`  | the logging level              |
+| `%%l`  | the abbreviated logging level  |
 | `%%M`  | the log message (with prefix)  |
 | `%%I`  | the thread identifier          |
 
@@ -269,6 +270,10 @@ public:
 
                     case 'L':       // logging level
                         os << getLevelName(msg.level);
+                        break;
+
+                    case 'l':       // abbreviated logging level
+                        os.put(getLevelName(msg.level)[0]);
                         break;
 
                     case 'M':       // message
@@ -518,7 +523,7 @@ public:
     }
 
 protected:
-    OStream & m_os; ///< @brief The external stream.
+    OStream &m_os; ///< @brief The external stream.
     mutable boost::mutex m_mutex; ///< @brief The mutex to protect external stream access.
 };
 
