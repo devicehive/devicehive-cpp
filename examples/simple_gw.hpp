@@ -71,6 +71,7 @@ public:
 
         String baseUrl = "http://ecloud.dataart.com/ecapi8";
         size_t web_timeout = 0; // zero - don't change
+        String http_version;
 
         String serialPortName = "";
         UInt32 serialBaudrate = 9600;
@@ -86,6 +87,7 @@ public:
                 std::cout << "\t--networkDesc <network description>\n";
                 std::cout << "\t--server <server URL>\n";
                 std::cout << "\t--web-timeout <timeout, seconds>\n";
+                std::cout << "\t--http-version <major.minor HTTP version>\n";
                 std::cout << "\t--no-ws disable automatic websocket service switching\n";
                 std::cout << "\t--serial <serial device>\n";
                 std::cout << "\t--baudrate <serial baudrate>\n";
@@ -102,6 +104,8 @@ public:
                 baseUrl = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--web-timeout") && i+1 < argc)
                 web_timeout = boost::lexical_cast<UInt32>(argv[++i]);
+            else if (boost::algorithm::iequals(argv[i], "--http-version") && i+1 < argc)
+                http_version = argv[++i];
             else if (boost::iequals(argv[i], "--no-ws"))
                 pthis->m_disableWebsockets = true;
             else if (boost::algorithm::iequals(argv[i], "--serial") && i+1 < argc)
@@ -128,22 +132,28 @@ public:
                 if (pthis->m_disableWebsockets)
                     throw std::runtime_error("websockets are disabled by --no-ws switch");
 
+                HIVELOG_INFO_STR(pthis->m_log, "WebSocket service is used");
                 devicehive::WebsocketService::SharedPtr service = devicehive::WebsocketService::create(
                     http::Client::create(pthis->m_ios), baseUrl, pthis);
                 if (0 < web_timeout)
                     service->setTimeout(web_timeout*1000); // seconds -> milliseconds
 
-                HIVELOG_INFO_STR(pthis->m_log, "WebSocket service is used");
                 pthis->m_service = service;
             }
             else
             {
+                HIVELOG_INFO_STR(pthis->m_log, "RESTful service is used");
                 devicehive::RestfulService::SharedPtr service = devicehive::RestfulService::create(
                     http::Client::create(pthis->m_ios), baseUrl, pthis);
                 if (0 < web_timeout)
                     service->setTimeout(web_timeout*1000); // seconds -> milliseconds
+                if (!http_version.empty())
+                {
+                    int major = 1, minor = 1;
+                    parseVersion(http_version, major, minor);
+                    service->setHttpVersion(major, minor);
+                }
 
-                HIVELOG_INFO_STR(pthis->m_log, "RESTful service is used");
                 pthis->m_service = service;
             }
         }
@@ -169,6 +179,8 @@ protected:
     */
     virtual void start()
     {
+        HIVELOG_TRACE_BLOCK(m_log, "start()");
+
         Base::start();
         m_service->asyncConnect();
         m_delayed->callLater( // ASAP
@@ -183,6 +195,8 @@ protected:
     */
     virtual void stop()
     {
+        HIVELOG_TRACE_BLOCK(m_log, "stop()");
+
         m_service->cancelAll();
         m_serial.close();
         asyncListenForGatewayFrames(false); // stop listening to release shared pointer
@@ -200,7 +214,7 @@ private:
 
         if (!err)
         {
-            HIVELOG_DEBUG(m_log,
+            HIVELOG_INFO(m_log,
                 "got serial device \"" << m_serialPortName
                 << "\" at baudrate: " << m_serialBaudrate);
 
@@ -226,7 +240,7 @@ private:
     */
     virtual boost::system::error_code openSerial()
     {
-        boost::asio::serial_port & port = m_serial;
+        boost::asio::serial_port &port = m_serial;
         boost::system::error_code err;
 
         port.close(err); // (!) ignore error
@@ -591,7 +605,7 @@ private:
     */
     void handleGatewayMessage(int intent, json::Value const& data)
     {
-        HIVELOG_INFO(m_log, "process intent #" << intent << " data: " << data << "\n");
+        HIVELOG_INFO(m_log, "process intent #" << intent << " data: " << data);
 
         if (intent == gateway::INTENT_REGISTRATION_RESPONSE)
         {
@@ -698,15 +712,19 @@ inline void main(int argc, const char* argv[])
     { // configure logging
         using namespace hive::log;
 
-        Target::SharedPtr log_file = Target::File::create("simple_gw.log");
+        Target::File::SharedPtr log_file = Target::File::create("simple_gw.log");
         Target::SharedPtr log_console = Logger::root().getTarget();
         Logger::root().setTarget(Target::Tie::create(log_file, log_console));
         Logger::root().setLevel(LEVEL_TRACE);
         Logger("/gateway/API").setTarget(log_file); // disable annoying messages
-        Logger("/hive/websocket").setTarget(log_file).setLevel(LEVEL_DEBUG); // disable annoying messages
-        Logger("/hive/http").setTarget(log_file).setLevel(LEVEL_DEBUG); // disable annoying messages
-        log_console->setFormat(Format::create("%N %L %M\n"));
-        log_console->setMinimumLevel(LEVEL_DEBUG);
+        Logger("/hive/websocket").setTarget(log_file); // disable annoying messages
+        Logger("/hive/http").setTarget(log_file); // disable annoying messages
+        log_console->setFormat(Format::create("%N: %M\n"));
+        log_console->setMinimumLevel(LEVEL_INFO);
+        log_file->setAutoFlushLevel(LEVEL_TRACE);
+        log_file->setMaxFileSize(1*1024*1024);
+        log_file->setNumberOfBackups(1);
+        log_file->startNew();
     }
 
     Application::create(argc, argv)->run();

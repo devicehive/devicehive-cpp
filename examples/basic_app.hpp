@@ -448,6 +448,7 @@ private:
         }
     }
 
+protected:
 
     /// @brief Get the signal name.
     /**
@@ -468,6 +469,23 @@ private:
         OStringStream oss;
         oss << "#" << signo;
         return oss.str();
+    }
+
+protected:
+
+    /// @brief Parse major.minor versions from string.
+    /**
+    @param[in] version The string version.
+    @param[out] major Parsed major version.
+    @param[out] minor Parsed minor version.
+    */
+    static void parseVersion(String const& version, int &major, int &minor)
+    {
+        hive::IStringStream iss(version);
+        iss >> major;
+        if (iss.peek() == '.')
+            iss.ignore(1);
+        iss >> minor;
     }
 
 protected:

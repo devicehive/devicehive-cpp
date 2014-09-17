@@ -40,7 +40,7 @@ protected:
     RestfulServiceBase(http::ClientPtr httpClient, String const& baseUrl, String const& name)
         : m_http(httpClient)
         , m_http_major(1)
-        , m_http_minor(0)
+        , m_http_minor(1)
         , m_log("/devicehive/rest/" + name)
         , m_baseUrl(baseUrl)
         , m_timeout_ms(60000)
@@ -90,6 +90,9 @@ public:
     */
     This& setTimeout(size_t timeout_ms)
     {
+        HIVELOG_INFO(m_log, "set default timeout "
+            << timeout_ms << " milliseconds");
+
         m_timeout_ms = timeout_ms;
         return *this;
     }
@@ -103,6 +106,23 @@ public:
     http::ClientPtr getHttpClient() const
     {
         return m_http;
+    }
+
+
+    /// @brief Set HTTP version.
+    /**
+    @param[in] major The major HTTP version.
+    @parm[[in] minor The minor HTTP version.
+    @return Self reference.
+    */
+    This& setHttpVersion(int major, int minor)
+    {
+        HIVELOG_INFO(m_log, "switch to HTTP/"
+            << major << "." << minor);
+
+        m_http_major = major;
+        m_http_minor = minor;
+        return *this;
     }
 
 
