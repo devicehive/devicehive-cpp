@@ -213,6 +213,7 @@ protected:
     /// @brief The default constructor.
     Application()
         : m_disableWebsockets(false)
+        , m_disableWebsocketPingPong(false)
     {}
 
 public:
@@ -265,6 +266,7 @@ public:
                 std::cout << "\t--web-timeout <timeout, seconds>\n";
                 std::cout << "\t--http-version <major.minor HTTP version>\n";
                 std::cout << "\t--no-ws disable automatic websocket service switching\n";
+                std::cout << "\t--no-ws-ping-pong disable websocket ping/pong messages\n";
                 std::cout << "\t--led <id> <name> <file name>\n";
                 std::cout << "\t--temp <id> <name> <file name>\n";
 
@@ -294,6 +296,8 @@ public:
                 http_version = argv[++i];
             else if (boost::iequals(argv[i], "--no-ws"))
                 pthis->m_disableWebsockets = true;
+            else if (boost::iequals(argv[i], "--no-ws-ping-pong"))
+                pthis->m_disableWebsocketPingPong = true;
             else if (boost::iequals(argv[i], "--led") && i+3 < argc)
             {
                 const String id = argv[++i];
@@ -338,6 +342,7 @@ public:
                 HIVELOG_INFO_STR(pthis->m_log, "WebSocket service is used");
                 devicehive::WebsocketService::SharedPtr service = devicehive::WebsocketService::create(
                     http::Client::create(pthis->m_ios), baseUrl, pthis);
+                service->setPingPongEnabled(!pthis->m_disableWebsocketPingPong);
                 if (0 < web_timeout)
                     service->setTimeout(web_timeout*1000); // seconds -> milliseconds
 
@@ -429,7 +434,8 @@ private: // IDeviceServiceEvents
                 rest->cancelAll();
 
                 devicehive::WebsocketService::SharedPtr service = devicehive::WebsocketService::create(
-                    http::Client::create(m_ios), info.alternativeUrl, shared_from_this());
+                    rest->getHttpClient(), info.alternativeUrl, shared_from_this());
+                service->setPingPongEnabled(!m_disableWebsocketPingPong);
                 service->setTimeout(rest->getTimeout());
                 m_service = service;
 
@@ -595,6 +601,7 @@ private:
     devicehive::DevicePtr m_device; ///< @brief The device.
     String m_lastCommandTimestamp; ///< @brief The timestamp of the last received command.
     bool m_disableWebsockets;       ///< @brief No automatic websocket switch.
+    bool m_disableWebsocketPingPong; ///< @brief Disable websocket PING/PONG messages.
 };
 
 

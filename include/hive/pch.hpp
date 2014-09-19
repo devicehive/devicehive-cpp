@@ -35,6 +35,7 @@ Defines #HIVE_PCH macro if precompiled headers are enabled.
 #include <queue>
 #include <list>
 #include <map>
+#include <set>
 
 // libc
 #include <assert.h>

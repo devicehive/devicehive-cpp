@@ -9,8 +9,6 @@
 
 #include <hive/ws13.hpp>
 
-#include <set>
-
 namespace devicehive
 {
 
@@ -49,6 +47,9 @@ public:
 
 public:
 
+    ///@brief The error code type.
+    typedef boost::system::error_code ErrorCode;
+
     /// @brief The shared pointer type.
     typedef boost::shared_ptr<WebsocketServiceBase> SharedPtr;
 
@@ -85,9 +86,30 @@ public:
     */
     This& setTimeout(size_t timeout_ms)
     {
+        HIVELOG_INFO(m_log, "change default timeout to "
+            << timeout_ms << " milliseconds");
+
         m_timeout_ms = timeout_ms;
         return *this;
     }
+
+public:
+
+    /// @brief Enable PING/PONG messages.
+    /**
+    @param[in] enabled The PING/PONG enabled flag.
+    @return Self reference.
+    */
+    This& setPingPongEnabled(bool enabled)
+    {
+        HIVELOG_INFO(m_log, (enabled?"enable":"disable")
+            << " PING/PONG messages");
+
+        m_pingPong.enabled = enabled;
+        return *this;
+    }
+
+    // TODO: PING/PONG timeout, idle timeout, number of attempts
 
 public:
 
@@ -113,7 +135,7 @@ public:
 public:
 
     /// @brief The "connected" callback type.
-    typedef boost::function1<void, boost::system::error_code> ConnectedCallback;
+    typedef boost::function1<void, ErrorCode> ConnectedCallback;
 
 
     /// @brief Make connection.
@@ -168,7 +190,7 @@ private:
     @param[in] ws The corresponding WebSocket connection.
     @param[in] callback The callback functor.
     */
-    void onConnected(boost::system::error_code err, ws13::WebSocket::SharedPtr ws, ConnectedCallback callback)
+    void onConnected(ErrorCode err, ws13::WebSocket::SharedPtr ws, ConnectedCallback callback)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onConnect()");
 
@@ -197,20 +219,22 @@ private:
 public:
 
     /// @brief The "action sent" callback type.
-    typedef boost::function2<void, boost::system::error_code, json::Value> ActionSentCallback;
+    typedef boost::function2<void, ErrorCode, json::Value> ActionSentCallback;
 
 
     /// @brief Send an action.
     /**
-    @param[in] jaction The action.
+    @param[in] jaction The JSON action.
     @param[in] callback The callback functor.
     */
     void asyncSendAction(json::Value const& jaction, ActionSentCallback callback)
     {
         if (m_ws->isOpen())
         {
+            HIVELOG_INFO(m_log, "sending JSON action: " << json::toStrHH(jaction));
+
             m_ws->asyncSendMessage(ws13::Message::create(json::toStr(jaction)),
-                boost::bind(&This::onMessageSent, shared_from_this(), _1, _2, callback));
+                boost::bind(&This::onMessageSent, shared_from_this(), _1, _2, jaction, callback));
         }
         else
             assert(!"no connection");
@@ -224,20 +248,9 @@ private:
     @param[in] msg The sent message.
     @param[in] callback The callback functor.
     */
-    void onMessageSent(boost::system::error_code err, ws13::Message::SharedPtr msg, ActionSentCallback callback)
+    void onMessageSent(ErrorCode err, ws13::MessagePtr msg, json::Value const& jaction, ActionSentCallback callback)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onActionSent()");
-        json::Value jaction;
-
-        try
-        {
-            jaction = json::fromStr(msg->getData());
-        }
-        catch (std::exception const& ex)
-        {
-            HIVELOG_ERROR(m_log, "failed to parse \"action\": " << ex.what());
-            err = boost::asio::error::fault; // TODO: useful error code
-        }
 
         if (callback)
             callback(err, jaction);
@@ -246,7 +259,7 @@ private:
 public:
 
     /// @brief The "action received" callback type.
-    typedef boost::function2<void, boost::system::error_code, json::Value const&> ActionReceivedCallback;
+    typedef boost::function2<void, ErrorCode, json::Value const&> ActionReceivedCallback;
 
 
     /// @brief Listen for the actions.
@@ -270,7 +283,7 @@ private:
     @param[in] err The error code.
     @param[in] msg The received websocket message.
     */
-    void onMessageReceived(boost::system::error_code err, ws13::Message::SharedPtr msg)
+    void onMessageReceived(ErrorCode err, ws13::MessagePtr msg)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onMessageReceived()");
 
@@ -285,7 +298,7 @@ private:
 
                 HIVELOG_DEBUG(m_log, "text received: \"" << msg->getData() << "\"");
                 jaction = json::fromStr(msg->getData());
-                HIVELOG_DEBUG(m_log, "converted to: " << json::toStrHH(jaction));
+                HIVELOG_INFO(m_log, "JSON action received: " << json::toStrHH(jaction));
             }
             catch (std::exception const& ex)
             {
@@ -306,13 +319,13 @@ private:
     @param[in] err The error code.
     @param[in] frame The received websocket frame.
     */
-    void onFrameReceived(boost::system::error_code err, ws13::Frame::SharedPtr frame)
+    void onFrameReceived(ErrorCode err, ws13::FramePtr frame)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onFrameReceived()");
 
         if (!err)
         {
-            //HIVELOG_INFO(m_log, "FRAME: " << dump::hex(frame->getContent()));
+            //HIVELOG_DEBUG(m_log, "FRAME: " << dump::hex(frame->getContent()));
             pingPongRestartIdle();
         }
     }
@@ -322,8 +335,9 @@ private:
     /// @brief Restart the ping/pong IDLE timer.
     void pingPongRestartIdle()
     {
-        return; // ping/pong timeouts are disabled for a while because websocket
-                // service at the server side doesn't support pong responses yet!
+        if (!m_pingPong.enabled)
+            return; // ping/pong timeouts might be disabled because websocket service
+                    // at the .NET server side doesn't support PONG responses yet!
 
         m_pingPong.ping_attempt = 0; // reset current ping/pong attempt counter
 
@@ -338,10 +352,8 @@ private:
     /**
     @param[in] err The error code.
     */
-    void onPingPongIdleTimedOut(boost::system::error_code err)
+    void onPingPongIdleTimedOut(ErrorCode err)
     {
-        HIVELOG_DEBUG(m_log, "ping/pong idle timeout [" << err << "]");
-
         if (!err)
         {
             asyncSendPingFrame();
@@ -353,6 +365,9 @@ private:
         }
         else
         {
+            HIVELOG_ERROR(m_log, "ping/pong idle timeout: ["
+                << err << "] " << err.message());
+
             if (m_actionReceivedCallback)
                 m_ios.post(boost::bind(m_actionReceivedCallback, err, json::Value()));
             else
@@ -364,6 +379,7 @@ private:
     /// @brief Send PING frame.
     void asyncSendPingFrame(bool masking = true)
     {
+        HIVELOG_DEBUG(m_log, "sending PING frame...");
         m_ws->asyncSendFrame(ws13::Frame::create(ws13::Frame::Ping(), masking),
             ws13::WebSocket::SendFrameCallback());
     }
@@ -386,14 +402,17 @@ private:
     /**
     @param[in] err The error code.
     */
-    virtual void onPongTimedOut(boost::system::error_code err)
+    virtual void onPongTimedOut(ErrorCode err)
     {
-        HIVELOG_DEBUG(m_log, "ping/pong timeout [" << err << "]");
-
         if (!err)
         {
+            HIVELOG_WARN(m_log, "PONG timeout attempt #" << m_pingPong.ping_attempt
+                << " of " << m_pingPong.ping_retry_limit);
+
             if (m_pingPong.ping_attempt >= m_pingPong.ping_retry_limit)
             {
+                HIVELOG_ERROR_STR(m_log, "no more attempts, close the connection");
+
                 if (m_actionReceivedCallback)
                     m_ios.post(boost::bind(m_actionReceivedCallback, boost::asio::error::timed_out, json::Value()));
                 else
@@ -407,9 +426,14 @@ private:
                 startPingPongTimeout();
             }
         }
-        else //if (err == boost::asio::error::operation_aborted)
+        else if (err == boost::asio::error::operation_aborted)
         {
             // do nothing
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log, "ping/pong timeout error ["
+                << err << "] " << err.message());
         }
     }
 
@@ -432,6 +456,7 @@ private: // Ping/Pong
         size_t pong_timeout_ms; ///< @brief The PONG timeout, milliseconds.
         size_t ping_retry_limit; ///< @brief The maximum number of retries.
         size_t ping_attempt;     ///< @brief The current attempt number.
+        bool enabled;
 
         /// @brief The main constructor.
         PingPong(boost::asio::io_service &ios)
@@ -440,6 +465,7 @@ private: // Ping/Pong
             , pong_timeout_ms(5000)
             , ping_retry_limit(3)
             , ping_attempt(0)
+            , enabled(true)
         {}
     };
 
@@ -465,7 +491,10 @@ protected:
     @param[in] callbacks The events handler.
     @param[in] name The custom name. Optional.
     */
-    WebsocketService(http::ClientPtr httpClient, String const& baseUrl, boost::shared_ptr<IDeviceServiceEvents> callbacks, String const& name)
+    WebsocketService(http::ClientPtr httpClient,
+                     String const& baseUrl,
+                     boost::shared_ptr<IDeviceServiceEvents> callbacks,
+                     String const& name)
         : Base(httpClient, baseUrl, name)
         , m_callbacks(callbacks)
         , m_requestId(0)
@@ -560,6 +589,31 @@ public:
             jaction["device"] = Serializer::toJson(device);
 
             m_actions[reqId] = boost::bind(&IDeviceServiceEvents::onRegisterDevice, cb, _1, device);
+
+            Base::asyncSendAction(jaction,
+                boost::bind(&This::onActionSent,
+                    shared_from_this(), _1, _2));
+        }
+        else
+            assert(!"callback is dead or not initialized");
+    }
+
+
+    /// @copydoc IDeviceService::asyncGetDeviceData()
+    virtual void asyncGetDeviceData(DevicePtr device)
+    {
+        if (boost::shared_ptr<IDeviceServiceEvents> cb = m_callbacks.lock())
+        {
+            const UInt64 reqId = m_requestId++;
+
+            json::Value jaction;
+            jaction["action"] = "device/get";
+            jaction["requestId"] = reqId;
+            jaction["deviceId"] = device->id;
+            jaction["deviceKey"] = device->key;
+
+            m_actions[reqId] = boost::bind(&IDeviceServiceEvents::onGetDeviceData, cb, _1, device);
+            m_devices.insert(device); // to be able to update device data
 
             Base::asyncSendAction(jaction,
                 boost::bind(&This::onActionSent,
@@ -668,6 +722,7 @@ public:
             //jaction["command"] = Serializer::toJson(command);
             jaction["command"]["status"] = command->status;
             jaction["command"]["result"] = command->result;
+            jaction["command"]["flags"] = command->flags;
 
             m_actions[reqId] = boost::bind(&IDeviceServiceEvents::onUpdateCommand, cb, _1, device, command);
 
@@ -711,7 +766,7 @@ private:
     /**
     @param[in] err The error code.
     */
-    void onConnected(boost::system::error_code err)
+    void onConnected(ErrorCode err)
     {
         if (!err)
         {
@@ -734,7 +789,7 @@ private:
     @param[in] err The error code.
     @param[in] jaction The sent action.
     */
-    void onActionSent(boost::system::error_code err, json::Value const& jaction)
+    void onActionSent(ErrorCode err, json::Value const& jaction)
     {
         if (err)
         {
@@ -749,7 +804,7 @@ private:
     @param[in] err The error code.
     @param[in] jaction The received action.
     */
-    void onActionReceived(boost::system::error_code err, json::Value const& jaction)
+    void onActionReceived(ErrorCode err, json::Value const& jaction)
     {
         if (!err)
         {
@@ -772,10 +827,23 @@ private:
                 }
             }
 
-            else if (boost::iequals(action, "device/save")) // got "register device" or "update device" response
+            else if (boost::iequals(action, "device/save"))  // got "register device" or "update device data" response
             {
                 if (!boost::iequals(jaction["status"].asString(), "success"))
                     err = boost::asio::error::fault; // TODO: useful error code
+            }
+
+            else if (boost::iequals(action, "device/get"))  // got "get device data" response
+            {
+                if (!boost::iequals(jaction["status"].asString(), "success"))
+                    err = boost::asio::error::fault; // TODO: useful error code
+                else
+                {
+                    // update device's data
+                    json::Value const& jdev = jaction["device"];
+                    if (DevicePtr device = findDeviceById(jdev["id"].asString()))
+                        Serializer::fromJson(jdev, device);
+                }
             }
 
             else if (boost::iequals(action, "command/update")
@@ -799,7 +867,7 @@ private:
         }
         else
         {
-            // report errors as 'onConnected' !?
+            // report errors via 'onConnected' event!?
             if (boost::shared_ptr<IDeviceServiceEvents> cb = m_callbacks.lock())
             {
                 cb->onConnected(err);
@@ -817,13 +885,13 @@ private:
     @param[in] err The error code.
     @param[in] jaction The action to finish.
     */
-    void done(boost::system::error_code err, json::Value const& jaction)
+    void done(ErrorCode err, json::Value const& jaction)
     {
         const UInt64 reqId = jaction["requestId"].asUInt();
         std::map<UInt64, ActionCallback>::iterator it = m_actions.find(reqId);
         if (it != m_actions.end())
         {
-            it->second(err);
+            it->second(err); // callback
             m_actions.erase(it);
         }
     }
@@ -853,7 +921,7 @@ private:
     std::set<DevicePtr> m_devices;
 
 private:
-    typedef boost::function1<void, boost::system::error_code> ActionCallback;
+    typedef boost::function1<void, ErrorCode> ActionCallback;
     std::map<UInt64, ActionCallback> m_actions;
     UInt64 m_requestId;
 };

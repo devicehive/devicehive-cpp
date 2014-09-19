@@ -45,6 +45,7 @@ protected:
     /// @brief The default constructor.
     Application()
         : m_disableWebsockets(false)
+        , m_disableWebsocketPingPong(false)
         , m_serial(m_ios)
         , m_deviceRegistered(false)
     {}
@@ -89,6 +90,7 @@ public:
                 std::cout << "\t--web-timeout <timeout, seconds>\n";
                 std::cout << "\t--http-version <major.minor HTTP version>\n";
                 std::cout << "\t--no-ws disable automatic websocket service switching\n";
+                std::cout << "\t--no-ws-ping-pong disable websocket ping/pong messages\n";
                 std::cout << "\t--serial <serial device>\n";
                 std::cout << "\t--baudrate <serial baudrate>\n";
 
@@ -108,6 +110,8 @@ public:
                 http_version = argv[++i];
             else if (boost::iequals(argv[i], "--no-ws"))
                 pthis->m_disableWebsockets = true;
+            else if (boost::iequals(argv[i], "--no-ws-ping-pong"))
+                pthis->m_disableWebsocketPingPong = true;
             else if (boost::algorithm::iequals(argv[i], "--serial") && i+1 < argc)
                 serialPortName = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--baudrate") && i+1 < argc)
@@ -135,6 +139,7 @@ public:
                 HIVELOG_INFO_STR(pthis->m_log, "WebSocket service is used");
                 devicehive::WebsocketService::SharedPtr service = devicehive::WebsocketService::create(
                     http::Client::create(pthis->m_ios), baseUrl, pthis);
+                service->setPingPongEnabled(!pthis->m_disableWebsocketPingPong);
                 if (0 < web_timeout)
                     service->setTimeout(web_timeout*1000); // seconds -> milliseconds
 
@@ -297,7 +302,7 @@ private: // IDeviceServiceEvents
 
         if (!err)
         {
-            HIVELOG_INFO_STR(m_log, "connected to the server");
+            HIVELOG_DEBUG_STR(m_log, "connected to the server");
             m_service->asyncGetServerInfo();
         }
         else
@@ -310,7 +315,9 @@ private: // IDeviceServiceEvents
     {
         if (!err)
         {
-            m_lastCommandTimestamp = info.timestamp;
+            // don't update last command timestamp on reconnect
+            if (m_lastCommandTimestamp.empty())
+                m_lastCommandTimestamp = info.timestamp;
 
             // try to switch to websocket protocol
             if (!m_disableWebsockets && !info.alternativeUrl.empty())
@@ -320,7 +327,8 @@ private: // IDeviceServiceEvents
                 rest->cancelAll();
 
                 devicehive::WebsocketService::SharedPtr service = devicehive::WebsocketService::create(
-                    http::Client::create(m_ios), info.alternativeUrl, shared_from_this());
+                    rest->getHttpClient(), info.alternativeUrl, shared_from_this());
+                service->setPingPongEnabled(!m_disableWebsocketPingPong);
                 service->setTimeout(rest->getTimeout());
                 m_service = service;
 
@@ -474,6 +482,8 @@ private:
     */
     bool sendGatewayMessage(int intent, json::Value const& data)
     {
+        HIVELOG_INFO(m_log, "sending frame #" << intent << " data: " << data);
+
         if (gateway::Frame::SharedPtr frame = m_gw.jsonToFrame(intent, data))
         {
             m_gw_api->send(frame,
@@ -605,7 +615,7 @@ private:
     */
     void handleGatewayMessage(int intent, json::Value const& data)
     {
-        HIVELOG_INFO(m_log, "process intent #" << intent << " data: " << data);
+        HIVELOG_INFO(m_log, "process received frame #" << intent << " data: " << data);
 
         if (intent == gateway::INTENT_REGISTRATION_RESPONSE)
         {
@@ -683,6 +693,7 @@ private:
 private:
     devicehive::IDeviceServicePtr m_service; ///< @brief The cloud service.
     bool m_disableWebsockets;       ///< @brief No automatic websocket switch.
+    bool m_disableWebsocketPingPong; ///< @brief Disable websocket PING/PONG messages.
 
 private:
     boost::asio::serial_port m_serial; ///< @brief The serial port device.

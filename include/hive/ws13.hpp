@@ -135,6 +135,10 @@ private:
 };
 
 
+/// @brief The message shared pointer type.
+typedef Message::SharedPtr MessagePtr;
+
+
 /// @brief The WebSocket frame.
 /**
 This class contains full formated frame:
@@ -505,6 +509,10 @@ protected:
             boost::asio::buffers_end(buf));
     }
 };
+
+
+/// @brief The frame shared pointer type.
+typedef Frame::SharedPtr FramePtr;
 
 
 /// @brief The empty payload.
@@ -951,6 +959,9 @@ public:
 
 public:
 
+    ///@brief The error code type.
+    typedef boost::system::error_code ErrorCode;
+
     /// @brief The shared pointer type.
     typedef boost::shared_ptr<WebSocket> SharedPtr;
 
@@ -1030,7 +1041,7 @@ public:
 public:
 
     /// @brief The "connect" callback type.
-    typedef boost::function2<void, boost::system::error_code, SharedPtr> ConnectCallback;
+    typedef boost::function2<void, ErrorCode, SharedPtr> ConnectCallback;
 
 
     /// @brief Connect to the server.
@@ -1078,7 +1089,7 @@ public:
                 const UInt32 mask = generateNewMask();
 
                 HIVELOG_TRACE(m_log, "sending CLOSE frame");
-                Frame::SharedPtr frame = Frame::create(Frame::Close(Frame::Close::STATUS_NORMAL), true, mask);
+                FramePtr frame = Frame::create(Frame::Close(Frame::Close::STATUS_NORMAL), true, mask);
                 asyncSendFrame(frame, boost::bind(&This::onSendFrame,
                     shared_from_this(), _1, _2, SendFrameCallback()));
             }
@@ -1104,7 +1115,7 @@ private:
     {
         HIVELOG_TRACE_BLOCK(m_log, "onConnect()");
 
-        boost::system::error_code err = task->errorCode;
+        ErrorCode err = task->errorCode;
         if (!err && task->request && task->response && task->getConnection())
         {
             // TODO: check for "101 Switching Protocols" status code
@@ -1137,10 +1148,10 @@ private:
 public:
 
     /// @brief The "send message" callback type.
-    typedef boost::function2<void, boost::system::error_code, Message::SharedPtr> SendMessageCallbackType;
+    typedef boost::function2<void, ErrorCode, MessagePtr> SendMessageCallbackType;
 
     /// @brief The "receive message" callback type.
-    typedef boost::function2<void, boost::system::error_code, Message::SharedPtr> RecvMessageCallbackType;
+    typedef boost::function2<void, ErrorCode, MessagePtr> RecvMessageCallbackType;
 
 
     /// @brief Send the message.
@@ -1150,7 +1161,7 @@ public:
     @param[in] fragmentSize The maximum fragment size.
         Zero to disable fragmentation.
     */
-    void asyncSendMessage(Message::SharedPtr msg, SendMessageCallbackType callback, size_t fragmentSize = 0)
+    void asyncSendMessage(MessagePtr msg, SendMessageCallbackType callback, size_t fragmentSize = 0)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncSendMessage()");
 
@@ -1172,7 +1183,7 @@ public:
                     << dump::hex(data));
 
                 // "client-to-server" frames are always masked
-                Frame::SharedPtr frame = isFirstFrame ? (msg->isText()
+                FramePtr frame = isFirstFrame ? (msg->isText()
                     ? Frame::create(Frame::Text(data), true, mask, false)
                     : Frame::create(Frame::Binary(data), true, mask, false))
                     : Frame::create(Frame::Continue(data), true, mask, false);
@@ -1198,7 +1209,7 @@ public:
                     << dump::hex(data));
 
                 // "client-to-server" frames are always masked
-                Frame::SharedPtr frame = isFirstFrame ? (msg->isText()
+                FramePtr frame = isFirstFrame ? (msg->isText()
                     ? Frame::create(Frame::Text(data), true, mask, false)
                     : Frame::create(Frame::Binary(data), true, mask, false))
                     : Frame::create(Frame::Continue(data), true, mask, false);
@@ -1219,7 +1230,7 @@ public:
                     << dump::hex(data));
 
                 // "client-to-server" frames are always masked
-                Frame::SharedPtr frame =
+                FramePtr frame =
                     Frame::create(Frame::Continue(data), true, mask, true);
                 asyncSendFrame(frame, boost::bind(&This::onSendMessage,
                     shared_from_this(), _1, _2, msg, callback));
@@ -1238,7 +1249,7 @@ public:
             HIVELOG_DEBUG(m_log, "send single frame: " << msg_size << " bytes");
 
             // "client-to-server" frames are always masked
-            Frame::SharedPtr frame = msg->isText()
+            FramePtr frame = msg->isText()
                 ? Frame::create(Frame::Text(data), true, mask)
                 : Frame::create(Frame::Binary(data), true, mask);
             asyncSendFrame(frame, boost::bind(&This::onSendMessage,
@@ -1259,7 +1270,7 @@ public:
 
 private:
     RecvMessageCallbackType m_recvMsgCallback; ///< @brief The "receive message" callback.
-    Message::SharedPtr m_recvMsg; ///< @brief The assembling message or NULL.
+    MessagePtr m_recvMsg; ///< @brief The assembling message or NULL.
 
 
     /// @brief The "send frame" callback for messages.
@@ -1269,8 +1280,8 @@ private:
     @param[in] msg The corresponding message.
     @param[in] callback The users callback.
     */
-    void onSendMessage(boost::system::error_code err, Frame::SharedPtr frame,
-        Message::SharedPtr msg, SendMessageCallbackType callback)
+    void onSendMessage(ErrorCode err, FramePtr frame,
+        MessagePtr msg, SendMessageCallbackType callback)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onSendMessage(frame)");
 
@@ -1296,7 +1307,7 @@ private:
     @param[in] err The error code.
     @param[in] msg The corresponding message.
     */
-    void doRecvMessage(boost::system::error_code err, Message::SharedPtr msg)
+    void doRecvMessage(ErrorCode err, MessagePtr msg)
     {
         HIVELOG_TRACE_BLOCK(m_log, "doRecvMessage(msg)");
 
@@ -1324,7 +1335,7 @@ public:
     @param[in] frame The frame to send.
     @param[in] callback The callback.
     */
-    void asyncSendFrame(Frame::SharedPtr frame, SendFrameCallback callback)
+    void asyncSendFrame(FramePtr frame, SendFrameCallback callback)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncSendFrame()");
         assert(isOpen() && "not connected");
@@ -1353,7 +1364,7 @@ private:
     @param[in] frame The sent frame.
     @param[in] callback The user's callback.
     */
-    void onSendFrame(boost::system::error_code err, Frame::SharedPtr frame, SendFrameCallback callback)
+    void onSendFrame(ErrorCode err, FramePtr frame, SendFrameCallback callback)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onSendFrame()");
 
@@ -1371,7 +1382,7 @@ private:
     @param[in] err The error code.
     @param[in] frame The received frame.
     */
-    void onRecvFrame(boost::system::error_code err, Frame::SharedPtr frame)
+    void onRecvFrame(ErrorCode err, FramePtr frame)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onRecvFrame()");
 
@@ -1404,7 +1415,7 @@ private:
 
                     const UInt32 mask = generateNewMask();
                     HIVELOG_TRACE(m_log, "sending PONG frame");
-                    Frame::SharedPtr frame = Frame::create(Frame::Pong(ping.data), true, mask);
+                    FramePtr frame = Frame::create(Frame::Pong(ping.data), true, mask);
                     asyncSendFrame(frame, boost::bind(&This::onSendFrame,
                         shared_from_this(), _1, _2, SendFrameCallback()));
                 } break;
@@ -1454,7 +1465,7 @@ private:
 
                 if (m_recvMsg && frame->getFIN()==1)
                 {
-                    doRecvMessage(boost::system::error_code(), m_recvMsg);
+                    doRecvMessage(ErrorCode(), m_recvMsg);
                     m_recvMsg.reset();
                 }
             }
@@ -1469,10 +1480,10 @@ private:
             if (m_recvFrameCallback)
             {
                 m_trx->getStream().get_io_service().post(
-                    boost::bind(m_recvFrameCallback, err, Frame::SharedPtr()));
+                    boost::bind(m_recvFrameCallback, err, FramePtr()));
             }
 
-            doRecvMessage(err, Message::SharedPtr());
+            doRecvMessage(err, MessagePtr());
         }
     }
 
