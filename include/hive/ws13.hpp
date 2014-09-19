@@ -1405,7 +1405,7 @@ private:
                 {
                     HIVELOG_DEBUG(m_log, "got CLOSE frame");
                     close(true);
-                } break;
+                } return; // stop processing
 
                 case Frame::FRAME_PING:
                 {
@@ -1418,10 +1418,13 @@ private:
                     FramePtr frame = Frame::create(Frame::Pong(ping.data), true, mask);
                     asyncSendFrame(frame, boost::bind(&This::onSendFrame,
                         shared_from_this(), _1, _2, SendFrameCallback()));
-                } break;
+                } return; // stop processing
+
+                case Frame::FRAME_PONG:
+                    return; // stop processing
 
                 default:
-                    break;
+                    break; // continue processing
             }
 
             if (m_recvMsgCallback) // try to assemble message from frames
@@ -1444,7 +1447,8 @@ private:
                     }
                     else
                     {
-                        HIVELOG_WARN(m_log, "unexpected frame, ignored");
+                        HIVELOG_WARN(m_log, "unexpected frame opcode:0x"
+                            << dump::hex(UInt8(opcode)) << ", ignored");
                     }
                 }
                 else
