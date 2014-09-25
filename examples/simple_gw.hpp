@@ -75,6 +75,7 @@ public:
 
         String serialPortName = "";
         UInt32 serialBaudrate = 9600;
+        String socketAddress = "";
 
         // custom device properties
         for (int i = 1; i < argc; ++i) // skip executable name
@@ -92,6 +93,7 @@ public:
                 std::cout << "\t--no-ws-ping-pong disable websocket ping/pong messages\n";
                 std::cout << "\t--serial <serial device>\n";
                 std::cout << "\t--baudrate <serial baudrate>\n";
+                std::cout << "\t--socket <socket address and port>\n";
 
                 exit(1);
             }
@@ -115,12 +117,17 @@ public:
                 serialPortName = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--baudrate") && i+1 < argc)
                 serialBaudrate = boost::lexical_cast<UInt32>(argv[++i]);
+            else if (boost::algorithm::iequals(argv[i], "--socket") && i+1 < argc)
+                socketAddress = argv[++i];
         }
 
-        if (serialPortName.empty())
-            throw std::runtime_error("no serial port name provided");
+        if (!serialPortName.empty())
+            pthis->m_stream = gateway::StreamDevice::Serial::create(pthis->m_ios, serialPortName, serialBaudrate);
+        else if (!socketAddress.empty())
+            pthis->m_stream = gateway::StreamDevice::Socket::create(pthis->m_ios, socketAddress);
+        else
+            throw std::runtime_error("no stream device provided");
 
-        pthis->m_stream = gateway::StreamDevice::Serial::create(pthis->m_ios, serialPortName, serialBaudrate);
         pthis->m_gw_api = GatewayAPI::create(*pthis->m_stream);
         pthis->m_network = devicehive::Network::create(networkName, networkKey, networkDesc);
 

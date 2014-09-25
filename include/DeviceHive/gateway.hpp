@@ -1307,6 +1307,7 @@ public:
 /**
 */
 class StreamDevice:
+    public boost::enable_shared_from_this<StreamDevice>,
     private NonCopyable
 {
 public:
@@ -1454,7 +1455,17 @@ public:
                             String const& portName,
                             UInt32 baudrate)
     {
-        return SharedPtr(new Serial(ios, portName, baudrate));
+        return SharedPtr(new This(ios, portName, baudrate));
+    }
+
+
+    /// @brief Get the shared pointer.
+    /**
+    @return The shared pointer to this instance.
+    */
+    SharedPtr shared_from_this()
+    {
+        return boost::dynamic_pointer_cast<This>(Base::shared_from_this());
     }
 
 public: // StreamDevice interface
@@ -1553,6 +1564,172 @@ protected:
     boost::asio::serial_port m_stream; ///< @brief The serial port device.
     String m_portName; ///< @brief The serial port name.
     UInt32 m_baudrate; ///< @brief The serial baudrate.
+};
+
+
+
+/// @brief The Socket stream device.
+/**
+Represents simple TCP socket. Main properties: URL (host name and port number).
+*/
+class StreamDevice::Socket:
+    public StreamDevice
+{
+    typedef StreamDevice Base;  ///< @brief The base type alias.
+    typedef Socket       This;  ///< @brief The this type alias.
+
+protected:
+
+    /// @brief The main constructor.
+    /**
+    @param[in] ios The IO service.
+    @param[in] addr The socket address.
+    */
+    Socket(IOService &ios,
+           String const& addr)
+        : m_stream(ios)
+        , m_resolver(ios)
+        , m_address(addr)
+    {}
+
+public:
+
+    /// @brief The trivial destructor.
+    virtual ~Socket()
+    {}
+
+public:
+
+    typedef boost::asio::ip::tcp::socket TcpSocket; ///< @brief The TCP socket type.
+    typedef boost::asio::ip::tcp::resolver Resolver; ///< @brief The resolver type.
+    typedef boost::asio::ip::tcp::endpoint Endpoint; ///< @brief The endpoint type.
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<Socket> SharedPtr;
+
+
+    /// @brief Create socket stream device.
+    /**
+    @param[in] ios The IO service.
+    @param[in] addr The socket address.
+    @return The socket stream device.
+    */
+    static SharedPtr create(IOService &ios,
+                            String const& addr)
+    {
+        return SharedPtr(new This(ios, addr));
+    }
+
+
+    /// @brief Get the shared pointer.
+    /**
+    @return The shared pointer to this instance.
+    */
+    SharedPtr shared_from_this()
+    {
+        return boost::dynamic_pointer_cast<This>(Base::shared_from_this());
+    }
+
+public: // StreamDevice interface
+
+    /// @copydoc StreamDevice::get_io_service()
+    virtual IOService& get_io_service()
+    {
+        return m_stream.get_io_service();
+    }
+
+
+    /// @copydoc StreamDevice::get_io_service()
+    virtual void cancel()
+    {
+        ErrorCode terr;
+
+        m_stream.cancel(terr);
+        // ignore error code?
+    }
+
+
+    /// @copydoc StreamDevice::close()
+    virtual void close()
+    {
+        ErrorCode terr;
+
+        m_stream.shutdown(TcpSocket::shutdown_both, terr);
+        // ignore error code?
+
+        m_stream.close(terr);
+        // ignore error code?
+    }
+
+
+    /// @copydoc StreamDevice::is_open()
+    virtual bool is_open() const
+    {
+        return m_stream.is_open();
+    }
+
+public:
+
+    /// @copydoc StreamDevice::async_open()
+    virtual void async_open(OpenCallback callback)
+    {
+        String host;
+        String port;
+
+        size_t port_pos = m_address.find_last_of(':');
+        if (port_pos != String::npos)
+        {
+            host = m_address.substr(0, port_pos);
+            port = m_address.substr(port_pos+1);
+        }
+        else
+        {
+            host = m_address;
+            port = "23"; // telnet port by default
+        }
+
+        m_resolver.async_resolve(Resolver::query(host, port),
+            boost::bind(&This::onResolved, shared_from_this(),
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::iterator,
+                    callback));
+    }
+
+
+    /// @copydoc StreamDevice::async_write_some()
+    virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback)
+    {
+        m_stream.async_write_some(bufs, callback);
+    }
+
+
+    /// @copydoc StreamDevice::async_read_some()
+    virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback)
+    {
+        m_stream.async_read_some(bufs, callback);
+    }
+
+protected:
+
+    void onResolved(ErrorCode err, Resolver::iterator epi, OpenCallback callback)
+    {
+        if (!err)
+        {
+            // attempt a connection to each endpoint in the list
+            boost::asio::async_connect(
+                m_stream, epi, boost::bind(callback,
+                    boost::asio::placeholders::error));
+        }
+        else if (callback)
+        {
+            get_io_service().post(boost::bind(callback, err));
+        }
+    }
+
+protected:
+    TcpSocket m_stream; ///< @brief The socket device.
+    Resolver m_resolver;
+    String m_address; ///< @brief The socket address.
 };
 
 } // gateway namespace
