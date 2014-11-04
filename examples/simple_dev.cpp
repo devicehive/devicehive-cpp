@@ -10,7 +10,7 @@
 #include <iostream>
 
 #if !defined(HIVE_DISABLE_SSL)
-#   if defined(_WIN32) || defined(WIN32)
+#   if defined(_MSC_VER) && (defined(_WIN32) || defined(WIN32))
 #       pragma comment(lib,"ssleay32.lib")
 #       pragma comment(lib,"libeay32.lib")
 #   endif // WIN32
