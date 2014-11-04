@@ -384,7 +384,7 @@ public:
     */
     virtual void send(Message const& msg) const
     {
-        // do nothing by default
+        HIVE_UNUSED(msg); // do nothing by default
     }
 
 public:

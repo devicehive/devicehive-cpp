@@ -1670,6 +1670,8 @@ public: // Connection
     */
     virtual void async_handshake(int type, HandshakeCallback callback)
     {
+        HIVE_UNUSED(type);
+
         // handshake is always successful, just call the callback
         get_io_service().post(boost::bind(callback, ErrorCode()));
     }
@@ -2631,7 +2633,7 @@ private:
 
         HIVELOG_DEBUG(m_log, "verify certificate: " << preverified);
 
-        // TODO: check certificate, use ssl::rfc2818_verification class
+        HIVE_UNUSED(context); // TODO: check certificate, use ssl::rfc2818_verification class
         return preverified;
     }
 
@@ -2673,6 +2675,8 @@ private:
     */
     void onRequestWritten(TaskPtr task, ErrorCode err, size_t len)
     {
+        HIVE_UNUSED(len);
+
         HIVELOG_TRACE_BLOCK(m_log, "onRequestWritten(task)");
 
         if (!err && !task->m_cancelled)
@@ -2725,6 +2729,8 @@ private:
     */
     void onStatusRead(TaskPtr task, ErrorCode err, size_t len)
     {
+        HIVE_UNUSED(len);
+
         HIVELOG_TRACE_BLOCK(m_log, "onStatusRead(task)");
 
         if (!err && !task->m_cancelled)
@@ -2949,6 +2955,8 @@ private:
     */
     void onKeepAliveMonitorRead(ConnectionPtr pconn, ErrorCode err, size_t len)
     {
+        HIVE_UNUSED(len);
+
         HIVELOG_TRACE_BLOCK(m_log, "onKeepAliveMonitorRead(pconn)");
 
         if (!err)

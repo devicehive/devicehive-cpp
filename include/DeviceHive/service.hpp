@@ -758,7 +758,9 @@ public:
     @param[in] err The error code.
     */
     virtual void onConnected(ErrorCode err)
-    {}
+    {
+        HIVE_UNUSED(err);
+    }
 
 
     /// @brief The "server info" callback.
@@ -767,7 +769,10 @@ public:
     @param[in] info The server information.
     */
     virtual void onServerInfo(ErrorCode err, ServerInfo info)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(info);
+    }
 
 public:
 
@@ -777,7 +782,10 @@ public:
     @param[in] device The device.
     */
     virtual void onRegisterDevice(ErrorCode err, DevicePtr device)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+    }
 
 
     /// @brief The "get device data" callback.
@@ -786,7 +794,10 @@ public:
     @param[in] device The device.
     */
     virtual void onGetDeviceData(ErrorCode err, DevicePtr device)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+    }
 
 
     /// @brief The "update device data" callback.
@@ -795,7 +806,10 @@ public:
     @param[in] device The device.
     */
     virtual void onUpdateDeviceData(ErrorCode err, DevicePtr device)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+    }
 
 public:
 
@@ -806,7 +820,11 @@ public:
     @param[in] command The command.
     */
     virtual void onInsertCommand(ErrorCode err, DevicePtr device, CommandPtr command)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+        HIVE_UNUSED(command);
+    }
 
 
     /// @brief The "update command" callback.
@@ -816,7 +834,11 @@ public:
     @param[in] command The command.
     */
     virtual void onUpdateCommand(ErrorCode err, DevicePtr device, CommandPtr command)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+        HIVE_UNUSED(command);
+    }
 
 public:
 
@@ -827,7 +849,11 @@ public:
     @param[in] notification The notification.
     */
     virtual void onInsertNotification(ErrorCode err, DevicePtr device, NotificationPtr notification)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+        HIVE_UNUSED(notification);
+    }
 };
 
 

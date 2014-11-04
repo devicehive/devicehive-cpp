@@ -334,6 +334,9 @@ public:
     */
     static SharedPtr create(int argc, const char* argv[])
     {
+        HIVE_UNUSED(argc);
+        HIVE_UNUSED(argv);
+
         return SharedPtr(new Application());
     }
 

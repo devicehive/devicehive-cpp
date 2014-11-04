@@ -534,7 +534,9 @@ public:
     @param[in,out] bs The output binary stream.
     */
     void format(bin::OStream &bs) const
-    {}
+    {
+        HIVE_UNUSED(bs);
+    }
 
 
     /// @brief Parse the payload.
@@ -544,6 +546,7 @@ public:
     */
     bool parse(bin::IStream &bs)
     {
+        HIVE_UNUSED(bs);
         return true;
     }
 
