@@ -246,6 +246,7 @@ private:
     /**
     @param[in] err The error code.
     @param[in] msg The sent message.
+    @param[in] jaction The sent JSON action.
     @param[in] callback The callback functor.
     */
     void onMessageSent(ErrorCode err, ws13::MessagePtr msg, json::Value const& jaction, ActionSentCallback callback)

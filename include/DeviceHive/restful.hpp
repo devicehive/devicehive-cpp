@@ -115,7 +115,7 @@ public:
     /// @brief Set HTTP version.
     /**
     @param[in] major The major HTTP version.
-    @parm[[in] minor The minor HTTP version.
+    @param[in] minor The minor HTTP version.
     @return Self reference.
     */
     This& setHttpVersion(int major, int minor)
