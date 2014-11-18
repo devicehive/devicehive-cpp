@@ -88,4 +88,6 @@ void test_log_1()
     logger_cfg::apply(jcfg);
 }
 
+// TODO: use logger in multi-threaded environment
+
 } // local namespace

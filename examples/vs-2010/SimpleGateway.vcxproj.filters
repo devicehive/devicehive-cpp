@@ -39,10 +39,19 @@
     <ClInclude Include="..\..\include\hive\swab.hpp">
       <Filter>hive</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\DeviceHive\cloud6.hpp">
-      <Filter>DeviceHive</Filter>
+    <ClInclude Include="..\..\include\hive\ws13.hpp">
+      <Filter>hive</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\DeviceHive\gateway.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\restful.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\service.hpp">
+      <Filter>DeviceHive</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\DeviceHive\websocket.hpp">
       <Filter>DeviceHive</Filter>
     </ClInclude>
     <ClInclude Include="..\basic_app.hpp" />

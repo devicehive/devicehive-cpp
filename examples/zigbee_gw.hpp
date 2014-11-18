@@ -44,6 +44,7 @@ protected:
     /// @brief The default constructor.
     Application()
         : m_disableWebsockets(false)
+        , m_disableWebsocketPingPong(false)
         , m_serial(m_ios)
         , m_xbeeFrameId(1)
     {}
@@ -70,6 +71,7 @@ public:
 
         String baseUrl = "http://ecloud.dataart.com/ecapi8";
         size_t web_timeout = 0; // zero - don't change
+        String http_version;
 
         String serialPortName = "";
         UInt32 serialBaudrate = 9600;
@@ -85,7 +87,9 @@ public:
                 std::cout << "\t--networkDesc <network description>\n";
                 std::cout << "\t--server <server URL>\n";
                 std::cout << "\t--web-timeout <timeout, seconds>\n";
+                std::cout << "\t--http-version <major.minor HTTP version>\n";
                 std::cout << "\t--no-ws disable automatic websocket service switching\n";
+                std::cout << "\t--no-ws-ping-pong disable websocket ping/pong messages\n";
                 std::cout << "\t--serial <serial device name>\n";
                 std::cout << "\t--baudrate <serial baudrate>\n";
 
@@ -101,8 +105,12 @@ public:
                 baseUrl = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--web-timeout") && i+1 < argc)
                 web_timeout = boost::lexical_cast<UInt32>(argv[++i]);
+            else if (boost::algorithm::iequals(argv[i], "--http-version") && i+1 < argc)
+                http_version = argv[++i];
             else if (boost::iequals(argv[i], "--no-ws"))
                 pthis->m_disableWebsockets = true;
+            else if (boost::iequals(argv[i], "--no-ws-ping-pong"))
+                pthis->m_disableWebsocketPingPong = true;
             else if (boost::algorithm::iequals(argv[i], "--serial") && i+1 < argc)
                 serialPortName = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--baudrate") && i+1 < argc)
@@ -127,22 +135,29 @@ public:
                 if (pthis->m_disableWebsockets)
                     throw std::runtime_error("websockets are disabled by --no-ws switch");
 
+                HIVELOG_INFO_STR(pthis->m_log, "WebSocket service is used");
                 devicehive::WebsocketService::SharedPtr service = devicehive::WebsocketService::create(
                     http::Client::create(pthis->m_ios), baseUrl, pthis);
+                service->setPingPongEnabled(!pthis->m_disableWebsocketPingPong);
                 if (0 < web_timeout)
                     service->setTimeout(web_timeout*1000); // seconds -> milliseconds
 
-                HIVELOG_INFO_STR(pthis->m_log, "WebSocket service is used");
                 pthis->m_service = service;
             }
             else
             {
+                HIVELOG_INFO_STR(pthis->m_log, "RESTful service is used");
                 devicehive::RestfulService::SharedPtr service = devicehive::RestfulService::create(
                     http::Client::create(pthis->m_ios), baseUrl, pthis);
                 if (0 < web_timeout)
                     service->setTimeout(web_timeout*1000); // seconds -> milliseconds
+                if (!http_version.empty())
+                {
+                    int major = 1, minor = 1;
+                    parseVersion(http_version, major, minor);
+                    service->setHttpVersion(major, minor);
+                }
 
-                HIVELOG_INFO_STR(pthis->m_log, "RESTful service is used");
                 pthis->m_service = service;
             }
         }
@@ -157,7 +172,7 @@ public:
     */
     SharedPtr shared_from_this()
     {
-        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
+        return boost::dynamic_pointer_cast<This>(Base::shared_from_this());
     }
 
 protected:
@@ -376,13 +391,14 @@ private: // IDeviceServiceEvents
         {
             // try to switch to websocket protocol
             if (!m_disableWebsockets && !info.alternativeUrl.empty())
-                if (devicehive::RestfulService::SharedPtr rest = boost::shared_dynamic_cast<devicehive::RestfulService>(m_service))
+                if (devicehive::RestfulService::SharedPtr rest = boost::dynamic_pointer_cast<devicehive::RestfulService>(m_service))
             {
                 HIVELOG_INFO(m_log, "switching to Websocket service: " << info.alternativeUrl);
                 rest->cancelAll();
 
                 devicehive::WebsocketService::SharedPtr service = devicehive::WebsocketService::create(
-                    http::Client::create(m_ios), info.alternativeUrl, shared_from_this());
+                    rest->getHttpClient(), info.alternativeUrl, shared_from_this());
+                service->setPingPongEnabled(!m_disableWebsocketPingPong);
                 service->setTimeout(rest->getTimeout());
                 m_service = service;
 
@@ -855,6 +871,7 @@ private:
 private:
     devicehive::IDeviceServicePtr m_service; ///< @brief The cloud service.
     bool m_disableWebsockets;       ///< @brief No automatic websocket switch.
+    bool m_disableWebsocketPingPong; ///< @brief Disable websocket PING/PONG messages.
 
 private:
     boost::asio::serial_port m_serial; ///< @brief The serial port device.

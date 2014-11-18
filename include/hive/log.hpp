@@ -11,6 +11,7 @@
 #if !defined(HIVE_PCH)
 #   include <boost/shared_ptr.hpp>
 #   include <boost/weak_ptr.hpp>
+#   include <boost/thread.hpp>
 #   include <iostream>
 #   include <sstream>
 #   include <fstream>
@@ -22,6 +23,7 @@
 
 // TODO: logger configuration from file
 // TODO: description & examples
+// TODO: HIVE_LOG_DISABLE_THREADS macro to disable all mutexes and locks
 
 namespace hive
 {
@@ -84,8 +86,7 @@ public:
     int         line;     ///< @brief The source line number.
 
     boost::posix_time::ptime timestamp; ///< @brief The log message timestamp.
-
-    // TODO: thread identifier
+    boost::thread::id        threadId;  ///< @brief The thread identifier.
 
 public:
 
@@ -108,6 +109,7 @@ public:
         , file(file_)
         , line(line_)
         , timestamp(boost::posix_time::microsec_clock::universal_time())
+        , threadId(boost::this_thread::get_id())
     {}
 };
 
@@ -135,7 +137,9 @@ is equivalent to "%T %N %L %M\n". The following format options are allowed:
 | `%%T`  | the timestamp                  |
 | `%%N`  | the logger name                |
 | `%%L`  | the logging level              |
+| `%%l`  | the abbreviated logging level  |
 | `%%M`  | the log message (with prefix)  |
+| `%%I`  | the thread identifier          |
 
 The auxiliary getLevelName() static method might be used to convert
 logging level into the text representation.
@@ -268,11 +272,19 @@ public:
                         os << getLevelName(msg.level);
                         break;
 
+                    case 'l':       // abbreviated logging level
+                        os.put(getLevelName(msg.level)[0]);
+                        break;
+
                     case 'M':       // message
                         if (msg.prefix)
                             os << msg.prefix;
                         if (msg.message)
                             os << msg.message;
+                        break;
+
+                    case 'I':       // thread id
+                        os << msg.threadId;
                         break;
 
                     // TODO: source file name and line number
@@ -372,7 +384,7 @@ public:
     */
     virtual void send(Message const& msg) const
     {
-        // do nothing by default
+        HIVE_UNUSED(msg); // do nothing by default
     }
 
 public:
@@ -502,6 +514,8 @@ public:
         if (msg.level < getMinimumLevel())
             return;
 
+        boost::lock_guard<boost::mutex> guard(m_mutex);
+
         if (Format::SharedPtr fmt = getFormat())
             fmt->format(m_os, msg);
         else
@@ -509,7 +523,8 @@ public:
     }
 
 protected:
-    OStream & m_os; ///< @brief The external stream.
+    OStream &m_os; ///< @brief The external stream.
+    mutable boost::mutex m_mutex; ///< @brief The mutex to protect external stream access.
 };
 
 
@@ -555,13 +570,14 @@ protected:
     /**
     @param[in] fileName The log file name.
     @param[in] autoFlushLevel The "auto-flush" logging level.
+    @param[in] startNewFile If `true` then starts new file on first log message.
     */
-    File(String const& fileName, Level autoFlushLevel)
+    File(String const& fileName, Level autoFlushLevel, bool startNewFile)
         : m_fileName(fileName)
         , m_autoFlushLevel(autoFlushLevel)
         , m_maxFileSize(0)
         , m_numOfBackups(0)
-        , m_needNewFile(false)
+        , m_needNewFile(startNewFile)
     {}
 
 public:
@@ -574,11 +590,12 @@ public:
     /**
     @param[in] fileName The log file name.
     @param[in] autoFlushLevel The "auto-flush" logging level.
+    @param[in] startNewFile If `true` then starts new file on first log message.
     @return The new "File" target instance.
     */
-    static SharedPtr create(String const& fileName, Level autoFlushLevel = LEVEL_WARN)
+    static SharedPtr create(String const& fileName, Level autoFlushLevel = LEVEL_WARN, bool startNewFile = false)
     {
-        return SharedPtr(new File(fileName, autoFlushLevel));
+        return SharedPtr(new File(fileName, autoFlushLevel, startNewFile));
     }
 
 public:
@@ -602,6 +619,20 @@ public:
     Level getAutoFlushLevel() const
     {
         return m_autoFlushLevel;
+    }
+
+public:
+
+    /// @brief Start new file on the next log message.
+    /**
+    Call this method if you want to start a new log file.
+    On the next log message the new file will be created.
+    Previous log files will be saved according to backup settings.
+    */
+    File& startNew()
+    {
+        m_needNewFile = true;
+        return *this;
     }
 
 public:
@@ -661,6 +692,8 @@ public:
         // apply simple message filter
         if (msg.level < getMinimumLevel())
             return;
+
+        boost::lock_guard<boost::mutex> guard(m_mutex);
 
         if (!m_file.is_open()) // try to open/reopen
         {
@@ -772,6 +805,7 @@ private:
     mutable bool m_needNewFile; ///< @brief The need new file flag.
 
     mutable std::ofstream m_file; ///< @brief The file stream.
+    mutable boost::mutex m_mutex; ///< @brief The mutex to protect file access.
 };
 
 

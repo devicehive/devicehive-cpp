@@ -64,7 +64,7 @@ public:
     {
         SharedPtr pthis(new This(ios));
 
-        if (timeout_ms > 0)
+        if (0 < timeout_ms)
         {
             pthis->m_timer.expires_from_now(boost::posix_time::milliseconds(timeout_ms));
             pthis->m_timer.async_wait(
@@ -111,7 +111,7 @@ public:
         if (!m_callback)
             m_callback = cb;
         else
-            m_callback = boost::bind(&This::zcall2, m_callback, cb);
+            m_callback = boost::bind(&This::tie, m_callback, cb);
     }
 
 private:
@@ -121,7 +121,7 @@ private:
     @param[in] cb1 The first callback.
     @param[in] cb2 The second callback.
     */
-    static void zcall2(Callback cb1, Callback cb2)
+    static void tie(Callback cb1, Callback cb2)
     {
         cb1();
         cb2();
@@ -334,6 +334,9 @@ public:
     */
     static SharedPtr create(int argc, const char* argv[])
     {
+        HIVE_UNUSED(argc);
+        HIVE_UNUSED(argv);
+
         return SharedPtr(new Application());
     }
 
@@ -448,6 +451,7 @@ private:
         }
     }
 
+protected:
 
     /// @brief Get the signal name.
     /**
@@ -468,6 +472,23 @@ private:
         OStringStream oss;
         oss << "#" << signo;
         return oss.str();
+    }
+
+protected:
+
+    /// @brief Parse major.minor versions from string.
+    /**
+    @param[in] version The string version.
+    @param[out] major Parsed major version.
+    @param[out] minor Parsed minor version.
+    */
+    static void parseVersion(String const& version, int &major, int &minor)
+    {
+        hive::IStringStream iss(version);
+        iss >> major;
+        if (iss.peek() == '.')
+            iss.ignore(1);
+        iss >> minor;
     }
 
 protected:
@@ -514,11 +535,6 @@ But it contains a few key objects which are widely used by derived classes.
 
 See basic_app::Application documentation for more details
 or examples/basic_app.hpp file for full source code.
-
-Also there are two modules which can be used to extend functionality
-of your application:
-    - basic_app::ServerModule which allows you to use cloud6::ServerAPI
-    - basic_app::SerialModule which allows you to use serial port
 
 @example examples/basic_app.hpp
 */

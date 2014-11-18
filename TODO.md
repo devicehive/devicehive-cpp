@@ -7,8 +7,7 @@ Basic tools:
   - support for UTF-8 encoding
   - formal tests
 - HTTP module:
-  - support for HTTPS connections, checks cerficiates
-  - support for HTTP 1.1, mutiple request per connection
+  - support for HTTPS connections, checks certificates
   - support for proxies
   - support for redirects
 - LOG module:

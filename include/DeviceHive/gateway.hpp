@@ -463,7 +463,7 @@ public:
     @param[out] payload The frame data payload to parse.
     @return `true` if data payload successfully parsed.
     */
-    bool getPayload(String & payload) const
+    bool getPayload(String &payload) const
     {
         if (HEADER_LEN+FOOTER_LEN <= m_content.size())
         {
@@ -580,7 +580,7 @@ public:
     @param[in,out] result The parse result. May be NULL.
     @return Parsed frame or NULL.
     */
-    static SharedPtr parseFrame(boost::asio::streambuf & sb, ParseResult *result)
+    static SharedPtr parseFrame(boost::asio::streambuf &sb, ParseResult *result)
     {
         const boost::asio::streambuf::const_buffers_type bufs = sb.data();
         size_t n_skip = 0; // number of bytes to skip
@@ -983,7 +983,7 @@ public:
         @param[in] layout The layout.
         @return The JSON value.
         */
-        static json::Value bin2json(bin::IStream & bs, Layout::SharedPtr layout)
+        static json::Value bin2json(bin::IStream &bs, Layout::SharedPtr layout)
         {
             json::Value jval;
 
@@ -1012,7 +1012,7 @@ public:
         @param[in] layoutElement The layout element.
         @return The JSON value.
         */
-        static json::Value bin2json(bin::IStream & bs, Layout::Element::SharedPtr layoutElement)
+        static json::Value bin2json(bin::IStream &bs, Layout::Element::SharedPtr layoutElement)
         {
             switch (layoutElement->dataType)
             {
@@ -1089,7 +1089,7 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layout The layout.
         */
-        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::SharedPtr layout)
+        static void json2bin(json::Value const& jval, bin::OStream &bs, Layout::SharedPtr layout)
         {
             Layout::ElementIterator i = layout->elementsBegin();
             Layout::ElementIterator e = layout->elementsEnd();
@@ -1114,7 +1114,7 @@ public:
         @param[in,out] bs The binary output stream.
         @param[in] layoutElement The layout element.
         */
-        static void json2bin(json::Value const& jval, bin::OStream & bs, Layout::Element::SharedPtr layoutElement)
+        static void json2bin(json::Value const& jval, bin::OStream &bs, Layout::Element::SharedPtr layoutElement)
         {
             // TODO: more checks on data types!!!
             switch (layoutElement->dataType)
@@ -1302,176 +1302,434 @@ public:
 };
 
 
-/// @brief The Serial submodule.
-/**
-This is helper class.
 
-You have to call initSerialModule() method before use any of the class methods.
-The best place to do that is static factory method of your application.
+/// @brief The base interface for stream devices.
+/**
 */
-class SerialModule
+class StreamDevice:
+    public boost::enable_shared_from_this<StreamDevice>,
+    private NonCopyable
 {
-    ///< @brief The this type alias.
-    typedef SerialModule This;
+public:
+    typedef boost::asio::io_service IOService; ///< @brief The IO service type.
+    typedef boost::system::error_code ErrorCode; ///< @brief The error code type.
+    typedef boost::asio::mutable_buffers_1 MutableBuffers; ///< @brief The mutable buffers.
+    typedef boost::asio::const_buffers_1 ConstBuffers; ///< @brief The constant buffers.
+
+protected:
+
+    /// @brief The main constructor.
+    /**
+    */
+    StreamDevice()
+    {}
+
+public:
+
+    /// @brief The trivial destructor.
+    virtual ~StreamDevice()
+    {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<StreamDevice> SharedPtr;
+
+    // real stream devices
+    class Serial;
+    class Socket;
+    class Stream;
+
+public:
+
+    /// @brief Get the IO service.
+    /**
+    @return The corresponding IO service.
+    */
+    virtual IOService& get_io_service() = 0;
+
+
+    /// @brief Cancel any asynchronous operations.
+    virtual void cancel() = 0;
+
+
+    /// @brief Close the stream device.
+    /**
+    Cancels all asynchronous operations.
+    */
+    virtual void close() = 0;
+
+
+    /// @brief Check if connection is open.
+    virtual bool is_open() const = 0;
+
+public:
+
+    /// @brief The "open" operation callback type.
+    typedef boost::function1<void, ErrorCode> OpenCallback;
+
+
+    /// @brief Start asynchronous "open" operation.
+    /**
+    @param[in] callback The callback functor.
+    */
+    virtual void async_open(OpenCallback callback) = 0;
+
+public:
+
+    /// @brief The "write" operation callback.
+    typedef boost::function2<void, ErrorCode, size_t> WriteCallback;
+
+
+    /// @brief Start asynchronous "write" operation.
+    /**
+    @param[in] bufs The buffers to send.
+    @param[in] callback The callback functor.
+    */
+    virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback) = 0;
+
+public:
+
+    /// @brief The "read" operation callback.
+    typedef boost::function2<void, ErrorCode, size_t> ReadCallback;
+
+
+    /// @brief Start asynchronous "read some" operation.
+    /**
+    @param[in] bufs The buffers to read to.
+    @param[in] callback The callback functor.
+    */
+    virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback) = 0;
+};
+
+/// @brief The stream device shared pointer type.
+typedef StreamDevice::SharedPtr StreamDevicePtr;
+
+
+/// @brief The Serial stream device.
+/**
+Represents serial port. Main properties: port name and baudrate.
+*/
+class StreamDevice::Serial:
+    public StreamDevice
+{
+    typedef StreamDevice Base;  ///< @brief The base type alias.
+    typedef Serial       This;  ///< @brief The this type alias.
 
 protected:
 
     /// @brief The main constructor.
     /**
     @param[in] ios The IO service.
-    @param[in] logger The logger.
-    */
-    SerialModule(boost::asio::io_service &ios, hive::log::Logger const& logger)
-        : m_serialOpenTimer(ios)
-        , m_serial(ios)
-        , m_serialBaudrate(0)
-        , m_log_(logger)
-    {}
-
-
-    /// @brief The trivial destructor.
-    virtual ~SerialModule()
-    {}
-
-
-    /// @brief Initialize serial module.
-    /**
     @param[in] portName The serial port name.
     @param[in] baudrate The serial baudrate.
-    @param[in] pthis The this pointer.
     */
-    void initSerialModule(String const& portName, UInt32 baudrate, boost::shared_ptr<SerialModule> pthis)
+    Serial(IOService &ios,
+           String const& portName,
+           UInt32 baudrate)
+        : m_stream(ios)
+        , m_portName(portName)
+        , m_baudrate(baudrate)
+    {}
+
+public:
+
+    /// @brief The trivial destructor.
+    virtual ~Serial()
+    {}
+
+public:
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<Serial> SharedPtr;
+
+
+    /// @brief Create serial stream device.
+    /**
+    @param[in] ios The IO service.
+    @param[in] portName The serial port name.
+    @param[in] baudrate The serial baudrate.
+    @return The serial stream device.
+    */
+    static SharedPtr create(IOService &ios,
+                            String const& portName,
+                            UInt32 baudrate)
     {
-        m_serialPortName = portName;
-        m_serialBaudrate = baudrate;
-        m_this = pthis;
+        return SharedPtr(new This(ios, portName, baudrate));
     }
 
 
-    /// @brief Cancel all serial tasks.
-    void cancelSerialModule()
+    /// @brief Get the shared pointer.
+    /**
+    @return The shared pointer to this instance.
+    */
+    SharedPtr shared_from_this()
     {
-        m_serialOpenTimer.cancel();
-        m_serial.close();
+        return boost::dynamic_pointer_cast<This>(Base::shared_from_this());
+    }
+
+public: // StreamDevice interface
+
+    /// @copydoc StreamDevice::get_io_service()
+    virtual IOService& get_io_service()
+    {
+        return m_stream.get_io_service();
+    }
+
+
+    /// @copydoc StreamDevice::get_io_service()
+    virtual void cancel()
+    {
+        m_stream.cancel();
+    }
+
+
+    /// @copydoc StreamDevice::close()
+    virtual void close()
+    {
+        m_stream.close();
+    }
+
+
+    /// @copydoc StreamDevice::is_open()
+    virtual bool is_open() const
+    {
+        return m_stream.is_open();
+    }
+
+public:
+
+    /// @copydoc StreamDevice::async_open()
+    virtual void async_open(OpenCallback callback)
+    {
+        ErrorCode err = open();
+        if (callback)
+        {
+            get_io_service().post(boost::bind(callback, err));
+        }
+    }
+
+
+    /// @copydoc StreamDevice::async_write_some()
+    virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback)
+    {
+        m_stream.async_write_some(bufs, callback);
+    }
+
+
+    /// @copydoc StreamDevice::async_read_some()
+    virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback)
+    {
+        m_stream.async_read_some(bufs, callback);
     }
 
 protected:
-
-    /// @brief Try to open serial device asynchronously.
-    /**
-    @param[in] wait_sec The number of seconds to wait before open.
-    */
-    virtual void asyncOpenSerial(long wait_sec)
-    {
-        assert(!m_this.expired() && "Application is dead or not initialized");
-
-        HIVELOG_TRACE(m_log_, "try to open serial after " << wait_sec << " seconds");
-        m_serialOpenTimer.expires_from_now(boost::posix_time::seconds(wait_sec));
-        m_serialOpenTimer.async_wait(boost::bind(&This::onTryToOpenSerial,
-            m_this.lock(), boost::asio::placeholders::error));
-    }
-
 
     /// @brief Try to open serial device.
     /**
     @return The error code.
     */
-    virtual boost::system::error_code openSerial()
+    virtual ErrorCode open()
     {
-        boost::asio::serial_port & port = m_serial;
-        boost::system::error_code err;
+        ErrorCode err;
 
-        port.close(err); // (!) ignore error
-        port.open(m_serialPortName, err);
+        m_stream.close(err); // (!) ignore error
+        m_stream.open(m_portName, err);
         if (err) return err;
 
         // set baud rate
-        port.set_option(boost::asio::serial_port::baud_rate(m_serialBaudrate), err);
+        m_stream.set_option(boost::asio::serial_port::baud_rate(m_baudrate), err);
         if (err) return err;
 
         // set character size
-        port.set_option(boost::asio::serial_port::character_size(), err);
+        m_stream.set_option(boost::asio::serial_port::character_size(), err);
         if (err) return err;
 
         // set flow control
-        port.set_option(boost::asio::serial_port::flow_control(), err);
+        m_stream.set_option(boost::asio::serial_port::flow_control(), err);
         if (err) return err;
 
         // set stop bits
-        port.set_option(boost::asio::serial_port::stop_bits(), err);
+        m_stream.set_option(boost::asio::serial_port::stop_bits(), err);
         if (err) return err;
 
         // set parity
-        port.set_option(boost::asio::serial_port::parity(), err);
+        m_stream.set_option(boost::asio::serial_port::parity(), err);
         if (err) return err;
 
         return err; // OK
     }
 
+protected:
+    boost::asio::serial_port m_stream; ///< @brief The serial port device.
+    String m_portName; ///< @brief The serial port name.
+    UInt32 m_baudrate; ///< @brief The serial baudrate.
+};
 
-    /// @brief Try to open serial port device callback.
+
+
+/// @brief The Socket stream device.
+/**
+Represents simple TCP socket. Main properties: URL (host name and port number).
+*/
+class StreamDevice::Socket:
+    public StreamDevice
+{
+    typedef StreamDevice Base;  ///< @brief The base type alias.
+    typedef Socket       This;  ///< @brief The this type alias.
+
+protected:
+
+    /// @brief The main constructor.
     /**
-    This method is called as the "open serial timer" callback.
-
-    @param[in] err The error code.
+    @param[in] ios The IO service.
+    @param[in] addr The socket address.
     */
-    virtual void onTryToOpenSerial(boost::system::error_code err)
+    Socket(IOService &ios,
+           String const& addr)
+        : m_stream(ios)
+        , m_resolver(ios)
+        , m_address(addr)
+    {}
+
+public:
+
+    /// @brief The trivial destructor.
+    virtual ~Socket()
+    {}
+
+public:
+
+    typedef boost::asio::ip::tcp::socket TcpSocket; ///< @brief The TCP socket type.
+    typedef boost::asio::ip::tcp::resolver Resolver; ///< @brief The resolver type.
+    typedef boost::asio::ip::tcp::endpoint Endpoint; ///< @brief The endpoint type.
+
+    /// @brief The shared pointer type.
+    typedef boost::shared_ptr<Socket> SharedPtr;
+
+
+    /// @brief Create socket stream device.
+    /**
+    @param[in] ios The IO service.
+    @param[in] addr The socket address.
+    @return The socket stream device.
+    */
+    static SharedPtr create(IOService &ios,
+                            String const& addr)
     {
-        if (!err)
-            onOpenSerial(openSerial());
-        else if (err == boost::asio::error::operation_aborted)
-            HIVELOG_DEBUG_STR(m_log_, "open serial device timer cancelled");
-        else
-        {
-            HIVELOG_ERROR(m_log_, "open serial device timer error: ["
-                << err << "] " << err.message());
-        }
+        return SharedPtr(new This(ios, addr));
     }
 
 
-    /// @brief The serial port is opened.
+    /// @brief Get the shared pointer.
     /**
-    @param[in] err The error code.
+    @return The shared pointer to this instance.
     */
-    virtual void onOpenSerial(boost::system::error_code err)
+    SharedPtr shared_from_this()
     {
-        if (!err)
-        {
-            HIVELOG_DEBUG(m_log_,
-                "got serial device \"" << m_serialPortName
-                << "\" at baudrate: " << m_serialBaudrate);
-        }
-        else
-        {
-            HIVELOG_DEBUG(m_log_, "cannot open serial device \""
-                << m_serialPortName << "\": ["
-                << err << "] " << err.message());
-        }
+        return boost::dynamic_pointer_cast<This>(Base::shared_from_this());
+    }
+
+public: // StreamDevice interface
+
+    /// @copydoc StreamDevice::get_io_service()
+    virtual IOService& get_io_service()
+    {
+        return m_stream.get_io_service();
     }
 
 
-    /// @brief Reset the serial device.
-    /**
-    @brief tryToReopen if `true` then try to reopen serial as soon as possible.
-    */
-    virtual void resetSerial(bool tryToReopen)
+    /// @copydoc StreamDevice::get_io_service()
+    virtual void cancel()
     {
-        HIVELOG_WARN(m_log_, "serial device reset");
-        m_serial.close();
+        ErrorCode terr;
 
-        if (tryToReopen)
-            asyncOpenSerial(0); // ASAP
+        m_stream.cancel(terr);
+        // ignore error code?
+    }
+
+
+    /// @copydoc StreamDevice::close()
+    virtual void close()
+    {
+        ErrorCode terr;
+
+        m_stream.shutdown(TcpSocket::shutdown_both, terr);
+        // ignore error code?
+
+        m_stream.close(terr);
+        // ignore error code?
+    }
+
+
+    /// @copydoc StreamDevice::is_open()
+    virtual bool is_open() const
+    {
+        return m_stream.is_open();
+    }
+
+public:
+
+    /// @copydoc StreamDevice::async_open()
+    virtual void async_open(OpenCallback callback)
+    {
+        String host;
+        String port;
+
+        size_t port_pos = m_address.find_last_of(':');
+        if (port_pos != String::npos)
+        {
+            host = m_address.substr(0, port_pos);
+            port = m_address.substr(port_pos+1);
+        }
+        else
+        {
+            host = m_address;
+            port = "23"; // telnet port by default
+        }
+
+        m_resolver.async_resolve(Resolver::query(host, port),
+            boost::bind(&This::onResolved, shared_from_this(),
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::iterator,
+                    callback));
+    }
+
+
+    /// @copydoc StreamDevice::async_write_some()
+    virtual void async_write_some(ConstBuffers const& bufs, WriteCallback callback)
+    {
+        m_stream.async_write_some(bufs, callback);
+    }
+
+
+    /// @copydoc StreamDevice::async_read_some()
+    virtual void async_read_some(MutableBuffers const& bufs, ReadCallback callback)
+    {
+        m_stream.async_read_some(bufs, callback);
     }
 
 protected:
-    boost::asio::deadline_timer m_serialOpenTimer; ///< @brief Open the serial port device timer.
-    boost::asio::serial_port m_serial; ///< @brief The serial port device.
-    String m_serialPortName; ///< @brief The serial port name.
-    UInt32 m_serialBaudrate; ///< @brief The serial baudrate.
 
-private:
-    boost::weak_ptr<SerialModule> m_this; ///< @brief The weak pointer to this.
-    hive::log::Logger m_log_; ///< @brief The module logger.
+    void onResolved(ErrorCode err, Resolver::iterator epi, OpenCallback callback)
+    {
+        if (!err)
+        {
+            // attempt a connection to each endpoint in the list
+            boost::asio::async_connect(
+                m_stream, epi, boost::bind(callback,
+                    boost::asio::placeholders::error));
+        }
+        else if (callback)
+        {
+            get_io_service().post(boost::bind(callback, err));
+        }
+    }
+
+protected:
+    TcpSocket m_stream; ///< @brief The socket device.
+    Resolver m_resolver;
+    String m_address; ///< @brief The socket address.
 };
 
 } // gateway namespace

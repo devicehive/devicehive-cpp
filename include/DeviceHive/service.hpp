@@ -17,6 +17,7 @@
 #   include <fstream>
 #   include <sstream>
 #   include <iomanip>
+#   include <set>
 #endif // HIVE_PCH
 
 
@@ -66,7 +67,8 @@ public:
     @param[in] desc The description.
     @return The new network instance.
     */
-    static SharedPtr create(String const& name, String const& key,
+    static SharedPtr create(String const& name,
+                            String const& key,
                             String const& desc = String())
     {
         SharedPtr pthis(new Network());
@@ -124,7 +126,9 @@ public:
     @param[in] type The equipment type.
     @return The new equipment instance.
     */
-    static SharedPtr create(String const& code, String const& name, String const& type)
+    static SharedPtr create(String const& code,
+                            String const& name,
+                            String const& type)
     {
         SharedPtr pthis(new Equipment());
         pthis->code = code;
@@ -213,7 +217,7 @@ public:
     String name; ///< @brief The custom name.
     String key; ///< @brief The authorization key.
     String status; ///< @brief The custom device status.
-    json::Value data; ///< @brief The custom parameters.
+    json::Value data; ///< @brief The custom data.
 
     NetworkPtr network; ///< @brief The corresponding network.
     ClassPtr deviceClass; ///< @brief The corresponding device class.
@@ -247,8 +251,11 @@ public:
     @param[in] network The network.
     @return The new device.
     */
-    static SharedPtr create(String const& id, String const& name, String const& key,
-        ClassPtr deviceClass = ClassPtr(), NetworkPtr network = NetworkPtr())
+    static SharedPtr create(String const& id,
+                            String const& name,
+                            String const& key,
+                            ClassPtr deviceClass = ClassPtr(),
+                            NetworkPtr network = NetworkPtr())
     {
         SharedPtr pthis(new Device());
         pthis->id = id;
@@ -266,7 +273,7 @@ public:
     @param[in] code The equipment identifier.
     @return The equipment or NULL.
     */
-    EquipmentPtr findEquipmentByCode(String const& code)
+    EquipmentPtr findEquipmentByCode(String const& code) const
     {
         const size_t N = equipment.size();
         for (size_t i = 0; i < N; ++i)
@@ -326,7 +333,8 @@ public:
     @param[in] params The custom parameters.
     @return The new command.
     */
-    static SharedPtr create(String const& name = String(), json::Value const& params = json::Value())
+    static SharedPtr create(String const& name = String(),
+                            json::Value const& params = json::Value())
     {
         SharedPtr pthis(new Command());
         pthis->name = name;
@@ -376,7 +384,8 @@ public:
     @param[in] params The custom parameters.
     @return The new notification.
     */
-    static SharedPtr create(String const& name = String(), json::Value const& params = json::Value())
+    static SharedPtr create(String const& name = String(),
+                            json::Value const& params = json::Value())
     {
         SharedPtr pthis(new Notification());
         pthis->name = name;
@@ -749,7 +758,9 @@ public:
     @param[in] err The error code.
     */
     virtual void onConnected(ErrorCode err)
-    {}
+    {
+        HIVE_UNUSED(err);
+    }
 
 
     /// @brief The "server info" callback.
@@ -758,7 +769,10 @@ public:
     @param[in] info The server information.
     */
     virtual void onServerInfo(ErrorCode err, ServerInfo info)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(info);
+    }
 
 public:
 
@@ -768,16 +782,34 @@ public:
     @param[in] device The device.
     */
     virtual void onRegisterDevice(ErrorCode err, DevicePtr device)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+    }
 
 
-    /// @brief The "update device" callback.
+    /// @brief The "get device data" callback.
+    /**
+    @param[in] err The error code.
+    @param[in] device The device.
+    */
+    virtual void onGetDeviceData(ErrorCode err, DevicePtr device)
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+    }
+
+
+    /// @brief The "update device data" callback.
     /**
     @param[in] err The error code.
     @param[in] device The device.
     */
     virtual void onUpdateDeviceData(ErrorCode err, DevicePtr device)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+    }
 
 public:
 
@@ -788,7 +820,11 @@ public:
     @param[in] command The command.
     */
     virtual void onInsertCommand(ErrorCode err, DevicePtr device, CommandPtr command)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+        HIVE_UNUSED(command);
+    }
 
 
     /// @brief The "update command" callback.
@@ -798,7 +834,11 @@ public:
     @param[in] command The command.
     */
     virtual void onUpdateCommand(ErrorCode err, DevicePtr device, CommandPtr command)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+        HIVE_UNUSED(command);
+    }
 
 public:
 
@@ -809,7 +849,11 @@ public:
     @param[in] notification The notification.
     */
     virtual void onInsertNotification(ErrorCode err, DevicePtr device, NotificationPtr notification)
-    {}
+    {
+        HIVE_UNUSED(err);
+        HIVE_UNUSED(device);
+        HIVE_UNUSED(notification);
+    }
 };
 
 
@@ -831,7 +875,7 @@ public:
 
 public:
 
-    /// @brief Connector to the server.
+    /// @brief Connect to the server.
     virtual void asyncConnect() = 0;
 
 
@@ -845,6 +889,13 @@ public:
     @param[in] device The device to register.
     */
     virtual void asyncRegisterDevice(DevicePtr device) = 0;
+
+
+    /// @brief Get the device data asynchronously.
+    /**
+    @param[in] device The device to get data for.
+    */
+    virtual void asyncGetDeviceData(DevicePtr device) = 0;
 
 
     /// @brief Update the device data asynchronously.

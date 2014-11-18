@@ -103,6 +103,22 @@ the execution speed for some data type by eliminating copying.
 #define HIVE_HAS_RVALUE_REFS
 #endif // defined(HIVE_DOXY_MODE)
 
+
+// HIVE_UNUSED
+#if !defined(HIVE_UNUSED)
+#   define HIVE_UNUSED(x) (void)x
+#endif // !defined(HIVE_UNUSED)
+#if defined(HIVE_DOXY_MODE)
+#undef HIVE_UNUSED
+
+/// @hideinitializer @brief Enable rvalue references.
+/**
+You can use special macro #HIVE_UNUSED to mark any variable as "used"
+just to prevent "unreferenced formal parameter" warnings.
+*/
+#define HIVE_UNUSED(x)
+#endif // defined(HIVE_DOXY_MODE)
+
 } // hive namespace
 
 #endif // __HIVE_DEFS_HPP_

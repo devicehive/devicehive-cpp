@@ -313,7 +313,9 @@ public:
     @param[in,out] bs The output binary stream.
     */
     void format(bin::OStream & bs) const
-    {}
+    {
+        HIVE_UNUSED(bs);
+    }
 
 
     /// @brief Parse the payload.
@@ -323,6 +325,7 @@ public:
     */
     bool parse(bin::IStream & bs)
     {
+        HIVE_UNUSED(bs);
         return true;
     }
 
@@ -866,7 +869,7 @@ public:
     */
     SharedPtr shared_from_this()
     {
-        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
+        return boost::dynamic_pointer_cast<This>(Base::shared_from_this());
     }
 };
 

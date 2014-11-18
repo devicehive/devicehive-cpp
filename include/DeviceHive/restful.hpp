@@ -40,7 +40,7 @@ protected:
     RestfulServiceBase(http::ClientPtr httpClient, String const& baseUrl, String const& name)
         : m_http(httpClient)
         , m_http_major(1)
-        , m_http_minor(0)
+        , m_http_minor(1)
         , m_log("/devicehive/rest/" + name)
         , m_baseUrl(baseUrl)
         , m_timeout_ms(60000)
@@ -53,6 +53,9 @@ public:
     {}
 
 public:
+
+    ///@brief The error code type.
+    typedef boost::system::error_code ErrorCode;
 
     /// @brief The shared pointer type.
     typedef boost::shared_ptr<RestfulServiceBase> SharedPtr;
@@ -90,6 +93,9 @@ public:
     */
     This& setTimeout(size_t timeout_ms)
     {
+        HIVELOG_INFO(m_log, "change default timeout to "
+            << timeout_ms << " milliseconds");
+
         m_timeout_ms = timeout_ms;
         return *this;
     }
@@ -106,11 +112,29 @@ public:
     }
 
 
+    /// @brief Set HTTP version.
+    /**
+    @param[in] major The major HTTP version.
+    @param[in] minor The minor HTTP version.
+    @return Self reference.
+    */
+    This& setHttpVersion(int major, int minor)
+    {
+        HIVELOG_INFO(m_log, "switch to HTTP/"
+            << major << "." << minor);
+
+        m_http_major = major;
+        m_http_minor = minor;
+        return *this;
+    }
+
+
     /// @brief Cancel all requests.
     void cancelAll()
     {
-        // TODO: cancel only related requests
+        // TODO: cancel only related requests: m_http_tasks
         m_http->cancelAll();
+        m_http->clearKeepAliveConnections();
     }
 
 
@@ -119,7 +143,7 @@ public:
 public:
 
     /// @brief The "server info" callback type.
-    typedef boost::function2<void, boost::system::error_code, devicehive::ServerInfo> ServerInfoCallback;
+    typedef boost::function2<void, ErrorCode, devicehive::ServerInfo> ServerInfoCallback;
 
 
     /// @brief Get the server info.
@@ -135,12 +159,13 @@ public:
         http::RequestPtr req = http::Request::GET(urlb.build());
         req->setVersion(m_http_major, m_http_minor);
 
-        HIVELOG_DEBUG(m_log, "getting server info");
+        HIVELOG_INFO(m_log, "getting server info");
         http::Client::TaskPtr task = m_http->send(req, m_timeout_ms);
         if (task)
         {
             task->callWhenDone(boost::bind(&This::onServerInfo,
                 shared_from_this(), task, callback));
+            m_http_tasks.insert(task); // watch
         }
         return task;
     }
@@ -154,15 +179,16 @@ private:
     */
     void onServerInfo(http::Client::TaskPtr task, ServerInfoCallback callback)
     {
+        m_http_tasks.erase(task); // done
         ServerInfo info;
 
-        boost::system::error_code err = verifyTaskResponse(task, "server info");
+        ErrorCode err = verifyTaskResponse(task, "server info");
         if (!err)
         {
             try
             {
                 const json::Value jval = json::fromStr(task->response->getContent());
-                HIVELOG_DEBUG(m_log, "got \"server info\" response: " << json::toStrHH(jval));
+                HIVELOG_INFO(m_log, "got \"server info\" response: " << json::toStrHH(jval));
 
                 info.api_version = jval["apiVersion"].asString();
                 info.timestamp = jval["serverTimestamp"].asString();
@@ -186,10 +212,13 @@ private:
 public:
 
     /// @brief The "register device" callback type.
-    typedef boost::function2<void, boost::system::error_code, devicehive::DevicePtr> RegisterDeviceCallback;
+    typedef boost::function2<void, ErrorCode, devicehive::DevicePtr> RegisterDeviceCallback;
 
-    /// @brief The "update device" callback type.
-    typedef boost::function2<void, boost::system::error_code, devicehive::DevicePtr> UpdateDeviceCallback;
+    /// @brief The "get device data" callback type.
+    typedef boost::function2<void, ErrorCode, devicehive::DevicePtr> GetDeviceDataCallback;
+
+    /// @brief The "update device data" callback type.
+    typedef boost::function2<void, ErrorCode, devicehive::DevicePtr> UpdateDeviceDataCallback;
 
 
     /// @brief Register device on the server.
@@ -198,7 +227,7 @@ public:
     @param[in] callback The callback functor.
     @return Corresponding HTTP task.
     */
-    http::Client::TaskPtr asyncRegisterDevice(Device::SharedPtr device, RegisterDeviceCallback callback)
+    http::Client::TaskPtr asyncRegisterDevice(DevicePtr device, RegisterDeviceCallback callback)
     {
         http::Url::Builder urlb(m_baseUrl);
         urlb.appendPath("device")
@@ -213,12 +242,43 @@ public:
             .setVersion(m_http_major, m_http_minor)
             .setContent(json::toStr(jcontent));
 
-        HIVELOG_DEBUG(m_log, "registering device: " << json::toStrHH(jcontent));
+        HIVELOG_INFO(m_log, "registering device: " << json::toStrHH(jcontent));
         http::Client::TaskPtr task = m_http->send(req, m_timeout_ms);
         if (task)
         {
             task->callWhenDone(boost::bind(&This::onRegisterDevice,
                 shared_from_this(), task, device, callback));
+            m_http_tasks.insert(task); // watch
+        }
+        return task;
+    }
+
+
+
+    /// @brief Get device data from the server.
+    /**
+    @param[in] device The device to get data for.
+    @param[in] callback The callback functor.
+    @return Corresponding HTTP task.
+    */
+    http::Client::TaskPtr asyncGetDeviceData(DevicePtr device, GetDeviceDataCallback callback)
+    {
+        http::Url::Builder urlb(m_baseUrl);
+        urlb.appendPath("device")
+            .appendPath(device->id);
+
+        http::RequestPtr req = http::Request::GET(urlb.build());
+        req->addHeader("Auth-DeviceID", device->id)
+            .addHeader("Auth-DeviceKey", device->key)
+            .setVersion(m_http_major, m_http_minor);
+
+        HIVELOG_INFO(m_log, "getting device data for \"" << device->id << "\"");
+        http::Client::TaskPtr task = m_http->send(req, m_timeout_ms);
+        if (task)
+        {
+            task->callWhenDone(boost::bind(&This::onRegisterDevice,
+                shared_from_this(), task, device, callback));
+            m_http_tasks.insert(task); // watch
         }
         return task;
     }
@@ -226,11 +286,11 @@ public:
 
     /// @brief Update device data on the server.
     /**
-    @param[in] device The device to update.
+    @param[in] device The device to update data for.
     @param[in] callback The callback functor.
     @return Corresponding HTTP task.
     */
-    http::Client::TaskPtr asyncUpdateDeviceData(Device::SharedPtr device, UpdateDeviceCallback callback)
+    http::Client::TaskPtr asyncUpdateDeviceData(DevicePtr device, UpdateDeviceDataCallback callback)
     {
         http::Url::Builder urlb(m_baseUrl);
         urlb.appendPath("device")
@@ -246,12 +306,13 @@ public:
             .setVersion(m_http_major, m_http_minor)
             .setContent(json::toStr(jcontent));
 
-        HIVELOG_DEBUG(m_log, "updating device data: " << json::toStrHH(jcontent));
+        HIVELOG_INFO(m_log, "updating device data: " << json::toStrHH(jcontent));
         http::Client::TaskPtr task = m_http->send(req, m_timeout_ms);
         if (task)
         {
             task->callWhenDone(boost::bind(&This::onUpdateDeviceData,
                 shared_from_this(), task, device, callback));
+            m_http_tasks.insert(task); // watch
         }
         return task;
     }
@@ -266,7 +327,9 @@ private:
     */
     void onRegisterDevice(http::Client::TaskPtr task, DevicePtr device, RegisterDeviceCallback callback)
     {
-        boost::system::error_code err = verifyTaskResponse(task, "register device");
+        m_http_tasks.erase(task); // done
+
+        ErrorCode err = verifyTaskResponse(task, "register device");
         if (!err)
         {
             if (task->response->getStatusCode() != http::status::NO_CONTENT)
@@ -274,7 +337,7 @@ private:
                 try
                 {
                     const json::Value jval = json::fromStr(task->response->getContent());
-                    HIVELOG_DEBUG(m_log, "got \"register device\" response: " << json::toStrHH(jval));
+                    HIVELOG_INFO(m_log, "got \"register device\" response: " << json::toStrHH(jval));
                     Serializer::fromJson(jval, device);
                 }
                 catch (std::exception const& ex)
@@ -290,15 +353,48 @@ private:
     }
 
 
+    /// @brief The "get device data" completion handler.
+    /**
+    @param[in] task The HTTP task.
+    @param[in] device The device updated.
+    @param[in] callback The callback functor.
+    */
+    void onGetDeviceData(http::Client::TaskPtr task, DevicePtr device, GetDeviceDataCallback callback)
+    {
+        m_http_tasks.erase(task); // done
+
+        ErrorCode err = verifyTaskResponse(task, "get device data");
+        if (!err)
+        {
+            try
+            {
+                const json::Value jval = json::fromStr(task->response->getContent());
+                HIVELOG_INFO(m_log, "got \"get device data\" response: " << json::toStrHH(jval));
+                Serializer::fromJson(jval, device);
+            }
+            catch (std::exception const& ex)
+            {
+                HIVELOG_ERROR(m_log, "failed to parse \"get device data\" response: " << ex.what());
+                err = boost::asio::error::fault; // TODO: useful error code
+            }
+        }
+
+        if (callback)
+            callback(err, device);
+    }
+
+
     /// @brief The "update device data" completion handler.
     /**
     @param[in] task The HTTP task.
     @param[in] device The device updated.
     @param[in] callback The callback functor.
     */
-    void onUpdateDeviceData(http::Client::TaskPtr task, DevicePtr device, UpdateDeviceCallback callback)
+    void onUpdateDeviceData(http::Client::TaskPtr task, DevicePtr device, UpdateDeviceDataCallback callback)
     {
-        boost::system::error_code err = verifyTaskResponse(task, "update device");
+        m_http_tasks.erase(task); // done
+
+        ErrorCode err = verifyTaskResponse(task, "update device data");
         if (!err)
         {
             if (task->response->getStatusCode() != http::status::NO_CONTENT)
@@ -306,12 +402,12 @@ private:
                 try
                 {
                     const json::Value jval = json::fromStr(task->response->getContent());
-                    HIVELOG_DEBUG(m_log, "got \"update device\" response: " << json::toStrHH(jval));
+                    HIVELOG_INFO(m_log, "got \"update device data\" response: " << json::toStrHH(jval));
                     Serializer::fromJson(jval, device);
                 }
                 catch (std::exception const& ex)
                 {
-                    HIVELOG_ERROR(m_log, "failed to parse \"update device\" response: " << ex.what());
+                    HIVELOG_ERROR(m_log, "failed to parse \"update device data\" response: " << ex.what());
                     err = boost::asio::error::fault; // TODO: useful error code
                 }
             }
@@ -328,17 +424,20 @@ private:
 public:
 
     /// @brief The "poll commands" callback type.
-    typedef boost::function3<void, boost::system::error_code, devicehive::DevicePtr, std::vector<devicehive::CommandPtr> > PollCommandsCallback;
+    typedef boost::function3<void, ErrorCode, devicehive::DevicePtr, std::vector<devicehive::CommandPtr> > PollCommandsCallback;
 
 
     /// @brief Poll commands from the server.
     /**
     @param[in] device The device to poll commands for.
     @param[in] timestamp The timestamp of the last received command. Empty for server's "now".
+    @param[in] names The list of command names (coma separated).
+    @param[in] wait_sec Waiting timeout in seconds: [0,60]. -1 - default 30 seconds. 0 - to disable waiting.
     @param[in] callback The callback functor.
     @return Corresponding HTTP task.
     */
-    http::Client::TaskPtr asyncPollCommands(DevicePtr device, String const& timestamp, PollCommandsCallback callback)
+    http::Client::TaskPtr asyncPollCommands(DevicePtr device, String const& timestamp,
+        String const& names, int wait_sec, PollCommandsCallback callback)
     {
         http::Url::Builder urlb(m_baseUrl);
         urlb.appendPath("device")
@@ -346,6 +445,10 @@ public:
             .appendPath("command/poll");
         if (!timestamp.empty())
             urlb.appendQuery("timestamp=" + timestamp);
+        if (!names.empty())
+            urlb.appendQuery("names="+names);
+        if (0 <= wait_sec)
+            urlb.appendQuery("waitTimeout="+boost::lexical_cast<String>(wait_sec));
 
         http::RequestPtr req = http::Request::GET(urlb.build());
         req->addHeader("Auth-DeviceID", device->id)
@@ -358,6 +461,7 @@ public:
         {
             task->callWhenDone(boost::bind(&This::onPollCommands,
                 shared_from_this(), task, device, callback));
+            m_http_tasks.insert(task); // watch
         }
         return task;
     }
@@ -372,9 +476,10 @@ private:
     */
     void onPollCommands(http::Client::TaskPtr task, DevicePtr device, PollCommandsCallback callback)
     {
+        m_http_tasks.erase(task); // done
         std::vector<CommandPtr> commands;
 
-        boost::system::error_code err = verifyTaskResponse(task, "poll commands");
+        ErrorCode err = verifyTaskResponse(task, "poll commands");
         if (!err)
         {
             try
@@ -410,7 +515,7 @@ private:
 public:
 
     /// @brief The "update command" callback type.
-    typedef boost::function3<void, boost::system::error_code, devicehive::DevicePtr, devicehive::CommandPtr> UpdateCommandCallback;
+    typedef boost::function3<void, ErrorCode, devicehive::DevicePtr, devicehive::CommandPtr> UpdateCommandCallback;
 
 
     /// @brief Send command result to the server.
@@ -420,7 +525,7 @@ public:
     @param[in] callback The callback functor.
     @return Corresponding HTTP task.
     */
-    http::Client::TaskPtr asyncUpdateCommand(Device::SharedPtr device, CommandPtr command, UpdateCommandCallback callback = UpdateCommandCallback())
+    http::Client::TaskPtr asyncUpdateCommand(DevicePtr device, CommandPtr command, UpdateCommandCallback callback)
     {
         http::Url::Builder urlb(m_baseUrl);
         urlb.appendPath("device")
@@ -431,6 +536,7 @@ public:
         json::Value jcontent;
         jcontent["status"] = command->status;
         jcontent["result"] = command->result;
+        jcontent["flags"] = command->flags;
 
         http::RequestPtr req = http::Request::PUT(urlb.build());
         req->addHeader(http::header::Content_Type, "application/json")
@@ -439,12 +545,14 @@ public:
             .setVersion(m_http_major, m_http_minor)
             .setContent(json::toStr(jcontent));
 
-        HIVELOG_DEBUG(m_log, "updating command: " << json::toStrHH(jcontent));
+        HIVELOG_INFO(m_log, "updating command #" << command->id
+            << ": " << json::toStrHH(jcontent));
         http::Client::TaskPtr task = m_http->send(req, m_timeout_ms);
         if (task)
         {
             task->callWhenDone(boost::bind(&This::onUpdateCommand,
                 shared_from_this(), task, device, command, callback));
+            m_http_tasks.insert(task); // watch
         }
         return task;
     }
@@ -458,9 +566,11 @@ private:
     @param[in] command The updated command.
     @param[in] callback The callback functor.
     */
-    void onUpdateCommand(http::Client::TaskPtr task, Device::SharedPtr device, CommandPtr command, UpdateCommandCallback callback)
+    void onUpdateCommand(http::Client::TaskPtr task, DevicePtr device, CommandPtr command, UpdateCommandCallback callback)
     {
-        boost::system::error_code err = verifyTaskResponse(task, "update command");
+        m_http_tasks.erase(task); // done
+
+        ErrorCode err = verifyTaskResponse(task, "update command");
         if (!err)
         {
             if (task->response->getStatusCode() != http::status::NO_CONTENT)
@@ -490,7 +600,7 @@ private:
 public:
 
     /// @brief The "insert notification" callback type.
-    typedef boost::function3<void, boost::system::error_code, devicehive::DevicePtr, devicehive::NotificationPtr> InsertNotificationCallback;
+    typedef boost::function3<void, ErrorCode, devicehive::DevicePtr, devicehive::NotificationPtr> InsertNotificationCallback;
 
     /// @brief Send notification to the server.
     /**
@@ -499,7 +609,7 @@ public:
     @param[in] callback The callback functor.
     @return Corresponding HTTP task.
     */
-    http::Client::TaskPtr asyncInsertNotification(Device::SharedPtr device, NotificationPtr notification, InsertNotificationCallback callback = InsertNotificationCallback())
+    http::Client::TaskPtr asyncInsertNotification(DevicePtr device, NotificationPtr notification, InsertNotificationCallback callback)
     {
         http::Url::Builder urlb(m_baseUrl);
         urlb.appendPath("device")
@@ -515,12 +625,13 @@ public:
             .setVersion(m_http_major, m_http_minor)
             .setContent(json::toStr(jcontent));
 
-        HIVELOG_DEBUG(m_log, "inserting notification: " << json::toStrHH(jcontent));
+        HIVELOG_INFO(m_log, "inserting notification: " << json::toStrHH(jcontent));
         http::Client::TaskPtr task = m_http->send(req, m_timeout_ms);
         if (task)
         {
             task->callWhenDone(boost::bind(&This::onInsertNotification,
                 shared_from_this(), task, device, notification, callback));
+            m_http_tasks.insert(task); // watch
         }
         return task;
     }
@@ -534,9 +645,11 @@ private:
     @param[in] notification The inserted notification.
     @param[in] callback The callback functor.
     */
-    void onInsertNotification(http::Client::TaskPtr task, Device::SharedPtr device, NotificationPtr notification, InsertNotificationCallback callback)
+    void onInsertNotification(http::Client::TaskPtr task, DevicePtr device, NotificationPtr notification, InsertNotificationCallback callback)
     {
-        boost::system::error_code err = verifyTaskResponse(task, "insert notification");
+        m_http_tasks.erase(task); // done
+
+        ErrorCode err = verifyTaskResponse(task, "insert notification");
         if (!err)
         {
             if (task->response->getStatusCode() != http::status::NO_CONTENT)
@@ -570,14 +683,21 @@ private:
     @param[in] hint The operation hint to print error messages.
     @return The error code.
     */
-    boost::system::error_code verifyTaskResponse(http::Client::TaskPtr task, const char *hint)
+    ErrorCode verifyTaskResponse(http::Client::TaskPtr task, const char *hint)
     {
-        boost::system::error_code err = task->errorCode;
+        ErrorCode err = task->errorCode;
 
         if (err)
         {
-            HIVELOG_WARN(m_log, "failed to get \"" << hint
-                << "\": [" << err << "] " << err.message());
+            if (err == boost::asio::error::operation_aborted)
+            {
+                HIVELOG_DEBUG(m_log, "\"" << hint << "\": cancelled");
+            }
+            else
+            {
+                HIVELOG_WARN(m_log, "failed to get \"" << hint
+                    << "\": [" << err << "] " << err.message());
+            }
         }
         else if (!task->response)
         {
@@ -596,9 +716,12 @@ private:
     }
 
 private:
-    http::Client::SharedPtr m_http; ///< @brief The HTTP client.
+    http::ClientPtr m_http; ///< @brief The HTTP client.
     int m_http_major; ///< @brief The HTTP major version.
     int m_http_minor; ///< @brief The HTTP minor version.
+
+    /// @brief The list of active HTTP requests.
+    std::set<http::Client::TaskPtr> m_http_tasks;
 
     hive::log::Logger m_log;        ///< @brief The logger.
     http::Url m_baseUrl;            ///< @brief The base URL.
@@ -623,7 +746,10 @@ protected:
     @param[in] callbacks The events handler.
     @param[in] name The custom name. Optional.
     */
-    RestfulService(http::ClientPtr httpClient, String const& baseUrl, boost::shared_ptr<IDeviceServiceEvents> callbacks, String const& name)
+    RestfulService(http::ClientPtr httpClient,
+                   String const& baseUrl,
+                   boost::shared_ptr<IDeviceServiceEvents> callbacks,
+                   String const& name)
         : Base(httpClient, baseUrl, name)
         , m_callbacks(callbacks)
     {}
@@ -655,7 +781,7 @@ public:
     */
     SharedPtr shared_from_this()
     {
-        return boost::shared_dynamic_cast<This>(Base::shared_from_this());
+        return boost::dynamic_pointer_cast<This>(Base::shared_from_this());
     }
 
 public: // IDeviceService
@@ -674,6 +800,7 @@ public:
     {
         if (boost::shared_ptr<IDeviceServiceEvents> cb = m_callbacks.lock())
         {
+            // no connection for RESTful service
             // just call callback method later...
             getHttpClient()->getIoService().post(
                 boost::bind(&IDeviceServiceEvents::onConnected,
@@ -713,6 +840,20 @@ public:
     }
 
 
+    /// @copydoc IDeviceService::asyncGetDeviceData()
+    virtual void asyncGetDeviceData(DevicePtr device)
+    {
+        if (boost::shared_ptr<IDeviceServiceEvents> cb = m_callbacks.lock())
+        {
+            Base::asyncGetDeviceData(device,
+                boost::bind(&IDeviceServiceEvents::onGetDeviceData,
+                    cb, _1, _2));
+        }
+        else
+            assert(!"callback is dead or not initialized");
+    }
+
+
     /// @copydoc IDeviceService::asyncUpdateDeviceData()
     virtual void asyncUpdateDeviceData(DevicePtr device)
     {
@@ -735,7 +876,9 @@ public:
         {
             DeviceData &dd = m_devices[device];
             dd.lastCommandTimestamp = timestamp;
-            dd.pollTask = Base::asyncPollCommands(device, dd.lastCommandTimestamp,
+            const String names;
+            int wait_sec = -1; // default one
+            dd.pollTask = Base::asyncPollCommands(device, dd.lastCommandTimestamp, names, wait_sec,
                 boost::bind(&This::onPollCommands, shared_from_this(), _1, _2, _3));
         }
         // else // already subscribed, do nothing (TODO: maybe update timestamp?)
@@ -764,7 +907,7 @@ private:
     @param[in] device The device.
     @param[in] commands The list of commands.
     */
-    virtual void onPollCommands(boost::system::error_code err, DevicePtr device, std::vector<CommandPtr> commands)
+    virtual void onPollCommands(ErrorCode err, DevicePtr device, std::vector<CommandPtr> commands)
     {
         if (boost::shared_ptr<IDeviceServiceEvents> cb = m_callbacks.lock())
         {
@@ -779,7 +922,9 @@ private:
                 }
 
                 // start polling again
-                dd.pollTask = Base::asyncPollCommands(device, dd.lastCommandTimestamp,
+                const String names;
+                int wait_sec = -1; // default one
+                dd.pollTask = Base::asyncPollCommands(device, dd.lastCommandTimestamp, names, wait_sec,
                     boost::bind(&This::onPollCommands, shared_from_this(), _1, _2, _3));
             }
             else

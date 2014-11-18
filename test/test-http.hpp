@@ -79,4 +79,67 @@ void test_http1()
     ios.run();
 }
 
+
+// test application entry point: keep-alive connection
+void test_http2()
+{
+    class Test:
+        public boost::enable_shared_from_this<Test>
+    {
+    public:
+        Test()
+        {
+            m_http = http::Client::create(m_ios);
+        }
+
+        void run()
+        {
+            test1();
+            m_ios.run();
+        }
+
+    private:
+
+        void test1()
+        {
+            const http::Url url("http://httpbin.org/ip");
+            if (http::Client::TaskPtr task = m_http->send(http::Request::GET(url), 10000))
+                task->callWhenDone(boost::bind(&Test::on_print1, shared_from_this(), task));
+        }
+
+        void test2()
+        {
+            const http::Url url("http://httpbin.org/delay/5");
+            http::RequestPtr req = http::Request::GET(url);
+            req->addHeader(http::header::Connection, "close");
+            if (http::Client::TaskPtr task = m_http->send(req, 10000))
+                task->callWhenDone(boost::bind(&Test::on_print2, shared_from_this(), task));
+        }
+
+    private:
+
+        void on_print1(http::Client::TaskPtr task)
+        {
+            std::cout << "\n\nFirst response:";
+            on_http_print(task);
+            m_ios.post(boost::bind(&Test::test2, shared_from_this()));
+        }
+
+        void on_print2(http::Client::TaskPtr task)
+        {
+            std::cout << "\n\nSecond response:";
+            on_http_print(task);
+        }
+
+    private:
+        boost::asio::io_service m_ios;
+        http::ClientPtr m_http;
+    };
+
+    hive::log::Logger::root().setLevel(hive::log::LEVEL_DEBUG);
+
+    boost::shared_ptr<Test> t(new Test());
+    t->run();
+}
+
 } // local namespace

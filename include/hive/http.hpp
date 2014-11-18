@@ -47,8 +47,6 @@ The following format of URL is expected:
 
 Now supports `http`, `https`, `ftp`, `ws` and `wss` protocols.
 
-The URL encoding/decoding functions are provided as static methods.
-
 There also equality operators == and != are available.
 
 Please use Builder class to build advanced URLs.
@@ -73,7 +71,7 @@ public:
     @param[in] url The URL string to parse.
     @throws std::invalid_argument If the URL string is invalid.
     */
-    explicit Url(const char* url)
+    /*explicit*/ Url(const char* url)
     {
         parse(url);
     }
@@ -84,7 +82,7 @@ public:
     @param[in] url The URL string to parse.
     @throws std::invalid_argument If the URL string is invalid.
     */
-    explicit Url(String const& url)
+    /*explicit*/ Url(String const& url)
     {
         parse(url.c_str());
     }
@@ -418,10 +416,10 @@ inline bool operator==(Url const& a, Url const& b)
 {
     return a.getProtocol() == b.getProtocol()
         && a.getUserInfo() == b.getUserInfo()
-        && a.getHost() == b.getHost()
-        && a.getPort() == b.getPort()
-        && a.getPath() == b.getPath()
-        && a.getQuery() == b.getQuery()
+        && a.getHost()     == b.getHost()
+        && a.getPort()     == b.getPort()
+        && a.getPath()     == b.getPath()
+        && a.getQuery()    == b.getQuery()
         && a.getFragment() == b.getFragment();
 }
 
@@ -441,9 +439,8 @@ inline bool operator!=(Url const& a, Url const& b)
 
 /// @brief The URL builder.
 /**
-NOT FULLY IMPLEMENTED YET.
+This class helps to build an Url from components.
 */
-// TODO: implement this class.
 class Url::Builder
 {
 public:
@@ -481,6 +478,72 @@ public:
             formatQuery(), m_fragment);
     }
 
+/// @name Protocol, user, host, port and fragment
+/// @{
+public:
+
+    /// @brief Set new protocol.
+    /**
+    @param[in] proto The new protocol.
+    @return Self reference.
+    */
+    Builder& setProtocol(String const& proto)
+    {
+        m_proto = proto;
+        return *this;
+    }
+
+
+    /// @brief Set user name and password.
+    /**
+    @param[in] userName The user name.
+    @param[in] password The optional password.
+    @return Self reference.
+    */
+    Builder& setUserInfo(String const& userName, String const& password = String())
+    {
+        m_user = password.empty() ? userName
+               : userName + ":" + password;
+        return *this;
+    }
+
+
+    /// @brief Set host.
+    /**
+    @param[in] host The new host.
+    @return Self reference.
+    */
+    Builder& setHost(String const& host)
+    {
+        m_host = host;
+        return *this;
+    }
+
+
+    /// @brief Set port.
+    /**
+    @param[in] port The new port.
+    @return Self reference.
+    */
+    Builder& setPort(String const& port)
+    {
+        m_port = port;
+        return *this;
+    }
+
+
+    /// @brief Set fragment.
+    /**
+    @param[in] fragment The new fragment.
+    @return Self reference.
+    */
+    Builder& setFragment(String const& fragment)
+    {
+        m_fragment = fragment;
+        return *this;
+    }
+/// @}
+
 /// @name Path components
 /// @{
 public:
@@ -488,7 +551,7 @@ public:
     /// @brief Append new path components.
     /**
     @param[in] path The path components to add.
-    @return The this reference.
+    @return Self reference.
     */
     Builder& appendPath(String const& path)
     {
@@ -499,7 +562,7 @@ public:
 
     /// @brief Remove all path components.
     /**
-    @return The this reference.
+    @return Self reference.
     */
     Builder& clearPath()
     {
@@ -516,7 +579,7 @@ public:
     /// @brief Append new query components.
     /**
     @param[in] query The query components to add.
-    @return The this reference.
+    @return Self reference.
     */
     Builder& appendQuery(String const& query)
     {
@@ -527,7 +590,7 @@ public:
 
     /// @brief Remove all query components.
     /**
-    @return The this reference.
+    @return Self reference.
     */
     Builder& clearQuery()
     {
@@ -536,8 +599,6 @@ public:
     }
 
 /// @}
-
-// TODO: a lot of methods to manipulate URL properties: get/set proto, user, host, port, fragment
 
 private:
 
@@ -551,8 +612,10 @@ private:
         String comp;
 
         while (std::getline(iss, comp, '/'))
+        {
             if (!comp.empty())
                 m_path.push_back(comp);
+        }
     }
 
 
@@ -586,8 +649,10 @@ private:
         String comp;
 
         while (std::getline(iss, comp, '&'))
+        {
             if (!comp.empty())
                 m_query.push_back(comp);
+        }
     }
 
 
@@ -630,6 +695,7 @@ private:
 const char Host[]               = "Host";               ///< @hideinitializer @brief The "Host" header name.
 const char Allow[]              = "Allow";              ///< @hideinitializer @brief The "Allow" header name.
 const char Accept[]             = "Accept";             ///< @hideinitializer @brief The "Accept" header name.
+const char Accept_Encoding[]    = "Accept-Encoding";    ///< @hideinitializer @brief The "Accept-Encoding" header name.
 const char Connection[]         = "Connection";         ///< @hideinitializer @brief The "Connection" header name.
 const char Content_Encoding[]   = "Content-Encoding";   ///< @hideinitializer @brief The "Content-Encoding" header name.
 const char Content_Length[]     = "Content-Length";     ///< @hideinitializer @brief The "Content-Length" header name.
@@ -640,6 +706,9 @@ const char User_Agent[]         = "User-Agent";         ///< @hideinitializer @b
 const char Location[]           = "Location";           ///< @hideinitializer @brief The "Location" header name.
 const char Upgrade[]            = "Upgrade";            ///< @hideinitializer @brief The "Upgrade" header name.
 const char Authorization[]      = "Authorization";      ///< @hideinitializer @brief The "Authorization" header name.
+const char SetCookie[]          = "Set-Cookie";         ///< @hideinitializer @brief The "Set-Cookie" header name.
+const char Cookie[]             = "Cookie";             ///< @hideinitializer @brief The "Cookie" header name.
+const char Proxy_Connection[]   = "Proxy-Connection";   ///< @hideinitializer @brief The "Proxy-Connection" header name.
 
         // TODO: add more headers here
 
@@ -727,19 +796,71 @@ public:
 
 /// @name HTTP headers
 /// @{
+private:
+
+    /// @brief The less functor.
+    /**
+    Compares string no case.
+    */
+    struct iLess
+        : public std::binary_function<String, String, bool>
+    {
+        /// @brief Compare two strings.
+        /**
+        @param[in] a The first string.
+        @param[in] b The second string.
+        @return `true` if first string is less than second.
+        */
+        bool operator()(String const& a, String const& b) const
+        {
+            return boost::ilexicographical_compare(a, b);
+        }
+    };
+
+    /// @brief The header container type.
+    /**
+    Uses case insensitive comparison for header names.
+    */
+    typedef std::multimap<String, String, iLess> HeaderMap;
+
 public:
 
-    /// @brief Get header.
+    /// @brief The header iterator type.
+    typedef HeaderMap::const_iterator HeaderIterator;
+
+
+    /// @brief Get the begin of headers.
+    /**
+    @return The begin iterator.
+    */
+    HeaderIterator headersBegin() const
+    {
+        return m_headers.begin();
+    }
+
+
+    /// @brief Get the end of headers.
+    /**
+    @return The end iterator.
+    */
+    HeaderIterator headersEnd() const
+    {
+        return m_headers.end();
+    }
+
+
+    /// @brief Get first header.
     /**
     @param[in] name The header name.
-    @return The header value or empty string if header doesn't exists.
+    @param[in] def The default value if header doesn't exist.
+    @return The header value or `def` string if header doesn't exist.
     @see @ref header namespace for possible names
     */
-    String getHeader(String const& name) const
+    String getHeader(String const& name, String const& def = String()) const
     {
-        HeaderMap::const_iterator found = m_headers.find(name);
+        HeaderIterator found = m_headers.find(name);
         return (found != m_headers.end())
-            ? found->second : String();
+                ? found->second : def;
     }
 
 
@@ -751,15 +872,13 @@ public:
     */
     bool hasHeader(String const& name) const
     {
-        HeaderMap::const_iterator found = m_headers.find(name);
+        HeaderIterator found = m_headers.find(name);
         return (found != m_headers.end());
     }
 
 
     /// @brief Add header.
     /**
-    If header already exists the previous value will be lost.
-
     @param[in] name The header name.
     @param[in] value The header value.
     @return Self reference.
@@ -767,7 +886,7 @@ public:
     */
     Message& addHeader(String const& name, String const& value)
     {
-        m_headers[name] = value;
+        m_headers.insert(std::make_pair(name, value));
         return *this;
     }
 
@@ -790,10 +909,10 @@ public:
     @param[in,out] os The output stream.
     @return The output stream.
     */
-    OStream& writeAllHeaders(OStream & os) const
+    OStream& writeAllHeaders(OStream &os) const
     {
-        HeaderMap::const_iterator const ie = m_headers.end();
-        HeaderMap::const_iterator i = m_headers.begin();
+        HeaderIterator const ie = m_headers.end();
+        HeaderIterator i = m_headers.begin();
 
         for (; i != ie; ++i)
         {
@@ -835,7 +954,7 @@ public:
     @param[in,out] os The output stream.
     @return The output stream.
     */
-    OStream& writeContent(OStream & os) const
+    OStream& writeContent(OStream &os) const
     {
         if (!m_content.empty())
         {
@@ -857,33 +976,6 @@ public:
 /// @}
 
 private:
-
-    /// @brief The less functor.
-    /**
-    Compares string no case.
-    */
-    struct iLess
-        : public std::binary_function<String, String, bool>
-    {
-        /// @brief Compare two strings.
-        /**
-        @param[in] a The first string.
-        @param[in] b The second string.
-        @return `true` if first string is less than second.
-        */
-        bool operator()(String const& a, String const& b) const
-        {
-            return boost::ilexicographical_compare(a, b);
-        }
-    };
-
-    /// @brief The header container type.
-    /**
-    Uses case insensitive comparison for header names.
-    */
-    typedef std::map<String, String, iLess> HeaderMap;
-
-
     UInt32 m_versionMajor; ///< @brief The major HTTP version.
     UInt32 m_versionMinor; ///< @brief The minor HTTP version.
     HeaderMap m_headers; ///< @brief The headers.
@@ -1026,7 +1118,7 @@ public:
     @param[in,out] os The output stream.
     @return The output stream.
     */
-    OStream& writeFirstLine(OStream & os) const
+    OStream& writeFirstLine(OStream &os) const
     {
         return os << getMethod() << " "
             << getUrl().toStr(Url::PATH|Url::QUERY)
@@ -1046,7 +1138,7 @@ public:
     @param[in,out] os The output stream.
     @return The output stream.
     */
-    OStream& write(OStream & os) const
+    OStream& write(OStream &os) const
     {
         writeFirstLine(os);
         writeAllHeaders(os);
@@ -1169,8 +1261,8 @@ protected:
     @param[in] reason The status phrase.
     */
     Response(int status, String const& reason)
-        : m_statusCode(status),
-          m_statusPhrase(reason)
+        : m_statusCode(status)
+        , m_statusPhrase(reason)
     {}
 
 public:
@@ -1257,7 +1349,7 @@ public:
     @param[in,out] os The output stream.
     @return The output stream.
     */
-    OStream& writeFirstLine(OStream & os) const
+    OStream& writeFirstLine(OStream &os) const
     {
         return os << "HTTP/" << getVersionMajor() << "."
             << getVersionMinor() << " " << getStatusCode() << " "
@@ -1274,7 +1366,7 @@ public:
     @param[in,out] os The output stream.
     @return The output stream.
     */
-    OStream& write(OStream & os) const
+    OStream& write(OStream &os) const
     {
         writeFirstLine(os);
         writeAllHeaders(os);
@@ -1330,8 +1422,12 @@ public:
 
 protected:
 
-    /// @brief The default constructor.
-    Connection()
+    /// @brief The main constructor.
+    /**
+    @param[in] uID The unique identifier.
+    */
+    explicit Connection(size_t uID)
+        : m_uniqueID(uID)
     {}
 
 public:
@@ -1360,6 +1456,16 @@ public:
         return m_buffer;
     }
 
+
+    /// @brief Get the unique identifier.
+    /**
+    @return The unique identifier.
+    */
+    size_t getUniqueID() const
+    {
+        return m_uniqueID;
+    }
+
 public:
 
     /// @brief Get the IO service.
@@ -1376,9 +1482,13 @@ public:
     virtual Endpoint remote_endpoint() const = 0;
 
 
+    /// @brief Cancel any asynchronous operations.
+    virtual void cancel() = 0;
+
+
     /// @brief Close the connection.
     /**
-        Cancels all asynchronous operations.
+    Cancels all asynchronous operations.
     */
     virtual void close() = 0;
 
@@ -1441,6 +1551,13 @@ private:
     This buffer may be used for read/write operations.
     */
     StreamBuf m_buffer;
+
+
+    /// @brief The unique identifier.
+    /**
+    This ID is mostly used for logging purposes.
+    */
+    const size_t m_uniqueID;
 };
 
 /// @brief The HTTP connection shared pointer type.
@@ -1463,9 +1580,11 @@ protected:
     /// @brief The main constructor.
     /**
     @param[in] ios The IO service.
+    @param[in] uID The unique identifier.
     */
-    explicit Simple(IOService & ios)
-        : m_socket(ios)
+    Simple(IOService &ios, size_t uID)
+        : Base(uID)
+        , m_socket(ios)
     {}
 
 public:
@@ -1477,11 +1596,12 @@ public:
     /// @brief The main factory method.
     /**
     @param[in] ios The IO service.
+    @param[in] uID The unique identifier.
     @return The new HTTP connection instance.
     */
-    static SharedPtr create(IOService & ios)
+    static SharedPtr create(IOService &ios, size_t uID)
     {
-        return SharedPtr(new Simple(ios));
+        return SharedPtr(new Simple(ios, uID));
     }
 
 public:
@@ -1508,6 +1628,16 @@ public: // Connection
     virtual Endpoint remote_endpoint() const
     {
         return m_socket.remote_endpoint();
+    }
+
+
+    /// @copydoc Connection::cancel()
+    virtual void cancel()
+    {
+        ErrorCode terr;
+
+        m_socket.cancel(terr);
+        // ignore error code?
     }
 
 
@@ -1540,6 +1670,8 @@ public: // Connection
     */
     virtual void async_handshake(int type, HandshakeCallback callback)
     {
+        HIVE_UNUSED(type);
+
         // handshake is always successful, just call the callback
         get_io_service().post(boost::bind(callback, ErrorCode()));
     }
@@ -1588,9 +1720,11 @@ protected:
     /**
     @param[in] ios The IO service.
     @param[in] context The SSL context.
+    @param[in] uID The unique identifier.
     */
-    Secure(IOService & ios, SslContext & context)
-        : m_stream(ios, context)
+    Secure(IOService &ios, SslContext &context, size_t uID)
+        : Base(uID)
+        , m_stream(ios, context)
     {}
 
 public:
@@ -1603,11 +1737,12 @@ public:
     /**
     @param[in] ios The IO service.
     @param[in] context The SSL context.
+    @param[in] uID The unique identifier.
     @return The new secure connection.
     */
-    static SharedPtr create(IOService & ios, SslContext & context)
+    static SharedPtr create(IOService &ios, SslContext &context, size_t uID)
     {
-        return SharedPtr(new Secure(ios, context));
+        return SharedPtr(new Secure(ios, context, uID));
     }
 
 public:
@@ -1634,6 +1769,16 @@ public: // Connection
     virtual Endpoint remote_endpoint() const
     {
         return m_stream.lowest_layer().remote_endpoint();
+    }
+
+
+    /// @copydoc Connection::cancel()
+    virtual void cancel()
+    {
+        ErrorCode terr;
+
+        m_stream.lowest_layer().cancel(terr);
+        // ignore error code?
     }
 
 
@@ -1733,7 +1878,12 @@ protected:
 #if !defined(HIVE_DISABLE_SSL)
         , m_context(boost::asio::ssl::context::sslv23)
 #endif // HIVE_DISABLE_SSL
+        , m_nextTaskId(0)
+        , m_nextConnId(0)
     {
+#if !defined(HIVE_DISABLE_SSL)
+        m_context.set_options(boost::asio::ssl::context::default_workarounds);
+#endif // HIVE_DISABLE_SSL
         HIVELOG_TRACE_STR(m_log, "created");
     }
 
@@ -1742,6 +1892,7 @@ public:
     /// @brief The trivial destructor.
     virtual ~Client()
     {
+        // TODO: close all keep-alive monitors!
         assert(m_taskList.empty() && "not all tasks are finished");
         HIVELOG_TRACE_STR(m_log, "deleted");
     }
@@ -1786,10 +1937,37 @@ public:
     public:
         typedef boost::shared_ptr<Task> SharedPtr; ///< @brief The shared pointer type.
 
-        ConnectionPtr connection;   ///< @brief The HTTP or HTTPS connection.
         RequestPtr    request;      ///< @brief The request object.
         ResponsePtr   response;     ///< @brief The response object.
         ErrorCode     errorCode;    ///< @brief The task error code.
+
+    public:
+
+        /// @brief Get the connection.
+        /**
+        @return The current connection or `NULL`.
+        */
+        ConnectionPtr getConnection() const
+        {
+            return m_connection;
+        }
+
+
+        /// @brief Take the current connection.
+        /**
+        This method is used to take connection from the HTTP client,
+        i.e. prevent the connection caching.
+
+        It's unsafe to take connection before the task is finished.
+
+        @return The current connection or `NULL`.
+        */
+        ConnectionPtr takeConnection()
+        {
+            ConnectionPtr pconn = m_connection;
+            m_connection.reset();
+            return pconn;
+        }
 
     public:
 
@@ -1807,7 +1985,7 @@ public:
             if (!m_callback)
                 m_callback = cb;
             else
-                m_callback = boost::bind(&Task::zcall2, m_callback, cb);
+                m_callback = boost::bind(&Task::tie, m_callback, cb);
         }
 
     public:
@@ -1820,20 +1998,19 @@ public:
         {
             m_cancelled = true;
             m_resolver.cancel();
-            if (connection)
-                connection->close();
+            if (m_connection)
+                m_connection->close();
         }
 
-    private:
-        boost::function0<void> m_callback; ///< @brief The callback method.
 
-        bool m_timer_started; ///< @brief The timer "started" flag.
-        Timer m_timer;    ///< @brief The deadline timer.
-
-        Resolver m_resolver; ///< @brief The host name resolver.
-
-        bool m_cancelled; ///< @brief The "cancelled" flag.
-        size_t m_rx_len; ///< @brief The expected content-length.
+        /// @brief Get the unique identifier.
+        /**
+        @return The unique identifier.
+        */
+        size_t getUniqueID() const
+        {
+            return m_uniqueID;
+        }
 
     private:
 
@@ -1842,7 +2019,7 @@ public:
         @param[in] cb1 The first callback.
         @param[in] cb2 The second callback.
         */
-        static void zcall2(Callback cb1, Callback cb2)
+        static void tie(Callback cb1, Callback cb2)
         {
             cb1();
             cb2();
@@ -1854,15 +2031,31 @@ public:
         /**
         @param[in] ios The IO service.
         @param[in] req The request.
+        @param[in] uID The unique identifier.
         */
-        Task(IOService &ios, RequestPtr req)
+        Task(IOService &ios, RequestPtr req, size_t uID)
             : request(req)
             , m_timer_started(false)
             , m_timer(ios)
             , m_resolver(ios)
             , m_cancelled(false)
             , m_rx_len(0)
+            , m_uniqueID(uID)
         {}
+
+    private:
+        ConnectionPtr m_connection;   ///< @brief The HTTP or HTTPS connection.
+        boost::function0<void> m_callback; ///< @brief The callback method.
+
+        bool m_timer_started; ///< @brief The timer "started" flag.
+        Timer m_timer;    ///< @brief The deadline timer.
+
+        Resolver m_resolver; ///< @brief The host name resolver.
+
+        bool m_cancelled; ///< @brief The "cancelled" flag.
+        size_t m_rx_len; ///< @brief The expected content-length.
+
+        const size_t m_uniqueID; ///< @brief The unique identifier.
     };
 
     /// @brief The Task shared pointer type.
@@ -1883,7 +2076,7 @@ public:
         assert(request && "no request");
 
         // create new task for the request
-        TaskPtr task(new Task(m_ios, request));
+        TaskPtr task(new Task(m_ios, request, ++m_nextTaskId));
 
         if (0 < timeout_ms)
         {
@@ -1894,21 +2087,25 @@ public:
                 return TaskPtr(); // no task started
             }
 
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
+            HIVELOG_INFO(m_log, "Task" << task->getUniqueID() << " sending "
                 << request->getMethod() << " request to <"
                 << request->getUrl().toStr() << "> with "
-                << timeout_ms << " ms timeout:\n" << *request);
+                << timeout_ms << " ms timeout");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " request:\n" << *request);
         }
         else
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} sending "
+            HIVELOG_INFO(m_log, "Task" << task->getUniqueID() << " sending "
                 << request->getMethod() << " request to <"
                 << request->getUrl().toStr()
-                << "> without timeout:\n" << *request);
+                << "> without timeout");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " request:\n" << *request);
         }
 
         m_taskList.push_back(task);
-        asyncResolve(task);
+        asyncResolve(task, true);
         return task;
     }
 
@@ -1929,6 +2126,25 @@ public:
         }
     }
 
+
+    /// @brief Clear all keep-alive connections.
+    /**
+    All keep-alive connection will be cancelled and closed.
+    */
+    void clearKeepAliveConnections()
+    {
+        HIVELOG_TRACE_BLOCK(m_log, "clearKeepAliveConnections()");
+        ConnList::iterator i = m_connCache.begin();
+        ConnList::iterator e = m_connCache.end();
+        for (; i != e; ++i)
+        {
+            ConnectionPtr pconn = *i;
+            pconn->cancel();
+        }
+
+        m_connCache.clear();
+    }
+
 private:
 
     /// @brief Finish the task.
@@ -1941,7 +2157,7 @@ private:
     {
         HIVELOG_TRACE_BLOCK(m_log, "finish(task)");
 
-        Connection::StreamBuf &sbuf = task->connection->getBuffer();
+        Connection::StreamBuf &sbuf = task->m_connection->getBuffer();
         Connection::StreamBuf::const_buffers_type data = sbuf.data();
 
         if (task->m_rx_len != std::numeric_limits<size_t>::max())
@@ -1959,9 +2175,10 @@ private:
             sbuf.consume(sbuf.size());
         }
 
-        HIVELOG_DEBUG(m_log, "{" << task.get()
-            << "} got response:\n"
-            << *task->response);
+        HIVELOG_INFO(m_log, "Task" << task->getUniqueID()
+            << " got response: " << dumpStatusLine(task->response));
+        HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+            << " response:\n" << *task->response);
     }
 
 
@@ -1983,13 +2200,53 @@ private:
             task->m_timer.cancel();
             task->m_timer_started = false;
         }
-        if (task->m_callback)
+        if (Task::Callback cb = task->m_callback)
         {
-            task->m_callback(); // call it
             task->m_callback = Task::Callback();
+            cb(); // call it
         }
 
         m_taskList.remove(task);
+
+        // cache the connection
+        if (!task->m_cancelled && isKeepAlive(task))        // if task is cancelled, its connection is closed
+        if (ConnectionPtr pconn = task->takeConnection())
+        {
+            m_connCache.push_back(pconn);
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " - keep-alive Connection" << pconn->getUniqueID()
+                << " is cached (cache size is " << m_connCache.size() << ")");
+            asyncStartKeepAliveMonitor(pconn);
+        }
+    }
+
+
+    /// @brief Check if connection can be cached.
+    /**
+    @param[in] task The task to check.
+    @return `true` if connection can be cached.
+    */
+    bool isKeepAlive(TaskPtr task)
+    {
+        if (task->request && task->response)
+        {
+            const String conn_h = task->response->getHeader(http::header::Connection);
+            const int vmaj = task->request->getVersionMajor();
+            const int vmin = task->request->getVersionMinor();
+
+            if (vmaj==1 && vmin==0) // HTTP 1.0
+            {
+                if (boost::iequals(conn_h, "keep-alive"))
+                    return true; // can be cached
+            }
+            else                    // HTTP 1.1 or above
+            {
+                if (!boost::iequals(conn_h, "close"))
+                    return true; // can be cached
+            }
+        }
+
+        return false; // no point to cache connection
     }
 
 /// @name Task timeout
@@ -2016,6 +2273,10 @@ private:
                 boost::bind(&Client::onTimedOut, shared_from_this(),
                     task, boost::asio::placeholders::error));
             task->m_timer_started = true;
+
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " start " << timeout_ms
+                << " milliseconds timeout");
         }
 
         return err;
@@ -2033,20 +2294,20 @@ private:
 
         if (!err) // timeout expired
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} timed out");
+            HIVELOG_WARN(m_log, "Task" << task->getUniqueID() << " timed out");
             done(task, boost::asio::error::timed_out);
             task->cancel();
         }
         else if (boost::asio::error::operation_aborted == err)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} timeout cancelled");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " timeout cancelled");
             // do nothing
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
-                << "} timeout error: [" << err
+            HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                << " timeout error: [" << err
                 << "] " << err.message());
             done(task, err);
         }
@@ -2059,33 +2320,51 @@ private:
 
     /// @brief Start asynchronous resolve operation.
     /**
+    First attempt uses protocol name as a service,
+    the second attempt uses port number.
+
     @param[in] task The task.
+    @param[in] firstAttempt The 'first-attempt' flag.
     */
-    void asyncResolve(TaskPtr task)
+    void asyncResolve(TaskPtr task, bool firstAttempt)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncResolve(task)");
 
         Url const& url = task->request->getUrl();
-        String const& service = url.getPort().empty()
-            ? url.getProtocol() : url.getPort();
+        String service;
+        if (firstAttempt) // try the protocol name first
+        {
+            if (url.getPort().empty())
+                service = url.getProtocol();
+            else
+            {
+                // if there is explicit port number provided
+                // there is no point to do a second attempt
+                service = url.getPort();
+                firstAttempt = false;
+            }
+        }
+        else // try the port number otherwise
+            service = boost::lexical_cast<String>(url.getPortNumber());
 
         Endpoint cachedEndpoint;
         const String hostName = url.toStr(Url::PROTOCOL|Url::HOST|Url::PORT);
         if (m_nameCache.enabled() && m_nameCache.find(hostName, cachedEndpoint))
         {
             Resolver::iterator epi = Resolver::iterator::create(cachedEndpoint, url.getHost(), service);
-            m_ios.post(boost::bind(&Client::onResolved, shared_from_this(), task, ErrorCode(), epi));
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} resolved from name cache!");
+            m_ios.post(boost::bind(&Client::onResolved, shared_from_this(), task, ErrorCode(), epi, firstAttempt));
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID() << " resolved from name cache!");
         }
         else
         {
             // start async resolve operation
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} start async resolve <"
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID() << " start async resolve <"
                 << url.getHost() << ">, \"" << service << "\" service");
             task->m_resolver.async_resolve(Resolver::query(url.getHost(), service),
                 boost::bind(&Client::onResolved, shared_from_this(),
                     task, boost::asio::placeholders::error,
-                    boost::asio::placeholders::iterator));
+                    boost::asio::placeholders::iterator,
+                        firstAttempt));
         }
     }
 
@@ -2095,14 +2374,15 @@ private:
     @param[in] task The task.
     @param[in] err The error code.
     @param[in] epi The endpoint iterator.
+    @param[in] firstAttempt The 'first-attempt' flag.
     */
-    void onResolved(TaskPtr task, ErrorCode err, Resolver::iterator epi)
+    void onResolved(TaskPtr task, ErrorCode err, Resolver::iterator epi, bool firstAttempt)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onResolved(task)");
 
         if (!err && !task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get() << "} <"
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID() << " <"
                 << task->request->getUrl().getHost()
                 << "> resolved as: " << dump(epi));
 
@@ -2110,14 +2390,28 @@ private:
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} async resolve cancelled");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " async resolve cancelled");
             done(task, boost::asio::error::operation_aborted);
+        }
+        else if (firstAttempt)
+        {
+            HIVELOG_WARN(m_log, "Task" << task->getUniqueID() << " <"
+                << task->request->getUrl().getHost()
+                << "> first attempt async resolve error: ["
+                << err << "] " << err.message());
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " resolve with port number "
+                   "instead of protocol name");
+
+            // resolve with port number
+            // instead of protocol name
+            asyncResolve(task, false);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get() << "} <"
-                << task->request->getUrl().getHost()
+            HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                << " <" << task->request->getUrl().getHost()
                 << "> async resolve error: ["
                 << err << "] " << err.message());
             done(task, err);
@@ -2129,6 +2423,48 @@ private:
 /// @{
 private:
 
+    /// @brief Find cached connection.
+    /**
+    @param[in] endpoint The endpoint to find connection for.
+    @param[in] secure `true` for secure connections.
+    @return A connection or `NULL`.
+    */
+    ConnectionPtr findCachedConnection(Connection::Endpoint endpoint, bool secure)
+    {
+        ConnList::iterator i = m_connCache.begin();
+        ConnList::iterator e = m_connCache.end();
+        for (; i != e; ++i)
+        {
+            ConnectionPtr pconn = *i;
+            if (pconn->remote_endpoint() == endpoint)
+            {
+#if !defined(HIVE_DISABLE_SSL)
+                if (secure)
+                {
+                    if (boost::dynamic_pointer_cast<Connection::Secure>(pconn))
+                    {
+                        m_connCache.erase(i);
+                        pconn->cancel(); // stop monitor
+                        return pconn;
+                    }
+                }
+                else
+#endif // HIVE_DISABLE_SSL
+                {
+                    if (boost::dynamic_pointer_cast<Connection::Simple>(pconn))
+                    {
+                        m_connCache.erase(i);
+                        pconn->cancel(); // stop monitor
+                        return pconn;
+                    }
+                }
+            }
+        }
+
+        return ConnectionPtr(); // not found
+    }
+
+
     /// @brief Start asynchronous connect operation.
     /**
     @param[in] task The task.
@@ -2137,37 +2473,57 @@ private:
     void asyncConnect(TaskPtr task, Resolver::iterator epi)
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncConnect(task)");
+        bool cached = true;
 
         String const& proto = task->request->getUrl().getProtocol();
         if (boost::iequals(proto, "https") || boost::iequals(proto, "wss")) // secure connection?
         {
 #if !defined(HIVE_DISABLE_SSL)
-            // TODO: select an unused connection?
-            Connection::Secure::SharedPtr conn = Connection::Secure::create(m_ios, m_context);
-            conn->getStream().set_verify_mode(boost::asio::ssl::verify_none); // TODO: boost::asio::ssl::verify_peer
-            conn->getStream().set_verify_callback(
-                boost::bind(&Client::onVerify,
-                    shared_from_this(), _1, _2));
-            task->connection = conn;
+            if (!(task->m_connection = findCachedConnection(epi->endpoint(), true)))
+            {
+                Connection::Secure::SharedPtr conn = Connection::Secure::create(m_ios, m_context, ++m_nextConnId);
+                conn->getStream().set_verify_mode(boost::asio::ssl::verify_none); // TODO: boost::asio::ssl::verify_peer
+                conn->getStream().set_verify_callback(
+                    boost::bind(&Client::onVerify,
+                        shared_from_this(), _1, _2));
+                task->m_connection = conn;
+                cached = false;
+            }
 #else
-            HIVELOG_WARN(m_log, "{" << task.get()
-                << "} SSL connections not supported");
+            HIVELOG_WARN(m_log, "Task" << task->getUniqueID()
+                << " SSL connections not supported");
             done(task, boost::asio::error::operation_not_supported);
             return;
 #endif // HIVE_DISABLE_SSL
         }
         else
         {
-            // TODO: select an unused connection?
-            task->connection = Connection::Simple::create(m_ios);
+            if (!(task->m_connection = findCachedConnection(epi->endpoint(), false)))
+            {
+                task->m_connection = Connection::Simple::create(m_ios, ++m_nextConnId);
+                cached = false;
+            }
         }
 
-        HIVELOG_DEBUG(m_log, "{" << task.get()
-            << "} start async connection");
+        if (cached)
+        {
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " got Connection" << task->m_connection->getUniqueID()
+                << " from cache!");
 
-        task->connection->async_connect(epi,
-            boost::bind(&Client::onConnected, shared_from_this(),
-                task, boost::asio::placeholders::error));
+            m_ios.post(boost::bind(&Client::onHandshaked, shared_from_this(),
+                task, boost::system::error_code()));
+        }
+        else
+        {
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " start async Connection"
+                << task->m_connection->getUniqueID());
+
+            task->m_connection->async_connect(epi,
+                boost::bind(&Client::onConnected, shared_from_this(),
+                    task, boost::asio::placeholders::error));
+        }
     }
 
 
@@ -2188,21 +2544,21 @@ private:
             {
                 Url const& url = task->request->getUrl();
                 const String hostName = url.toStr(Url::PROTOCOL|Url::HOST|Url::PORT);
-                m_nameCache.update(hostName, task->connection->remote_endpoint());
+                m_nameCache.update(hostName, task->m_connection->remote_endpoint());
             }
 
             asyncHandshake(task);
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} async connection cancelled");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " async connection cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
-                << "} async connection error: ["
+            HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                << " async connection error: ["
                 << err << "] " << err.message());
             done(task, err);
         }
@@ -2222,9 +2578,9 @@ private:
         HIVELOG_TRACE_BLOCK(m_log, "asyncHandshake(task)");
 
         // send whole request
-        HIVELOG_DEBUG(m_log, "{" << task.get()
-            << "} start async handshake");
-        task->connection->async_handshake(
+        HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+            << " start async handshake");
+        task->m_connection->async_handshake(
 #if !defined(HIVE_DISABLE_SSL)
             boost::asio::ssl::stream_base::client,
 #else
@@ -2250,14 +2606,14 @@ private:
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} async handshake cancelled");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " async handshake cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
-                << "} async handshake error: ["
+            HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                << " async handshake error: ["
                 << err << "] " << err.message());
             done(task, err);
         }
@@ -2277,7 +2633,7 @@ private:
 
         HIVELOG_DEBUG(m_log, "verify certificate: " << preverified);
 
-        // TODO: check certificate
+        HIVE_UNUSED(context); // TODO: check certificate, use ssl::rfc2818_verification class
         return preverified;
     }
 
@@ -2297,14 +2653,14 @@ private:
         HIVELOG_TRACE_BLOCK(m_log, "asyncWriteRequest(task)");
 
         // prepare output buffer
-        Connection::StreamBuf &sbuf = task->connection->getBuffer();
+        Connection::StreamBuf &sbuf = task->m_connection->getBuffer();
         OStream os(&sbuf);
         task->request->write(os);
 
         // send whole request
-        HIVELOG_DEBUG(m_log, "{" << task.get()
-            << "} start async request sending");
-        boost::asio::async_write(*task->connection, sbuf,
+        HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+            << " start async request sending");
+        boost::asio::async_write(*task->m_connection, sbuf,
             boost::bind(&Client::onRequestWritten,
                 shared_from_this(), task, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
@@ -2319,6 +2675,8 @@ private:
     */
     void onRequestWritten(TaskPtr task, ErrorCode err, size_t len)
     {
+        HIVE_UNUSED(len);
+
         HIVELOG_TRACE_BLOCK(m_log, "onRequestWritten(task)");
 
         if (!err && !task->m_cancelled)
@@ -2327,14 +2685,14 @@ private:
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} async request sending cancelled");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " async request sending cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
-                << "} async request sending error: ["
+            HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                << " async request sending error: ["
                 << err << "] " << err.message());
             done(task, err);
         }
@@ -2353,10 +2711,10 @@ private:
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadStatus(task)");
 
-        HIVELOG_DEBUG(m_log, "{" << task.get()
-            << "} start async status line receiving");
-        boost::asio::async_read_until(*task->connection,
-            task->connection->getBuffer(), impl::CRLF,
+        HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+            << " start async status line receiving");
+        boost::asio::async_read_until(*task->m_connection,
+            task->m_connection->getBuffer(), impl::CRLF,
             boost::bind(&Client::onStatusRead, shared_from_this(),
                 task, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
@@ -2371,11 +2729,13 @@ private:
     */
     void onStatusRead(TaskPtr task, ErrorCode err, size_t len)
     {
+        HIVE_UNUSED(len);
+
         HIVELOG_TRACE_BLOCK(m_log, "onStatusRead(task)");
 
         if (!err && !task->m_cancelled)
         {
-            std::istreambuf_iterator<char> buf_beg(&task->connection->getBuffer());
+            std::istreambuf_iterator<char> buf_beg(&task->m_connection->getBuffer());
             const std::istreambuf_iterator<char> buf_end;
 
             // parse the status line
@@ -2388,7 +2748,7 @@ private:
                 task->response = Response::create(status, reason);
                 task->response->setVersion(vmajor, vminor);
 
-                HIVELOG_DEBUG(m_log, "{" << task.get() << "} got status line: "
+                HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID() << " got status line: "
                     << dumpStatusLine(task->response));
 
                 // TODO: handle 100-Continue response
@@ -2397,21 +2757,21 @@ private:
             }
             else
             {
-                HIVELOG_ERROR(m_log, "{" << task.get()
-                    << "} no data for status line");
+                HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                    << " no data for status line");
                 done(task, boost::asio::error::no_data); // boost::asio::error::failure
             }
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} async status line receiving cancelled");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " async status line receiving cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
-                << "} async status line receiving error: ["
+            HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                << " async status line receiving error: ["
                 << err << "] " << err.message());
             done(task, err);
         }
@@ -2431,10 +2791,10 @@ private:
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadHeaders(task)");
 
         // start "header" reading
-        HIVELOG_DEBUG(m_log, "{" << task.get()
-            << "} start async headers receiving");
-        boost::asio::async_read_until(*task->connection,
-            task->connection->getBuffer(), impl::CRLFx2,
+        HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+            << " start async headers receiving");
+        boost::asio::async_read_until(*task->m_connection,
+            task->m_connection->getBuffer(), impl::CRLFx2,
             boost::bind(&Client::onHeadersRead, shared_from_this(),
                 task, boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
@@ -2452,7 +2812,7 @@ private:
 
         if (!err && !task->m_cancelled)
         {
-            Connection::StreamBuf &sbuf = task->connection->getBuffer();
+            Connection::StreamBuf &sbuf = task->m_connection->getBuffer();
             std::istreambuf_iterator<char> buf_beg(&sbuf);
             const std::istreambuf_iterator<char> buf_end;
 
@@ -2473,21 +2833,21 @@ private:
             }
             else
             {
-                HIVELOG_ERROR(m_log, "{" << task.get()
-                    << "} no data for headers");
+                HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                    << " no data for headers");
                 done(task, boost::asio::error::no_data); // boost::asio::error::failure
             }
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} async headers receiving cancelled");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " async headers receiving cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
-                << "} async headers receiving error: ["
+            HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                << " async headers receiving error: ["
                 << err << "] " << err.message());
             done(task, err);
         }
@@ -2507,10 +2867,10 @@ private:
         HIVELOG_TRACE_BLOCK(m_log, "asyncReadContent(task)");
 
         // start "content" reading
-        HIVELOG_DEBUG(m_log, "{" << task.get()
-            << "} start async content receiving");
-        boost::asio::async_read(*task->connection,
-            task->connection->getBuffer(),
+        HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+            << " start async content receiving");
+        boost::asio::async_read(*task->m_connection,
+            task->m_connection->getBuffer(),
             boost::asio::transfer_at_least(1),
             boost::bind(&Client::onContentRead,
                 shared_from_this(), task, boost::asio::placeholders::error,
@@ -2527,7 +2887,7 @@ private:
     {
         HIVELOG_TRACE_BLOCK(m_log, "onContentRead(task)");
 
-        Connection::StreamBuf &sbuf = task->connection->getBuffer();
+        Connection::StreamBuf &sbuf = task->m_connection->getBuffer();
         if (!err && !task->m_cancelled)
         {
             // stop if we got all content data
@@ -2541,8 +2901,8 @@ private:
         }
         else if (task->m_cancelled)
         {
-            HIVELOG_DEBUG(m_log, "{" << task.get()
-                << "} async content receiving cancelled");
+            HIVELOG_DEBUG(m_log, "Task" << task->getUniqueID()
+                << " async content receiving cancelled");
             done(task, boost::asio::error::operation_aborted);
         }
         else if (err == boost::asio::error::eof)
@@ -2557,14 +2917,70 @@ private:
         }
         else
         {
-            HIVELOG_ERROR(m_log, "{" << task.get()
-                << "} async content receiving error: ["
+            HIVELOG_ERROR(m_log, "Task" << task->getUniqueID()
+                << " async content receiving error: ["
                 << err << "] " << err.message());
             done(task, err);
         }
     }
 /// @}
 
+/// @name Keep-alive connection monitor
+/// @{
+private:
+
+    /// @brief Start asynchronous keep-alive monitor.
+    /**
+    @param[in] pconn The keep-alive connection.
+    */
+    void asyncStartKeepAliveMonitor(ConnectionPtr pconn)
+    {
+        HIVELOG_TRACE_BLOCK(m_log, "asyncStartKeepAliveMonitor(pconn)");
+
+        HIVELOG_DEBUG(m_log, "Connection" << pconn->getUniqueID()
+            << " start async receiving (keep-alive monitor)");
+        static char dummy = 0;
+        boost::asio::async_read(*pconn, boost::asio::buffer(&dummy, 1),
+            boost::bind(&Client::onKeepAliveMonitorRead, shared_from_this(),
+                pconn, boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+
+
+    /// @brief Keep-alive monitor operation completed.
+    /**
+    @param[in] pconn The keep-alive connection.
+    @param[in] err The error code.
+    @param[in] len The number of bytes transferred.
+    */
+    void onKeepAliveMonitorRead(ConnectionPtr pconn, ErrorCode err, size_t len)
+    {
+        HIVE_UNUSED(len);
+
+        HIVELOG_TRACE_BLOCK(m_log, "onKeepAliveMonitorRead(pconn)");
+
+        if (!err)
+        {
+            HIVELOG_WARN(m_log, "Connection" << pconn->getUniqueID()
+                << " got unexpected data, ignored");
+            asyncStartKeepAliveMonitor(pconn);
+        }
+        else if (err == boost::asio::error::operation_aborted)
+        {
+            HIVELOG_DEBUG(m_log, "Connection" << pconn->getUniqueID()
+                << " async keep-alive monitor cancelled");
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log, "Connection" << pconn->getUniqueID()
+                << " async keep-alive monitor receiving error: ["
+                << err << "] " << err.message());
+            HIVELOG_DEBUG(m_log, "Connection" << pconn->getUniqueID()
+                << " is dead, will be removed");
+            m_connCache.remove(pconn);
+        }
+    }
+/// @}
 
 /// @name Dump tools
 /// @{
@@ -2589,8 +3005,8 @@ private:
             if (i != epi)
                 oss << ", ";
 
-            oss << addr.to_string() << ":" << endpoint.port()
-                << (addr.is_v6() ? "-v6" : (addr.is_v4() ? "-v4" : ""));
+            oss << addr.to_string()
+                << ":" << endpoint.port();
         }
 
         oss << "]";
@@ -2918,14 +3334,16 @@ private:
         /// @brief The cache entry.
         struct Entry
         {
-            Endpoint endpoint;
-            boost::posix_time::ptime created;
+            Endpoint endpoint;                  ///< @brief Endpoint address.
+            boost::posix_time::ptime created;   ///< @brief Creation time.
 
+            /// @brief The main constructor.
             explicit Entry(Endpoint const& ep)
                 : endpoint(ep)
                 , created(boost::posix_time::microsec_clock::universal_time())
             {}
 
+            /// @brief The default constructor.
             Entry()
             {}
         };
@@ -2947,6 +3365,13 @@ private:
     /// @brief The task list type.
     typedef std::list<TaskPtr> TaskList;
     TaskList m_taskList; ///< @brief The task list.
+
+    /// @brief The connection list type.
+    typedef std::list<ConnectionPtr> ConnList;
+    ConnList m_connCache; ///< @brief The connection cache.
+
+    size_t m_nextTaskId;
+    size_t m_nextConnId;
 };
 
 /// @brief The HTTP client shared pointer type.
