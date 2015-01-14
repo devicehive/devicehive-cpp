@@ -2451,6 +2451,7 @@ private:
                 else
 #endif // HIVE_DISABLE_SSL
                 {
+                    HIVE_UNUSED(secure);
                     if (boost::dynamic_pointer_cast<Connection::Simple>(pconn))
                     {
                         m_connCache.erase(i);
