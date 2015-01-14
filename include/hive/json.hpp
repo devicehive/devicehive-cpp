@@ -1377,7 +1377,7 @@ public:
     @param[in] name The member name.
     @return `true` if member with such name exists.
     */
-    bool hasMemeber(String const& name) const
+    bool hasMember(String const& name) const
     {
         assert((isNull() || isObject()) && "not an object");
         Object::const_iterator m = findMember(name);
@@ -1436,7 +1436,7 @@ private:
 
     /// @brief Find **OBJECT** member by name.
     /**
-    @param[in] name The memeber name.
+    @param[in] name The member name.
     @return The member iterator.
     */
     Object::const_iterator findMember(String const& name) const
@@ -1454,7 +1454,7 @@ private:
 
     /// @brief Find **OBJECT** member by name.
     /**
-    @param[in] name The memeber name.
+    @param[in] name The member name.
     @return The member iterator.
     */
     Object::iterator findMember(String const& name)
