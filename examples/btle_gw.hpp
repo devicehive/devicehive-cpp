@@ -101,6 +101,64 @@ public:
             return String(str);
         }
 
+
+        /// @brief Get device info.
+        json::Value getDeviceInfo() const
+        {
+            hci_dev_info info;
+            memset(&info, 0, sizeof(info));
+
+            if (hci_devinfo(m_dev_id, &info) < 0)
+                throw std::runtime_error("cannot get device info");
+
+            return info2json(info);
+        }
+
+
+        /// @brief Convert device info to JSON value.
+        static json::Value info2json(const hci_dev_info &info)
+        {
+            json::Value res;
+            res["id"] = (int)info.dev_id;
+            res["name"] = String(info.name);
+
+            char *flags = hci_dflagstostr(info.flags);
+            res["flags"] = boost::trim_copy(String(flags));
+            bt_free(flags);
+
+            char addr[64];
+            ba2str(&info.bdaddr, addr);
+            res["addr"] = String(addr);
+
+            return res;
+        }
+
+        /// @brief Get info for all devices.
+        static json::Value getDevicesInfo()
+        {
+            struct Aux
+            {
+                static int collect(int, int dev_id, long arg)
+                {
+                    hci_dev_info info;
+                    memset(&info, 0, sizeof(info));
+
+                    if (hci_devinfo(dev_id, &info) < 0)
+                        throw std::runtime_error("cannot get device info");
+
+                    json::Value *res = reinterpret_cast<json::Value*>(arg);
+                    res->append(info2json(info));
+
+                    return 0;
+                }
+            };
+
+            json::Value res(json::Value::TYPE_ARRAY);
+            hci_for_each_dev(0, Aux::collect,
+                             reinterpret_cast<long>(&res));
+            return res;
+        }
+
     public:
 
         /// @brief The "open" operation callback type.
@@ -192,6 +250,10 @@ public:
         String networkKey = "";
         String networkDesc = "C++ device test network";
 
+        String deviceId = "3305fe00-9bc9-11e4-bd06-0800200c9a66";
+        String deviceName = "btle_gw";
+        String deviceKey = "7adbc600-9bca-11e4-bd06-0800200c9a66";
+
         String baseUrl = "http://ecloud.dataart.com/ecapi8";
         size_t web_timeout = 0; // zero - don't change
         String http_version;
@@ -204,6 +266,9 @@ public:
             if (boost::algorithm::iequals(argv[i], "--help"))
             {
                 std::cout << argv[0] << " [options]";
+                std::cout << "\t--gatewayId <gateway identifier>\n";
+                std::cout << "\t--gatewayName <gateway name>\n";
+                std::cout << "\t--gatewayKey <gateway authentication key>\n";
                 std::cout << "\t--networkName <network name>\n";
                 std::cout << "\t--networkKey <network authentication key>\n";
                 std::cout << "\t--networkDesc <network description>\n";
@@ -216,6 +281,12 @@ public:
 
                 exit(1);
             }
+            else if (boost::algorithm::iequals(argv[i], "--gatewayId") && i+1 < argc)
+                deviceId = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--gatewayName") && i+1 < argc)
+                deviceName = argv[++i];
+            else if (boost::algorithm::iequals(argv[i], "--gatewayKey") && i+1 < argc)
+                deviceKey = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--networkName") && i+1 < argc)
                 networkName = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--networkKey") && i+1 < argc)
@@ -238,6 +309,10 @@ public:
 
         pthis->m_bluetooth = BluetoothDevice::create(pthis->m_ios, bluetoothName);
         pthis->m_network = devicehive::Network::create(networkName, networkKey, networkDesc);
+        pthis->m_device = devicehive::Device::create(deviceId, deviceName, deviceKey,
+            devicehive::Device::Class::create("BTLE gateway", "0.1", false, DEVICE_OFFLINE_TIMEOUT),
+                                                     pthis->m_network);
+        pthis->m_device->status = "Online";
 
         if (1) // create service
         {
@@ -418,6 +493,9 @@ private: // IDeviceServiceEvents
                 m_delayed->callLater(boost::bind(&devicehive::IDeviceService::asyncConnect, m_service));
                 return;
             }
+
+            if (m_device)
+                m_service->asyncRegisterDevice(m_device);
         }
         else
             handleServiceError(err, "getting server info");
@@ -482,6 +560,14 @@ private:
 
         if (boost::iequals(command->name, "Hello"))
             command->result = "Good to see you!";
+        else if (boost::iequals(command->name, "devices"))
+            command->result = BluetoothDevice::getDevicesInfo();
+        else if (boost::iequals(command->name, "info"))
+        {
+            if (!m_bluetooth || !m_bluetooth->is_open())
+                throw std::runtime_error("No device");
+            command->result = m_bluetooth->getDeviceInfo();
+        }
         else
             throw std::runtime_error("Unknown command");
 

@@ -51,12 +51,12 @@ else # default
 endif
 
 
-CXXFLAGS+=-Wall ${include_dirs} ${defines}
+CXXFLAGS+=-Wall -Wno-unused-local-typedefs ${include_dirs} ${defines}
 CXXFLAGS+=-fdata-sections -ffunction-sections
 LDFLAGS+=-Wl,--gc-sections -pthread -L${ex_libs}
 #LIBS+=-lboost_system
 
-examples: simple_dev simple_gw zigbee_gw
+examples: simple_dev simple_gw zigbee_gw btle_gw
 
 simple_dev: ${home_path}/simple_dev.cpp
 	${CROSS_COMPILE}${CXX} -o simple_dev ${home_path}/simple_dev.cpp ${CXXFLAGS} ${LDFLAGS} \
@@ -70,11 +70,15 @@ zigbee_gw: ${home_path}/zigbee_gw.cpp
 	${CROSS_COMPILE}${CXX} -o zigbee_gw ${home_path}/zigbee_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
 		${ex_libs}/libboost_system.a
 
+btle_gw: ${home_path}/btle_gw.cpp
+	${CROSS_COMPILE}${CXX} -o btle_gw ${home_path}/btle_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
+		${ex_libs}/libboost_system.a -lbluetooth
+
 #########################################################
 # clean all the object files and applications
 clean:
 	@rm -rf *.o
-	@rm -f simple_dev simple_gw zigbee_gw
+	@rm -f simple_dev simple_gw zigbee_gw btle_gw
 	@rm -f ${PCH_objects}
 
 
