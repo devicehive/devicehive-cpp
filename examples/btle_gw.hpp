@@ -47,16 +47,22 @@ public:
 
     /// @brief Bluetooth device.
     class BluetoothDevice:
+        public boost::enable_shared_from_this<BluetoothDevice>,
         private hive::NonCopyable
     {
     protected:
 
         /// @brief Main constructor.
         BluetoothDevice(boost::asio::io_service &ios, const String &name)
-            : m_ios(ios)
+            : scan_filter_dup(0x01)
+            , scan_filter_type(0)
+            , scan_filter_old_valid(false)
+            , m_read_active(false)
+            , m_ios(ios)
             , m_name(name)
             , m_dev_id(-1)
             , m_dd(-1)
+            , m_stream(ios)
         {
             memset(&m_dev_addr, 0, sizeof(m_dev_addr));
         }
@@ -160,6 +166,261 @@ public:
         }
 
     public:
+        uint8_t scan_filter_dup;
+        uint8_t scan_filter_type;
+        hci_filter scan_filter_old;
+        bool scan_filter_old_valid;
+
+        /**
+         * @brief Start scan operation.
+         */
+        void scanStart(const json::Value &opts)
+        {
+            uint8_t own_type = LE_PUBLIC_ADDRESS;
+            uint8_t scan_type = 0x01;
+            uint8_t filter_policy = 0x00;
+            uint16_t interval = htobs(0x0010);
+            uint16_t window = htobs(0x0010);
+
+            const json::Value &j_dup = opts["duplicates"];
+            if (!j_dup.isNull())
+            {
+                if (j_dup.isConvertibleToInteger())
+                    scan_filter_dup = (j_dup.asInt() != 0);
+                else
+                {
+                    String s = j_dup.asString();
+                    if (boost::iequals(s, "yes"))
+                        scan_filter_dup = 0x00;     // don't filter - has duplicates
+                    else if (boost::iequals(s, "no"))
+                        scan_filter_dup = 0x01;     // filter - no duplicates
+                    else
+                        throw std::runtime_error("unknown duplicates value");
+                }
+            }
+            else
+                scan_filter_dup = 0x01; // filter by default
+
+            const json::Value &j_priv = opts["privacy"];
+            if (!j_priv.isNull())
+            {
+                if (j_priv.isConvertibleToInteger())
+                {
+                    if (j_priv.asInt())
+                        own_type = LE_RANDOM_ADDRESS;
+                }
+                else
+                {
+                    String s = j_priv.asString();
+
+                    if (boost::iequals(s, "enable") || boost::iequals(s, "enabled"))
+                        own_type = LE_RANDOM_ADDRESS;
+                    else if (boost::iequals(s, "disable") || boost::iequals(s, "disabled"))
+                        ;
+                    else
+                        throw std::runtime_error("unknown privacy value");
+                }
+            }
+
+            const json::Value &j_type = opts["type"];
+            if (!j_type.isNull())
+            {
+                if (j_type.isConvertibleToInteger())
+                    scan_type = j_type.asUInt8();
+                else
+                {
+                    String s = j_type.asString();
+
+                    if (boost::iequals(s, "active"))
+                        own_type = 0x01;
+                    else if (boost::iequals(s, "passive"))
+                        own_type = 0x00;
+                    else
+                        throw std::runtime_error("unknown scan type value");
+                }
+            }
+
+            const json::Value &j_pol = opts["policy"];
+            if (!j_pol.isNull())
+            {
+                if (j_pol.isConvertibleToInteger())
+                    filter_policy = j_pol.asUInt8();
+                else
+                {
+                    String s = j_pol.asString();
+
+                    if (boost::iequals(s, "whitelist"))
+                        filter_policy = 0x01;
+                    else if (boost::iequals(s, "none"))
+                        filter_policy = 0x00;
+                    else
+                        throw std::runtime_error("unknown filter policy value");
+                }
+            }
+
+//switch (opt) {
+//case 'd':
+//    filter_type = optarg[0];
+//    if (filter_type != 'g' && filter_type != 'l') {
+//        fprintf(stderr, "Unknown discovery procedure\n");
+//        exit(1);
+//    }
+
+//    interval = htobs(0x0012);
+//    window = htobs(0x0012);
+//    break;
+//}
+
+            int err = hci_le_set_scan_parameters(m_dd, scan_type, interval, window,
+                                                 own_type, filter_policy, 10000);
+            if (err < 0) throw std::runtime_error("failed to set scan parameters");
+
+            err = hci_le_set_scan_enable(m_dd, 0x01, scan_filter_dup, 10000);
+            if (err < 0) throw std::runtime_error("failed to enable scan");
+
+            socklen_t len = sizeof(scan_filter_old);
+            err = getsockopt(m_dd, SOL_HCI, HCI_FILTER, &scan_filter_old, &len);
+            if (err < 0) throw std::runtime_error("failed to get filter option");
+            scan_filter_old_valid = true;
+
+            hci_filter nf;
+            hci_filter_clear(&nf);
+            hci_filter_set_ptype(HCI_EVENT_PKT, &nf);
+            hci_filter_set_event(EVT_LE_META_EVENT, &nf);
+
+            err = setsockopt(m_dd, SOL_HCI, HCI_FILTER, &nf, sizeof(nf));
+            if (err < 0) throw std::runtime_error("failed to set filter option");
+        }
+
+
+        /**
+         * @brief Stop scan operation.
+         */
+        void scanStop()
+        {
+            if (scan_filter_old_valid) // revert filter back
+            {
+                setsockopt(m_dd, SOL_HCI, HCI_FILTER, &scan_filter_old, sizeof(scan_filter_old));
+                scan_filter_old_valid = false;
+            }
+
+            int err = hci_le_set_scan_enable(m_dd, 0x00, scan_filter_dup, 10000);
+            if (err < 0) throw std::runtime_error("failed to disable scan");
+        }
+
+    public:
+        void asyncReadSome()
+        {
+            if (!m_read_active && m_stream.is_open())
+            {
+                m_read_active = true;
+                boost::asio::async_read(m_stream, m_read_buf,
+                    boost::asio::transfer_at_least(1),
+                    boost::bind(&BluetoothDevice::onReadSome, this->shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+            }
+        }
+
+        void readStop()
+        {
+            if (m_read_active && m_stream.is_open())
+            {
+                m_read_active = false;
+                m_stream.cancel();
+            }
+        }
+
+    private:
+        bool m_read_active;
+        boost::asio::streambuf m_read_buf;
+
+        void onReadSome(boost::system::error_code err, size_t len)
+        {
+            m_read_active = false;
+
+            std::cerr << "read " << len << " bytes, err:" << err << "\n";
+            std::cerr << "dump:" << dumphex(m_read_buf.data()) << "\n";
+
+            if (!err)
+            {
+                const uint8_t *buf = boost::asio::buffer_cast<const uint8_t*>(m_read_buf.data());
+                size_t buf_len = m_read_buf.size();
+                size_t len = buf_len;
+
+                const uint8_t *ptr = buf + (1 + HCI_EVENT_HDR_SIZE);
+                len -= (1 + HCI_EVENT_HDR_SIZE);
+
+                evt_le_meta_event *meta = (evt_le_meta_event*)ptr;
+                if (meta->subevent == 0x02)
+                {
+                    /* Ignoring multiple reports */
+                    le_advertising_info *info = (le_advertising_info *)(meta->data + 1);
+                    //if (check_report_filter(filter_type, info))
+                    {
+                        char addr[64];
+                        ba2str(&info->bdaddr, addr);
+                        String name = parse_name(info->data, info->length);
+
+                        std::cerr << addr << " " << name << "\n";
+                    }
+                }
+
+                m_read_buf.consume(buf_len);
+                asyncReadSome(); // continue
+            }
+
+            std::cerr << "\n\n";
+        }
+
+
+        template<typename Buf>
+        static String dumphex(const Buf &buf)
+        {
+            return dump::hex(
+                boost::asio::buffers_begin(buf),
+                boost::asio::buffers_end(buf));
+        }
+
+        static String parse_name(uint8_t *eir, size_t eir_len)
+        {
+            #define EIR_NAME_SHORT              0x08  /* shortened local name */
+            #define EIR_NAME_COMPLETE           0x09  /* complete local name */
+
+            size_t offset;
+
+            offset = 0;
+            while (offset < eir_len)
+            {
+                uint8_t field_len = eir[0];
+                size_t name_len;
+
+                // Check for the end of EIR
+                if (field_len == 0)
+                    break;
+
+                if (offset + field_len > eir_len)
+                    break;
+
+                switch (eir[1])
+                {
+                case EIR_NAME_SHORT:
+                case EIR_NAME_COMPLETE:
+                    name_len = field_len - 1;
+                    return String((const char*)&eir[2], name_len);
+                }
+
+                offset += field_len + 1;
+                eir += field_len + 1;
+            }
+
+            return "(unknown)";
+        }
+
+    public:
+
+
+    public:
 
         /// @brief The "open" operation callback type.
         typedef boost::function1<void, boost::system::error_code> OpenCallback;
@@ -168,7 +429,7 @@ public:
         /// @brief Is device open?
         bool is_open() const
         {
-            return m_dd >= 0;
+            return m_dd >= 0 && m_stream.is_open();
         }
 
 
@@ -186,8 +447,11 @@ public:
             {
                 if (hci_devba(m_dev_id, &m_dev_addr) >= 0)
                 {
-                    // TODO: try to open device
-                    m_dd = 0;
+                    m_dd = hci_open_dev(m_dev_id);
+                    if (m_dd >= 0)
+                        m_stream.assign(m_dd);
+                    else
+                        err = boost::system::error_code(errno, boost::system::system_category());
                 }
                 else
                     err = boost::system::error_code(errno, boost::system::system_category());
@@ -202,7 +466,11 @@ public:
         /// @brief Close device.
         void close()
         {
-            // TODO: close device
+            m_stream.release();
+
+            if (m_dd >= 0)
+                hci_close_dev(m_dd);
+
             m_dd = -1;
             m_dev_id = -1;
             memset(&m_dev_addr, 0,
@@ -216,6 +484,8 @@ public:
         bdaddr_t m_dev_addr; ///< @brief The BT address.
         int m_dev_id;        ///< @brief The device identifier.
         int m_dd;            ///< @brief The device descriptor.
+
+        boost::asio::posix::stream_descriptor m_stream;
     };
 
     /// @brief The shared pointer type.
@@ -567,6 +837,24 @@ private:
             if (!m_bluetooth || !m_bluetooth->is_open())
                 throw std::runtime_error("No device");
             command->result = m_bluetooth->getDeviceInfo();
+        }
+        else if (boost::iequals(command->name, "scan/start")
+              || boost::iequals(command->name, "scanStart")
+              || boost::iequals(command->name, "startScan"))
+        {
+            if (!m_bluetooth || !m_bluetooth->is_open())
+                throw std::runtime_error("No device");
+            m_bluetooth->scanStart(command->params);
+            m_bluetooth->asyncReadSome();
+        }
+        else if (boost::iequals(command->name, "scan/stop")
+              || boost::iequals(command->name, "scanStop")
+              || boost::iequals(command->name, "stopScan"))
+        {
+            if (!m_bluetooth || !m_bluetooth->is_open())
+                throw std::runtime_error("No device");
+            m_bluetooth->readStop();
+            m_bluetooth->scanStop();
         }
         else
             throw std::runtime_error("Unknown command");
