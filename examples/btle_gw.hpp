@@ -57,6 +57,7 @@ public:
             : scan_filter_dup(0x01)
             , scan_filter_type(0)
             , scan_filter_old_valid(false)
+            , m_scan_active(false)
             , m_read_active(false)
             , m_ios(ios)
             , m_name(name)
@@ -277,6 +278,7 @@ public:
 
             err = hci_le_set_scan_enable(m_dd, 0x01, scan_filter_dup, 10000);
             if (err < 0) throw std::runtime_error("failed to enable scan");
+            m_scan_active = true;
 
             socklen_t len = sizeof(scan_filter_old);
             err = getsockopt(m_dd, SOL_HCI, HCI_FILTER, &scan_filter_old, &len);
@@ -290,6 +292,8 @@ public:
 
             err = setsockopt(m_dd, SOL_HCI, HCI_FILTER, &nf, sizeof(nf));
             if (err < 0) throw std::runtime_error("failed to set filter option");
+
+            m_scan_devices.clear(); // new search...
         }
 
 
@@ -304,8 +308,12 @@ public:
                 scan_filter_old_valid = false;
             }
 
-            int err = hci_le_set_scan_enable(m_dd, 0x00, scan_filter_dup, 10000);
-            if (err < 0) throw std::runtime_error("failed to disable scan");
+            if (m_scan_active)
+            {
+                m_scan_active = false;
+                int err = hci_le_set_scan_enable(m_dd, 0x00, scan_filter_dup, 10000);
+                if (err < 0) throw std::runtime_error("failed to disable scan");
+            }
         }
 
     public:
@@ -331,16 +339,35 @@ public:
             }
         }
 
+        json::Value getFoundDevices() const
+        {
+            json::Value res(json::Value::TYPE_OBJECT);
+
+            std::map<String, String>::const_iterator i = m_scan_devices.begin();
+            for (; i != m_scan_devices.end(); ++i)
+            {
+                const String &MAC = i->first;
+                const String &name = i->second;
+
+                res[MAC] = name;
+            }
+
+            return res;
+        }
+
     private:
+        bool m_scan_active;
         bool m_read_active;
         boost::asio::streambuf m_read_buf;
+        std::map<String, String> m_scan_devices;
 
         void onReadSome(boost::system::error_code err, size_t len)
         {
             m_read_active = false;
+            HIVE_UNUSED(len);
 
-            std::cerr << "read " << len << " bytes, err:" << err << "\n";
-            std::cerr << "dump:" << dumphex(m_read_buf.data()) << "\n";
+//            std::cerr << "read " << len << " bytes, err:" << err << "\n";
+//            std::cerr << "dump:" << dumphex(m_read_buf.data()) << "\n";
 
             if (!err)
             {
@@ -354,23 +381,20 @@ public:
                 evt_le_meta_event *meta = (evt_le_meta_event*)ptr;
                 if (meta->subevent == 0x02)
                 {
-                    /* Ignoring multiple reports */
                     le_advertising_info *info = (le_advertising_info *)(meta->data + 1);
-                    //if (check_report_filter(filter_type, info))
+                    // TODO: if (check_report_filter(filter_type, info))
                     {
                         char addr[64];
                         ba2str(&info->bdaddr, addr);
                         String name = parse_name(info->data, info->length);
 
-                        std::cerr << addr << " " << name << "\n";
+                        m_scan_devices[addr] = name;
                     }
                 }
 
                 m_read_buf.consume(buf_len);
                 asyncReadSome(); // continue
             }
-
-            std::cerr << "\n\n";
         }
 
 
@@ -840,12 +864,30 @@ private:
         }
         else if (boost::iequals(command->name, "scan/start")
               || boost::iequals(command->name, "scanStart")
-              || boost::iequals(command->name, "startScan"))
+              || boost::iequals(command->name, "startScan")
+              || boost::iequals(command->name, "scan"))
         {
             if (!m_bluetooth || !m_bluetooth->is_open())
                 throw std::runtime_error("No device");
+
+            // force to update current pending scan command if any
+            if (m_pendingScanCmdTimeout)
+                m_pendingScanCmdTimeout->cancel();
+            onScanCommandTimeout();
+
             m_bluetooth->scanStart(command->params);
             m_bluetooth->asyncReadSome();
+
+            const int def_timeout = boost::iequals(command->name, "scan") ? 20 : 0;
+            const int timeout = command->params.get("timeout", def_timeout).asUInt8(); // limited range [0..255]
+            if (timeout != 0)
+            {
+                m_pendingScanCmdTimeout = m_delayed->callLater(timeout*1000,
+                    boost::bind(&This::onScanCommandTimeout, shared_from_this()));
+            }
+
+            m_pendingScanCmd = command;
+            return false; // pended
         }
         else if (boost::iequals(command->name, "scan/stop")
               || boost::iequals(command->name, "scanStop")
@@ -855,6 +897,11 @@ private:
                 throw std::runtime_error("No device");
             m_bluetooth->readStop();
             m_bluetooth->scanStop();
+
+            // force to update current pending scan command if any
+            if (m_pendingScanCmdTimeout)
+                m_pendingScanCmdTimeout->cancel();
+            onScanCommandTimeout();
         }
         else
             throw std::runtime_error("Unknown command");
@@ -876,6 +923,28 @@ private:
                 m_pendingNotifications[i]);
         }
         m_pendingNotifications.clear();
+    }
+
+
+    /// @brief Send current scan results
+    void onScanCommandTimeout()
+    {
+        if (m_service && m_bluetooth && m_pendingScanCmd)
+        {
+            m_pendingScanCmd->result = m_bluetooth->getFoundDevices();
+            m_service->asyncUpdateCommand(m_device, m_pendingScanCmd);
+            m_pendingScanCmd.reset();
+
+            try
+            {
+                m_bluetooth->scanStop();
+                m_bluetooth->readStop();
+            }
+            catch (const std::exception &ex)
+            {
+                HIVELOG_WARN(m_log, "ERROR stopping scan: " << ex.what());
+            }
+        }
     }
 
 private:
@@ -902,6 +971,9 @@ private:
 
 private:
     BluetoothDevicePtr m_bluetooth;  ///< @brief The bluetooth device.
+
+    devicehive::CommandPtr m_pendingScanCmd;
+    basic_app::DelayedTask::SharedPtr m_pendingScanCmdTimeout;
 
 private:
     devicehive::IDeviceServicePtr m_service; ///< @brief The cloud service.
