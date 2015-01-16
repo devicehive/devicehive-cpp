@@ -30,6 +30,26 @@ enum Timeouts
 };
 
 
+/// @brief Execute OS command.
+static String shellExec(const String &cmd)
+{
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) throw std::runtime_error("unable to execute command");
+
+    String result;
+    while (!feof(pipe))
+    {
+        char buf[256];
+        if (fgets(buf, sizeof(buf), pipe) != NULL)
+            result += buf;
+    }
+    /*int ret = */pclose(pipe);
+
+    boost::trim(result);
+    return result;
+}
+
+
 /// @brief The simple gateway application.
 /**
 This application controls only one device connected via serial port or socket or pipe!
@@ -861,6 +881,24 @@ private:
             if (!m_bluetooth || !m_bluetooth->is_open())
                 throw std::runtime_error("No device");
             command->result = m_bluetooth->getDeviceInfo();
+        }
+        else if (boost::iequals(command->name, "exec/hciconfig"))
+        {
+            String cmd = "hciconfig ";
+            cmd += command->params.asString();
+            command->result = shellExec(cmd);
+        }
+        else if (boost::iequals(command->name, "exec/hcitool"))
+        {
+            String cmd = "hcitool ";
+            cmd += command->params.asString();
+            command->result = shellExec(cmd);
+        }
+        else if (boost::iequals(command->name, "exec/gatttool"))
+        {
+            String cmd = "gatttool ";
+            cmd += command->params.asString();
+            command->result = shellExec(cmd);
         }
         else if (boost::iequals(command->name, "scan/start")
               || boost::iequals(command->name, "scanStart")
