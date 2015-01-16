@@ -30,26 +30,6 @@ enum Timeouts
 };
 
 
-/// @brief Execute OS command.
-static String shellExec(const String &cmd)
-{
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) throw std::runtime_error("unable to execute command");
-
-    String result;
-    while (!feof(pipe))
-    {
-        char buf[256];
-        if (fgets(buf, sizeof(buf), pipe) != NULL)
-            result += buf;
-    }
-    /*int ret = */pclose(pipe);
-
-    boost::trim(result);
-    return result;
-}
-
-
 /// @brief The simple gateway application.
 /**
 This application controls only one device connected via serial port or socket or pipe!
@@ -941,12 +921,333 @@ private:
                 m_pendingScanCmdTimeout->cancel();
             onScanCommandTimeout();
         }
+        else if (boost::iequals(command->name, "gatt/primary"))
+        {
+            String cmd = "gatttool --primary ";
+            if (command->params.isObject())
+            {
+                cmd += gattParseAppOpts(command->params);
+                cmd += gattParseMainOpts(command->params);
+            }
+            else
+                cmd += command->params.asString();
+            command->result = gattParsePrimary(shellExec(cmd));
+        }
+        else if (boost::iequals(command->name, "gatt/characteristics"))
+        {
+            String cmd = "gatttool --characteristics ";
+            if (command->params.isObject())
+            {
+                cmd += gattParseAppOpts(command->params);
+                cmd += gattParseMainOpts(command->params);
+            }
+            else
+                cmd += command->params.asString();
+            command->result = gattParseCharacteristics(shellExec(cmd));
+        }
         else
             throw std::runtime_error("Unknown command");
 
         return true; // processed
     }
 
+private:
+
+    /** @brief Parse main gatttool application options
+     *
+    -i, --adapter=hciX                        Specify local adapter interface
+    -b, --device=MAC                          Specify remote Bluetooth address
+    -t, --addr-type=[public | random]         Set LE address type. Default: public
+    -m, --mtu=MTU                             Specify the MTU size
+    -p, --psm=PSM                             Specify the PSM for GATT/ATT over BR/EDR
+    -l, --sec-level=[low | medium | high]     Set security level. Default: low
+    */
+    String gattParseAppOpts(const json::Value &opts)
+    {
+        String res;
+
+        // adapter
+        json::Value const& i = opts["adapter"];
+        if (!i.isNull())
+        {
+            if (i.isConvertibleToString())
+            {
+                res += " --adapter=";
+                res += i.asString();
+            }
+            else
+                throw std::runtime_error("Invalid adapter option");
+        }
+
+        // device
+        json::Value const& b = opts["device"];
+        if (!b.isNull())
+        {
+            if (b.isConvertibleToString())
+            {
+                res += " --device=";
+                res += b.asString();
+            }
+            else
+                throw std::runtime_error("Invalid device option");
+        }
+
+        // address type
+        json::Value const& t = opts["addressType"];
+        if (!t.isNull())
+        {
+            if (t.isConvertibleToString())
+            {
+                res += " --addr-type=";
+                res += t.asString();
+            }
+            else
+                throw std::runtime_error("Invalid address type option");
+        }
+
+        // MTU
+        json::Value const& m = opts["MTU"];
+        if (!m.isNull())
+        {
+            if (m.isConvertibleToInteger())
+            {
+                res += " --mtu=";
+                res += boost::lexical_cast<String>(m.asInteger());
+            }
+            else
+                throw std::runtime_error("Invalid MTU option");
+        }
+
+        // PSM
+        json::Value const& p = opts["PSM"];
+        if (!p.isNull())
+        {
+            if (p.isConvertibleToInteger())
+            {
+                res += " --psm=";
+                res += boost::lexical_cast<String>(p.asInteger());
+            }
+            else
+                throw std::runtime_error("Invalid PSM option");
+        }
+
+        // security level
+        json::Value const& s = opts["securityLevel"];
+        if (!s.isNull())
+        {
+            if (s.isConvertibleToString())
+            {
+                res += " --sec-level=";
+                res += s.asString();
+            }
+            else
+                throw std::runtime_error("Invalid security level option");
+        }
+
+        return res;
+    }
+
+
+    /** @brief Parse primary service/characteristics options
+     *
+      -s, --start=0x0001                        Starting handle(optional)
+      -e, --end=0xffff                          Ending handle(optional)
+      -u, --uuid=0x1801                         UUID16 or UUID128(optional)
+    */
+    String gattParseMainOpts(const json::Value &opts)
+    {
+        String res;
+
+        // starting handle
+        json::Value const& s = opts["startingHandle"];
+        if (!s.isNull())
+        {
+            if (s.isConvertibleToString())
+            {
+                const String arg = s.asString();
+
+                res += " --start=";
+                if (!boost::starts_with(arg, "0x"))
+                    res += "0x";
+                res += arg;
+            }
+            else
+                throw std::runtime_error("Invalid starting handle option");
+        }
+
+        // ending handle
+        json::Value const& e = opts["endingHandle"];
+        if (!e.isNull())
+        {
+            if (e.isConvertibleToString())
+            {
+                const String arg = e.asString();
+
+                res += " --end=";
+                if (!boost::starts_with(arg, "0x"))
+                    res += "0x";
+                res += arg;
+            }
+            else
+                throw std::runtime_error("Invalid ending handle option");
+        }
+
+        // uuid
+        json::Value const& u = opts["UUID"];
+        if (!u.isNull())
+        {
+            if (u.isConvertibleToString())
+            {
+                const String arg = u.asString();
+
+                res += " --uuid=";
+                if (!boost::starts_with(arg, "0x"))
+                    res += "0x";
+                res += u.asString();
+            }
+            else
+                throw std::runtime_error("Invalid UUID option");
+        }
+
+        return res;
+    }
+
+
+    /** @brief Prase characteristics read/write options
+     *
+      -a, --handle=0x0001                       Read/Write characteristic by handle(required)
+      -n, --value=0x0001                        Write characteristic value (required for write operation)
+      -o, --offset=N                            Offset to long read characteristic by handle
+    */
+    String gattParseCharOpts(const json::Value &opts)
+    {
+        String res;
+
+        // handle
+        json::Value const& a = opts["handle"];
+        if (!a.isNull())
+        {
+            if (a.isConvertibleToString())
+            {
+                const String arg = a.asString();
+
+                res += " --handle=";
+                if (!boost::starts_with(arg, "0x"))
+                    res += "0x";
+                res += arg;
+            }
+            else
+                throw std::runtime_error("Invalid handle option");
+        }
+
+        // value
+        json::Value const& n = opts["value"];
+        if (!n.isNull())
+        {
+            if (n.isConvertibleToString())
+            {
+                const String arg = n.asString();
+
+                res += " --value=";
+                if (!boost::starts_with(arg, "0x"))
+                    res += "0x";
+                res += arg;
+            }
+            else
+                throw std::runtime_error("Invalid value option");
+        }
+
+        // offset
+        json::Value const& o = opts["offset"];
+        if (!o.isNull())
+        {
+            if (o.isConvertibleToInteger())
+            {
+                res += " --offset=";
+                res += boost::lexical_cast<String>(o.asUInt());
+            }
+            else
+                throw std::runtime_error("Invalid offset option");
+        }
+
+        return res;
+    }
+
+
+    /**
+     * @brief parse gatttool --primary output.
+     */
+    json::Value gattParsePrimary(const String &output)
+    {
+        json::Value res(json::Value::TYPE_ARRAY);
+
+        IStringStream s(output);
+        while (!s.eof())
+        {
+            String line;
+            std::getline(s, line);
+            if (!line.empty())
+            {
+                int start = 0, end = 0;
+                char uuid[64];
+                uuid[0] = 0;
+
+                // "attr handle = 0x000c, end grp handle = 0x000f uuid: 00001801-0000-1000-8000-00805f9b34fb"
+                if (sscanf(line.c_str(), "attr handle = 0x%4X, end grp handle = 0x%4X uuid: %63s", &start, &end, uuid) == 3)
+                {
+                    json::Value item;
+                    item["startingHandle"] = dump::hex(UInt16(start));
+                    item["endingHandle"] = dump::hex(UInt16(end));
+                    item["UUID"] = boost::trim_copy(String(uuid));
+
+                    res.append(item);
+                }
+                else
+                    throw std::runtime_error("Unexpected response");
+            }
+        }
+
+        return res;
+    }
+
+
+    /**
+     * @brief parse gatttool --characteristics output.
+     */
+    json::Value gattParseCharacteristics(const String &output)
+    {
+        json::Value res(json::Value::TYPE_ARRAY);
+
+        IStringStream s(output);
+        while (!s.eof())
+        {
+            String line;
+            std::getline(s, line);
+            if (!line.empty())
+            {
+                int handle = 0, properties = 0, value_handle = 0;
+                char uuid[64];
+                uuid[0] = 0;
+
+                // "handle = 0x0002, char properties = 0x02, char value handle = 0x0003, uuid = 00002a00-0000-1000-8000-00805f9b34fb"
+                if (sscanf(line.c_str(), "handle = 0x%4X, char properties = 0x%2X, char value handle = 0x%4X, uuid = %63s", &handle, &properties, &value_handle, uuid) == 4)
+                {
+                    json::Value item;
+                    item["handle"] = dump::hex(UInt16(handle));
+                    item["properties"] = dump::hex(UInt16(properties));
+                    item["valueHandle"] = dump::hex(UInt16(value_handle));
+                    item["UUID"] = boost::trim_copy(String(uuid));
+
+                    res.append(item);
+                }
+                else
+                    throw std::runtime_error("Unexpected response");
+            }
+        }
+
+        return res;
+    }
+private:
 
     /// @brief Send all pending notifications.
     void sendPendingNotifications()
@@ -1005,6 +1306,31 @@ private:
             m_delayed->callLater(SERVER_RECONNECT_TIMEOUT,
                 boost::bind(&devicehive::IDeviceService::asyncConnect, m_service));
         }
+    }
+
+
+    /// @brief Execute OS command.
+    String shellExec(const String &cmd)
+    {
+        HIVELOG_DEBUG(m_log, "SHELL executing: " << cmd);
+        FILE* pipe = popen(cmd.c_str(), "r");
+        if (!pipe) throw std::runtime_error("unable to execute command");
+
+        String result;
+        while (!feof(pipe))
+        {
+            char buf[256];
+            if (fgets(buf, sizeof(buf), pipe) != NULL)
+                result += buf;
+        }
+        int ret = pclose(pipe);
+        boost::trim(result);
+
+        HIVELOG_DEBUG(m_log, "SHELL status: " << ret
+                      << ", result: " << result);
+
+        if (ret != 0) throw std::runtime_error("failed to execute command");
+        return result;
     }
 
 private:
