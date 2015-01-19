@@ -945,6 +945,36 @@ private:
                 cmd += command->params.asString();
             command->result = gattParseCharacteristics(shellExec(cmd));
         }
+        else if (boost::iequals(command->name, "gatt/charRead")
+              || boost::iequals(command->name, "gatt/readChar")
+              || boost::iequals(command->name, "gatt/read"))
+        {
+            String cmd = "gatttool --char-read ";
+            if (command->params.isObject())
+            {
+                cmd += gattParseAppOpts(command->params);
+                cmd += gattParseMainOpts(command->params);
+                cmd += gattParseCharOpts(command->params);
+            }
+            else
+                cmd += command->params.asString();
+            command->result = gattParseCharRead(shellExec(cmd));
+        }
+        else if (boost::iequals(command->name, "gatt/charWrite")
+              || boost::iequals(command->name, "gatt/writeChar")
+              || boost::iequals(command->name, "gatt/write"))
+        {
+            String cmd = "gatttool --char-write ";
+            if (command->params.isObject())
+            {
+                cmd += gattParseAppOpts(command->params);
+                cmd += gattParseMainOpts(command->params);
+                cmd += gattParseCharOpts(command->params);
+            }
+            else
+                cmd += command->params.asString();
+            command->result = gattParseCharWrite(shellExec(cmd));
+        }
         else
             throw std::runtime_error("Unknown command");
 
@@ -1247,6 +1277,52 @@ private:
 
         return res;
     }
+
+
+    /**
+     * @brief parse gatttool --char-read output.
+     */
+    json::Value gattParseCharRead(const String &output)
+    {
+        //Characteristic value/descriptor: 00 18
+        const String signature = "Characteristic value/descriptor:";
+        if (!boost::starts_with(output, signature))
+            throw std::runtime_error("Unexpected response");
+
+        IStringStream s(output);
+        s.ignore(signature.size());
+
+        String result;
+        s >> std::hex;
+        while (!s.eof())
+        {
+            int h = 0;
+            if (s >> h)
+            {
+                //std::cerr << (int)h << "\n";
+                result += dump::hex(UInt8(h));
+            }
+            else
+                break;
+        }
+
+        json::Value res;
+        res["hex"] = result;
+        return res;
+    }
+
+
+    /**
+     * @brief parse gatttool --char-write output.
+     */
+    json::Value gattParseCharWrite(const String &output)
+    {
+        if (!boost::iequals(output, "Characteristic value was written successfully"))
+            throw std::runtime_error("Unexpected response");
+
+        return json::Value::null();
+    }
+
 private:
 
     /// @brief Send all pending notifications.
