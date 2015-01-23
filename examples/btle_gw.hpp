@@ -233,9 +233,9 @@ public:
                     String s = j_type.asString();
 
                     if (boost::iequals(s, "active"))
-                        own_type = 0x01;
+                        scan_type = 0x01;
                     else if (boost::iequals(s, "passive"))
-                        own_type = 0x00;
+                        scan_type = 0x00;
                     else
                         throw std::runtime_error("unknown scan type value");
                 }
@@ -964,7 +964,9 @@ private:
               || boost::iequals(command->name, "gatt/writeChar")
               || boost::iequals(command->name, "gatt/write"))
         {
-            String cmd = "gatttool --char-write ";
+            String cmd = command->params.get("request", true).asBool()
+                       ? "gatttool --char-write-req "
+                       : "gatttool --char-write ";
             if (command->params.isObject())
             {
                 cmd += gattParseAppOpts(command->params);
@@ -1131,8 +1133,8 @@ private:
                 const String arg = u.asString();
 
                 res += " --uuid=";
-                if (!boost::starts_with(arg, "0x"))
-                    res += "0x";
+//                if (!boost::starts_with(arg, "0x"))
+//                    res += "0x";
                 res += u.asString();
             }
             else
@@ -1179,8 +1181,8 @@ private:
                 const String arg = n.asString();
 
                 res += " --value=";
-                if (!boost::starts_with(arg, "0x"))
-                    res += "0x";
+//                if (!boost::starts_with(arg, "0x"))
+//                    res += "0x";
                 res += arg;
             }
             else

@@ -58,21 +58,22 @@ LDFLAGS+=-Wl,--gc-sections -pthread -L${ex_libs}
 
 examples: simple_dev simple_gw zigbee_gw btle_gw
 
-simple_dev: ${home_path}/simple_dev.cpp
+simple_dev: ${home_path}/simple_dev.cpp ${home_path}/simple_dev.hpp
 	${CROSS_COMPILE}${CXX} -o simple_dev ${home_path}/simple_dev.cpp ${CXXFLAGS} ${LDFLAGS} \
 		${ex_libs}/libboost_system.a
 
-simple_gw: ${home_path}/simple_gw.cpp
+simple_gw: ${home_path}/simple_gw.cpp ${home_path}/simple_gw.hpp
 	${CROSS_COMPILE}${CXX} -o simple_gw ${home_path}/simple_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
 		${ex_libs}/libboost_system.a
 
-zigbee_gw: ${home_path}/zigbee_gw.cpp
+zigbee_gw: ${home_path}/zigbee_gw.cpp ${home_path}/zigbee_gw.hpp
 	${CROSS_COMPILE}${CXX} -o zigbee_gw ${home_path}/zigbee_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
 		${ex_libs}/libboost_system.a
 
-btle_gw: ${home_path}/btle_gw.cpp
+btle_gw: ${home_path}/btle_gw.cpp ${home_path}/btle_gw.hpp
 	${CROSS_COMPILE}${CXX} -o btle_gw ${home_path}/btle_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
 		${ex_libs}/libboost_system.a -lbluetooth
+	${CROSS_COMPILE}strip btle_gw
 
 #########################################################
 # clean all the object files and applications
