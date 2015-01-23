@@ -866,19 +866,31 @@ private:
         {
             String cmd = "hciconfig ";
             cmd += command->params.asString();
-            command->result = shellExec(cmd);
+            //command->result = shellExec(cmd);
+
+            asyncShellExec(m_ios, cmd, boost::bind(&This::onAsyncExecSendRawResult,
+                shared_from_this(), _1, _2, _3, command));
+            return false; // pended
         }
         else if (boost::iequals(command->name, "exec/hcitool"))
         {
             String cmd = "hcitool ";
             cmd += command->params.asString();
-            command->result = shellExec(cmd);
+            //command->result = shellExec(cmd);
+
+            asyncShellExec(m_ios, cmd, boost::bind(&This::onAsyncExecSendRawResult,
+                shared_from_this(), _1, _2, _3, command));
+            return false; // pended
         }
         else if (boost::iequals(command->name, "exec/gatttool"))
         {
             String cmd = "gatttool ";
             cmd += command->params.asString();
-            command->result = shellExec(cmd);
+            //command->result = shellExec(cmd);
+
+            asyncShellExec(m_ios, cmd, boost::bind(&This::onAsyncExecSendRawResult,
+                shared_from_this(), _1, _2, _3, command));
+            return false; // pended
         }
         else if (boost::iequals(command->name, "scan/start")
               || boost::iequals(command->name, "scanStart")
@@ -1325,6 +1337,37 @@ private:
         return json::Value::null();
     }
 
+
+    void onPrintExecResult(boost::system::error_code err, int result, const String &output)
+    {
+        std::cerr << err << ", result:" << result << ", output:" << output << "\n";
+    }
+
+
+    void onAsyncExecSendRawResult(boost::system::error_code err, int result, const String &output, devicehive::CommandPtr command)
+    {
+        HIVELOG_DEBUG(m_log, "async_result: " << err << ", result:" << result << ", output:" << output);
+
+        if (err)
+        {
+            command->status = "Failed";
+            command->result = String(err.message());
+        }
+        else if (result != 0)
+        {
+            command->status = "Failed";
+            command->result = result;
+        }
+        else
+        {
+            command->status = "Success";
+            command->result = boost::trim_copy(output);
+        }
+
+        if (m_service && m_device)
+            m_service->asyncUpdateCommand(m_device, command);
+    }
+
 private:
 
     /// @brief Send all pending notifications.
@@ -1409,6 +1452,93 @@ private:
 
         if (ret != 0) throw std::runtime_error("failed to execute command");
         return result;
+    }
+
+
+    /**
+     * @brief The AsyncExec context.
+     */
+    class AsyncExec
+    {
+    public:
+        typedef boost::function3<void, boost::system::error_code, int, String> Callback;
+
+    public:
+        AsyncExec(boost::asio::io_service &ios, FILE *pipe, Callback cb)
+            : m_stream(ios, fileno(pipe))
+            , m_pipe(pipe)
+            , m_callback(cb)
+        {}
+
+        ~AsyncExec()
+        {
+        }
+
+    public:
+
+        template<typename Callback>
+        void readAll(Callback cb)
+        {
+            boost::asio::async_read(m_stream, m_buffer,
+                boost::asio::transfer_all(), cb);
+        }
+
+        String getResult(int *res)
+        {
+            if (m_pipe)
+            {
+                int r = pclose(m_pipe);
+                if (res) *res = r;
+            }
+
+            return bufAsStr(m_buffer.data());
+        }
+
+        void done(boost::system::error_code err)
+        {
+            if (err == boost::asio::error::eof) // reset EOF error
+                err = boost::system::error_code();
+
+            int result = 0;
+            String output = getResult(&result);
+
+            if (Callback cb = m_callback)
+            {
+                m_callback = Callback();
+                cb(err, result, output);
+            }
+        }
+
+    private:
+        template<typename Buf>
+        static String bufAsStr(const Buf &buf)
+        {
+            return String(boost::asio::buffers_begin(buf),
+                          boost::asio::buffers_end(buf));
+        }
+
+    private:
+        boost::asio::posix::stream_descriptor m_stream;
+        boost::asio::streambuf m_buffer;
+        FILE *m_pipe;
+        Callback m_callback;
+    };
+
+    typedef boost::shared_ptr<AsyncExec> AsyncExecPtr;
+
+
+    /// @brief Execute OS command asynchronously.
+    AsyncExecPtr asyncShellExec(boost::asio::io_service &ios, const String &cmd, AsyncExec::Callback cb)
+    {
+        HIVELOG_DEBUG(m_log, "async SHELL executing: " << cmd);
+        FILE* pipe = popen(cmd.c_str(), "r");
+        if (!pipe) throw std::runtime_error("unable to execute command");
+
+        AsyncExecPtr async(new AsyncExec(ios, pipe, cb));
+        async->readAll(boost::bind(&AsyncExec::done, async,
+                       boost::asio::placeholders::error));
+
+        return async;
     }
 
 private:
