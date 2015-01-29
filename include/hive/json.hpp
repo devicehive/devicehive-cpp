@@ -1265,6 +1265,20 @@ public:
     }
 
 
+    /// @brief Remove **ARRAY** element by index.
+    /**
+    @param[in] index The zero-based element index.
+    */
+    void remove(size_t index)
+    {
+        assert(isArray() && "not an array");
+        assert(index < m_arr.size()
+            && "index out of range");
+
+        m_arr.erase(m_arr.begin() + index);
+    }
+
+
     /// @brief The **ARRAY** elements iterator type.
     /**
     This type is used to iterate all elements in **ARRAY**.
