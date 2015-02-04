@@ -82,7 +82,8 @@ protected:
      * @param argv List of arguments. First item is the executable path.
      */
     Process(boost::asio::io_service &ios, const std::vector<String> &argv, const String &name)
-        : m_stderr(ios)
+        : m_ios(ios)
+        , m_stderr(ios)
         , m_stdout(ios)
         , m_stdin(ios)
         , m_valid(false)
@@ -242,8 +243,8 @@ private:
                 if (!m_in_queue.empty())
                 {
                     // write next command ASAP
-                    m_stdin.get_io_service().post(boost::bind(
-                        &Process::writeNextStdin, shared_from_this()));
+                    m_ios.post(boost::bind(&Process::writeNextStdin,
+                                           shared_from_this()));
                 }
             }
         }
@@ -290,7 +291,7 @@ private:
         m_valid = false;
         if (m_terminated_cb)
         {
-            m_stderr.get_io_service().post(boost::bind(m_terminated_cb, err));
+            m_ios.post(boost::bind(m_terminated_cb, err));
             m_terminated_cb = TerminatedCallback(); // send once
         }
     }
@@ -303,7 +304,7 @@ private:
         HIVELOG_INFO(m_log, "STDERR line: \"" << escape(line) << "\"");
         if (m_stderr_line_cb)
         {
-            m_stderr.get_io_service().post(boost::bind(m_stderr_line_cb, line));
+            m_ios.post(boost::bind(m_stderr_line_cb, line));
         }
     }
 
@@ -316,7 +317,7 @@ private:
         HIVELOG_INFO(m_log, "STDOUT line: \"" << escape(line) << "\"");
         if (m_stdout_line_cb)
         {
-            m_stdout.get_io_service().post(boost::bind(m_stdout_line_cb, line));
+            m_ios.post(boost::bind(m_stdout_line_cb, line));
         }
     }
 
@@ -433,6 +434,8 @@ public:
     }
 
 private:
+    boost::asio::io_service &m_ios;
+
     boost::asio::posix::stream_descriptor m_stderr; // child's stderr pipe. read end.
     boost::asio::posix::stream_descriptor m_stdout; // child's stdout pipe. read end.
     boost::asio::posix::stream_descriptor m_stdin;  // child's stdin pipe. write end.
@@ -457,6 +460,977 @@ private:
  * @brief Process shared pointer type.
  */
 typedef boost::shared_ptr<Process> ProcessPtr;
+
+
+// security levels
+const String SEC_LEVEL_LOW = "low";
+const String SEC_LEVEL_MEDIUM = "medium";
+const String SEC_LEVEL_HIGH = "high";
+
+
+// UUID wrapper
+class UUID
+{
+public:
+    UUID() // invalid
+    {}
+
+    explicit UUID(const String &val)
+        : m_val(val)
+    {}
+
+    explicit UUID(const UInt32 &val)
+        : m_val(hive::dump::hex(val) + "-0000-1000-8000-00805f9b34fb")
+    {}
+
+public:
+
+    bool isValid() const
+    {
+        return !m_val.empty();
+    }
+
+    const String& toStr() const
+    {
+        return m_val;
+    }
+
+    bool operator==(const UUID &other) const
+    {
+        return m_val == other.m_val;
+    }
+
+    bool operator<(const UUID &other) const
+    {
+        return m_val < other.m_val;
+    }
+
+public:
+
+    String getCommonName() const
+    {
+        // Service UUIDs
+        if (*this == UUID(0x1811)) return "Alert Notification Service";
+        if (*this == UUID(0x180F)) return "Battery Service";
+        if (*this == UUID(0x1810)) return "Blood Pressure";
+        if (*this == UUID(0x1805)) return "Current Time Service";
+        if (*this == UUID(0x1818)) return "Cycling Power";
+        if (*this == UUID(0x1816)) return "Cycling Speed and Cadence";
+        if (*this == UUID(0x180A)) return "Device Information";
+        if (*this == UUID(0x1800)) return "Generic Access";
+        if (*this == UUID(0x1801)) return "Generic Attribute";
+        if (*this == UUID(0x1808)) return "Glucose";
+        if (*this == UUID(0x1809)) return "Health Thermometer";
+        if (*this == UUID(0x180D)) return "Heart Rate";
+        if (*this == UUID(0x1812)) return "Human Interface Device";
+        if (*this == UUID(0x1802)) return "Immediate Alert";
+        if (*this == UUID(0x1803)) return "Link Loss";
+        if (*this == UUID(0x1819)) return "Location and Navigation";
+        if (*this == UUID(0x1807)) return "Next DST Change Service";
+        if (*this == UUID(0x180E)) return "Phone Alert Status Service";
+        if (*this == UUID(0x1806)) return "Reference Time Update Service";
+        if (*this == UUID(0x1814)) return "Running Speed and Cadence";
+        if (*this == UUID(0x1813)) return "Scan Parameters";
+        if (*this == UUID(0x1804)) return "Tx Power";
+        if (*this == UUID(0x181C)) return "User Data";
+
+        // Characteristic UUIDs
+        if (*this == UUID(0x2A00)) return "Device Name";
+        if (*this == UUID(0x2A07)) return "Tx Power Level";
+        if (*this == UUID(0x2A19)) return "Battery Level";
+        if (*this == UUID(0x2A24)) return "Model Number String";
+        if (*this == UUID(0x2A25)) return "Serial Number String";
+        if (*this == UUID(0x2A26)) return "Firmware Revision String";
+        if (*this == UUID(0x2A27)) return "Hardware Revision String";
+        if (*this == UUID(0x2A28)) return "Software Revision String";
+        if (*this == UUID(0x2A29)) return "Manufacturer Name String";
+
+        if (boost::iends_with(m_val, "-0000-1000-8000-00805f9b34fb"))
+        {
+            if (boost::istarts_with(m_val, "0000"))
+                return m_val.substr(4, 4);
+            else
+                return m_val.substr(0, 8);
+        }
+
+        return m_val;
+    }
+
+private:
+    String m_val;
+};
+
+class Service;
+class Characteristic;
+class Descriptor;
+class Peripheral;
+
+typedef boost::shared_ptr<Service> ServicePtr;
+typedef boost::shared_ptr<Characteristic> CharacteristicPtr;
+typedef boost::shared_ptr<Descriptor> DescriptorPtr;
+typedef boost::shared_ptr<Peripheral> PeripheralPtr;
+
+
+// Service wrapper
+class Service
+{
+public:
+    Service(PeripheralPtr peripheral, const UUID &uuid, UInt32 handleStart, UInt32 handleEnd)
+        : m_peripheral(peripheral)
+        , m_uuid(uuid)
+        , m_handleStart(handleStart)
+        , m_handleEnd(handleEnd)
+    {}
+
+public:
+
+    std::vector<CharacteristicPtr> getCharacteristics();
+    std::vector<CharacteristicPtr> getCharacteristics(const UUID &forUUID);
+
+    String toStr() const
+    {
+        OStringStream oss;
+        oss << "Service <uuid=" << m_uuid.getCommonName()
+            << " handleStart= " << m_handleStart
+            << " handleEnd= " << m_handleEnd
+            << ">";
+
+        return oss.str();
+    }
+
+    json::Value toJson() const
+    {
+        json::Value res;
+        res["UUID"] = m_uuid.toStr();
+        res["start"] = m_handleStart;
+        res["end"] = m_handleEnd;
+
+        return res;
+    }
+
+private:
+    boost::weak_ptr<Peripheral> m_peripheral;
+    const UUID m_uuid;
+    UInt32 m_handleStart;
+    UInt32 m_handleEnd;
+
+    std::vector<CharacteristicPtr> m_chars;
+};
+
+
+// Characteristic wrapper
+class Characteristic
+{
+    friend class Peripheral;
+private:
+    Characteristic(PeripheralPtr peripheral, const UUID &uuid, UInt32 handle, UInt32 properties, UInt32 valueHandle)
+        : m_peripheral(peripheral)
+        , m_uuid(uuid)
+        , m_handle(handle)
+        , m_properties(properties)
+        , m_valueHandle(valueHandle)
+    {}
+
+public:
+    String read();
+    void write(const String &val, bool withResponse = false);
+
+    // TODO: descriptors
+
+    const UUID& getUUID() const
+    {
+        return m_uuid;
+    }
+
+    String toStr() const
+    {
+        OStringStream oss;
+        oss << "Characteristic <" << m_uuid.getCommonName() << ">";
+        return oss.str();
+    }
+
+    json::Value toJson() const
+    {
+        json::Value res;
+        res["UUID"] = m_uuid.toStr();
+        res["handle"] = m_handle;
+        res["properties"] = m_properties;
+        res["valueHandle"] = m_valueHandle;
+
+        return res;
+    }
+
+private:
+    boost::weak_ptr<Peripheral> m_peripheral;
+    const UUID m_uuid;
+    UInt32 m_handle;
+    UInt32 m_properties;
+    UInt32 m_valueHandle;
+};
+
+
+// Descriptor wrapper
+class Descriptor
+{
+    friend class Peripheral;
+private:
+    Descriptor(PeripheralPtr peripheral, const UUID &uuid, UInt32 handle)
+        : m_peripheral(peripheral)
+        , m_uuid(uuid)
+        , m_handle(handle)
+    {}
+
+public:
+    String toStr() const
+    {
+        OStringStream oss;
+        oss << "Descriptor <" << m_uuid.getCommonName() << ">";
+        return oss.str();
+    }
+
+private:
+    boost::weak_ptr<Peripheral> m_peripheral;
+    const UUID m_uuid;
+    UInt32 m_handle;
+};
+
+
+// Peripheral wrapper
+class Peripheral
+        : public boost::enable_shared_from_this<Peripheral>
+{
+    friend class Service;
+    friend class Characteristic;
+
+public:
+    typedef boost::function1<void, boost::system::error_code> TerminatedCallback;
+
+    void callWhenTerminated(TerminatedCallback cb)
+    {
+        m_terminated_cb = cb;
+    }
+
+private:
+    Peripheral(boost::asio::io_service &ios, const String &helperPath, const String &deviceAddr)
+        : m_ios(ios)
+        , m_helperPath(helperPath)
+        , m_deviceAddr(deviceAddr)
+        , m_discoveredAllServices(false)
+        , m_log("/bluepy/Periperal/" + deviceAddr)
+    {}
+
+public:
+
+    static PeripheralPtr create(boost::asio::io_service &ios, const String &helperPath, const String &deviceAddr)
+    {
+        return PeripheralPtr(new Peripheral(ios, helperPath, deviceAddr));
+    }
+
+    ~Peripheral()
+    {
+        disconnect();
+    }
+
+    void stop()
+    {
+        stopHelper();
+        m_terminated_cb = TerminatedCallback();
+    }
+
+private:
+
+    void startHelper()
+    {
+        if (!m_helper)
+        {
+            std::vector<String> argv;
+            argv.push_back(m_helperPath);
+
+            HIVELOG_INFO(m_log, "executing helper: " << m_helperPath);
+            m_helper = Process::create(m_ios, argv, m_deviceAddr);
+            m_helper->callWhenTerminated(boost::bind(&Peripheral::onHelperTerminated,
+                shared_from_this(), _1));
+            m_helper->callOnNewStderrLine(boost::bind(&Peripheral::onParseStdout,
+                shared_from_this(), _1, true));
+            m_helper->callOnNewStdoutLine(boost::bind(&Peripheral::onParseStdout,
+                shared_from_this(), _1, false));
+        }
+    }
+
+    void stopHelper()
+    {
+        if (m_helper)
+        {
+            HIVELOG_INFO(m_log, "terminating helper...");
+
+            m_helper->writeStdin("quit\n");
+            m_helper->terminate();
+            m_helper.reset();
+        }
+    }
+
+public:
+
+    static json::Value parseResp(const String &line)
+    {
+        json::Value resp;
+
+        IStringStream iss(line);
+        while (!iss.eof())
+        {
+            String item;
+            if (!(iss >> item))
+                break;
+
+            if (item.empty())
+                continue;
+
+            String tag, tval;
+            size_t n = item.find('=');
+            if (n != String::npos)
+            {
+                tag = item.substr(0, n);
+                tval = item.substr(n+1);
+            }
+            else
+                tag = item;
+
+            json::Value val;
+            if (tval.empty())
+                val = json::Value::null();
+            else if (tval[0]=='$' || tval[0]=='\'')
+                val = tval.substr(1); // ignore string mark
+            else if (tval[0]=='h')
+                val = UInt32(strtoul(tval.substr(1).c_str(), 0, 16));
+            else if (tval[0]=='b')
+                val = tval.substr(1); // hex string
+            else
+                throw std::runtime_error("Cannot understand response value " + tval);
+
+            if (!resp.hasMember(tag))       // create new
+                resp[tag] = val;
+            else
+            {
+                json::Value &oldval = resp[tag];
+
+                if (oldval.isArray())       // append to array
+                    oldval.append(val);
+                else                        // create array
+                {
+                    json::Value newval(json::Value::TYPE_ARRAY);
+                    newval.append(oldval);
+                    newval.append(val);
+                    oldval = newval;
+                }
+            }
+        }
+
+        return resp;
+    }
+
+public:
+
+    /**
+     * @brief The abstract Command class.
+     */
+    class Command
+    {
+    protected:
+        Command() {}
+
+    public:
+        virtual ~Command() {}
+
+        virtual bool wantProcess(const String&) const { return false; }
+        virtual bool process(const json::Value &data) = 0;
+
+    public:
+        String command;
+
+    public:
+        class Status;
+        class Connect;
+        class Disconnect;
+        class Services;
+        class Characteristics;
+        class CharRead;
+        class CharWrite;
+    };
+
+    typedef boost::shared_ptr<Command> CommandPtr;
+    std::list<CommandPtr> m_commands;
+
+    void writeCmd(const CommandPtr &cmd)
+    {
+        bool is_progress = !m_commands.empty();
+        m_commands.push_back(cmd);
+
+        if (!is_progress)
+            writeNextCommand();
+    }
+
+    void writeNextCommand()
+    {
+        if (m_helper && !m_commands.empty())
+        {
+            String cmd = m_commands.front()->command;
+
+            HIVELOG_DEBUG(m_log, "sending \"" << Process::escape(cmd) << "\"");
+            m_helper->writeStdin(cmd);
+        }
+    }
+
+    void onParseStdout(const String &line, bool isStdErr)
+    {
+        if (boost::starts_with(line, "#"))
+        {
+            HIVELOG_DEBUG(m_log, "ignore comment: " << line);
+            return;
+        }
+
+        HIVELOG_DEBUG(m_log, "got \"" << Process::escape(line) << "\" on "
+                      << (isStdErr ? "STDERR":"STDOUT") << " to parse");
+
+        try
+        {
+            json::Value data = Peripheral::parseResp(line);
+            HIVELOG_INFO(m_log, "parsed as " << json::toStr(data));
+
+            String rsp = data["rsp"].asString();
+            if (rsp.empty()) throw std::runtime_error("no response type indicator");
+
+            if (!m_commands.empty() && m_commands.front()->wantProcess(rsp))
+            {
+                if (m_commands.front()->process(data))
+                {
+                    m_commands.pop_front();
+                    if (!m_commands.empty())
+                        writeNextCommand();
+                }
+            }
+//            else if (rsp == "stat" && data["state"].asString() == "disc")
+//            {
+//                throw std::runtime_error("device disconnected");
+//            }
+            else if (rsp == "err")
+            {
+                throw std::runtime_error("Bluetooth error: " + data["code"].asString());
+            }
+            else if (rsp == "ntfy")
+            {
+                // TODO: process notifications
+            }
+            else
+            {
+                HIVELOG_WARN(m_log, "unexpected response, ignored");
+            }
+        }
+        catch (const std::exception &ex)
+        {
+            HIVELOG_ERROR(m_log, "failed to parse line \"" << Process::escape(line)
+                          << "\": " << ex.what());
+            // TODO: reset?
+        }
+    }
+
+public: // status
+
+    typedef boost::function1<void, String> StatusCallback;
+
+    /**
+     * @brief The Status command.
+     */
+    class Command::Status: public Command
+    {
+    protected:
+        Status() {}
+
+    public:
+        static boost::shared_ptr<Status> create(StatusCallback cb)
+        {
+            boost::shared_ptr<Status> pthis(new Status());
+            pthis->command = "stat\n";
+            pthis->m_cb = cb;
+            return pthis;
+        }
+
+        virtual bool wantProcess(const String &response) const
+        {
+            return boost::iequals(response, "stat");
+        }
+
+        virtual bool process(const json::Value &data)
+        {
+            String state = data["state"].asString();
+            if (m_cb) m_cb(state);
+            return true;
+        }
+
+    private:
+        StatusCallback m_cb;
+    };
+
+
+    /**
+     * @brief Check status.
+     * @param cb Optional callback.
+     */
+    void status(StatusCallback cb = StatusCallback())
+    {
+        if (!m_helper)
+        {
+            if (cb) // report disconnected state
+                m_ios.post(boost::bind(cb, String("disc")));
+            return;
+        }
+
+        writeCmd(Command::Status::create(cb));
+    }
+
+public: // connect
+
+    typedef boost::function1<void, bool> ConnectCallback;
+
+    /**
+     * @brief The Connect command.
+     */
+    class Command::Connect: public Command
+    {
+    protected:
+        Connect() {}
+
+    public:
+        static boost::shared_ptr<Connect> create(const String &addr, ConnectCallback cb)
+        {
+            boost::shared_ptr<Connect> pthis(new Connect());
+            pthis->command = "conn " + addr + "\n";
+            pthis->m_cb = cb;
+            return pthis;
+        }
+
+        virtual bool wantProcess(const String &response) const
+        {
+            return boost::iequals(response, "stat");
+        }
+
+        virtual bool process(const json::Value &data)
+        {
+            // TODO: rsp = self._getResp('stat')
+            String state = data["state"].asString();
+            if (boost::iequals(state, "tryconn"))
+                return false; // wait...
+
+            if (boost::iequals(state, "conn"))
+            {
+                if (m_cb) m_cb(true);
+                return true; // OK
+            }
+
+            if (m_cb) m_cb(false);
+            throw std::runtime_error("failed to connect");
+        }
+
+    private:
+        ConnectCallback m_cb;
+    };
+
+    void connect(ConnectCallback cb = ConnectCallback())
+    {
+        startHelper();
+        writeCmd(Command::Connect::create(m_deviceAddr, cb));
+    }
+
+public: // disconnect
+
+    /**
+     * @brief The Disconnect command.
+     */
+    class Command::Disconnect: public Command
+    {
+    protected:
+        Disconnect() {}
+
+    public:
+        static boost::shared_ptr<Disconnect> create(ConnectCallback cb)
+        {
+            boost::shared_ptr<Disconnect> pthis(new Disconnect());
+            pthis->command = "disc\n";
+            pthis->m_cb = cb;
+            return pthis;
+        }
+
+        virtual bool wantProcess(const String &response) const
+        {
+            return boost::iequals(response, "stat");
+        }
+
+        virtual bool process(const json::Value &data)
+        {
+            HIVE_UNUSED(data);
+            if (m_cb) m_cb(false);
+            return false;
+        }
+
+    private:
+        ConnectCallback m_cb;
+    };
+
+    void disconnect(ConnectCallback cb = ConnectCallback())
+    {
+        if (!m_helper)
+            return;
+
+        writeCmd(Command::Disconnect::create(cb));
+    }
+
+public:
+
+    typedef boost::function1<void, std::vector<ServicePtr> > ServicesCallback;
+
+    /**
+     * @brief The Services command.
+     */
+    class Command::Services: public Command
+    {
+    protected:
+        Services() {}
+
+    public:
+        static boost::shared_ptr<Services> create(PeripheralPtr p, ServicesCallback cb)
+        {
+            boost::shared_ptr<Services> pthis(new Services());
+            pthis->command = "svcs\n";
+            pthis->m_peripheral = p;
+            pthis->m_cb = cb;
+            return pthis;
+        }
+
+        virtual bool wantProcess(const String &response) const
+        {
+            return boost::iequals(response, "find");
+        }
+
+        virtual bool process(const json::Value &data)
+        {
+            json::Value starts = data["hstart"];
+            json::Value ends   = data["hend"];
+            json::Value uuids  = data["uuid"];
+
+            std::vector<ServicePtr> services;
+            if (uuids.isArray())
+                for (size_t i = 0; i < uuids.size(); ++i)
+                    services.push_back(ServicePtr(new Service(m_peripheral, UUID(uuids[i].asString()), starts[i].asUInt(), ends[i].asUInt())));
+            else
+                services.push_back(ServicePtr(new Service(m_peripheral, UUID(uuids.asString()), starts.asUInt(), ends.asUInt())));
+
+            if (m_cb) m_cb(services);
+            return true;
+        }
+
+    private:
+        PeripheralPtr m_peripheral;
+        ServicesCallback m_cb;
+    };
+
+
+    void services(ServicesCallback cb = ServicesCallback())
+    {
+        startHelper();
+        writeCmd(Command::Services::create(shared_from_this(), cb));
+    }
+
+public:
+
+    typedef boost::function1<void, std::vector<CharacteristicPtr> > CharacteristicsCallback;
+
+    /**
+     * @brief The Characteristics command.
+     */
+    class Command::Characteristics: public Command
+    {
+    protected:
+        Characteristics() {}
+
+
+    public:
+        static boost::shared_ptr<Characteristics> create(UInt32 start, UInt32 end, const UUID &uuid,
+                                                         PeripheralPtr p, CharacteristicsCallback cb)
+        {
+            boost::shared_ptr<Characteristics> pthis(new Characteristics());
+
+            pthis->command = "char ";
+            pthis->command += boost::lexical_cast<String>(start);
+            pthis->command += " ";
+            pthis->command += boost::lexical_cast<String>(end);
+            if (uuid.isValid())
+            {
+                pthis->command += " ";
+                pthis->command += uuid.toStr();
+            }
+            pthis->command += "\n";
+
+            pthis->m_peripheral = p;
+            pthis->m_cb = cb;
+            return pthis;
+        }
+
+        virtual bool wantProcess(const String &response) const
+        {
+            return boost::iequals(response, "find");
+        }
+
+        virtual bool process(const json::Value &data)
+        {
+            json::Value hnd = data["hnd"];
+            json::Value uuid = data["uuid"];
+            json::Value prop = data["props"];
+            json::Value vhnd = data["vhnd"];
+
+            std::vector<CharacteristicPtr> chars;
+            if (uuid.isArray())
+            {
+                for (size_t i = 0; i < uuid.size(); ++i)
+                    chars.push_back(CharacteristicPtr(new Characteristic(m_peripheral, UUID(uuid[i].asString()), hnd[i].asUInt32(), prop[i].asUInt32(), vhnd[i].asUInt32())));
+            }
+            else
+            {
+                chars.push_back(CharacteristicPtr(new Characteristic(m_peripheral, UUID(uuid.asString()), hnd.asUInt32(), prop.asUInt32(), vhnd.asUInt32())));
+            }
+
+            if (m_cb) m_cb(chars);
+            return true;
+        }
+
+    private:
+        PeripheralPtr m_peripheral;
+        CharacteristicsCallback m_cb;
+    };
+
+    void characteristics(CharacteristicsCallback cb = CharacteristicsCallback(),
+                         UInt32 start=0x0001, UInt32 end=0xFFFF, const UUID &uuid = UUID())
+    {
+        startHelper();
+
+        writeCmd(Command::Characteristics::create(start, end, uuid, shared_from_this(), cb));
+    }
+
+//    def getServices(self):
+//        if not self.discoveredAllServices:
+//            self.discoverServices()
+//        return self.services.values()
+
+//    def getServiceByUUID(self, uuidVal):
+//        uuid = UUID(uuidVal)
+//        if uuid in self.services:
+//            return self.services[uuid]
+//        self._writeCmd("svcs %s\n" % uuid)
+//        rsp = self._getResp('find')
+//        svc = Service(self, uuid, rsp['hstart'][0], rsp['hend'][0])
+//        self.services[uuid] = svc
+//        return svc
+
+//    def _getIncludedServices(self, startHnd=1, endHnd=0xFFFF):
+//        # TODO: No working example of this yet
+//        self._writeCmd("incl %X %X\n" % (startHnd, endHnd))
+//        return self._getResp('find')
+
+public:
+    std::vector<CharacteristicPtr> getCharacteristics(UInt32 handleStart=0x0001, UInt32 handleEnd=0xFFFF, const UUID &uuid = UUID())
+    {
+//        cmd = 'char %X %X' % (startHnd, endHnd)
+//        if uuid:
+//            cmd += ' %s' % UUID(uuid)
+//        self._writeCmd(cmd + "\n")
+//        rsp = self._getResp('find')
+//        nChars = len(rsp['hnd'])
+//        return [Characteristic(self, rsp['uuid'][i], rsp['hnd'][i],
+//                               rsp['props'][i], rsp['vhnd'][i])
+//                for i in range(nChars)]
+
+        return std::vector<CharacteristicPtr>();
+    }
+
+//    def getDescriptors(self, startHnd=1, endHnd=0xFFFF):
+//        self._writeCmd("desc %X %X\n" % (startHnd, endHnd) )
+//        resp = self._getResp('desc')
+//        nDesc = len(resp['hnd'])
+//        return [Descriptor(self, resp['uuid'][i], resp['hnd'][i]) for i in
+//                range(nDesc)]
+
+public:
+
+    typedef boost::function2<void, UInt32, String> CharReadCallback;
+
+
+    /**
+     * @brief The CharRead command.
+     */
+    class Command::CharRead: public Command
+    {
+    protected:
+        CharRead() {}
+
+    public:
+        static boost::shared_ptr<CharRead> create(UInt32 handle, CharReadCallback cb)
+        {
+            boost::shared_ptr<CharRead> pthis(new CharRead());
+            pthis->command = "rd " + hive::dump::hex(handle) + "\n";
+            pthis->m_handle = handle;
+            pthis->m_cb = cb;
+            return pthis;
+        }
+
+        virtual bool wantProcess(const String &response) const
+        {
+            return boost::iequals(response, "rd");
+        }
+
+        virtual bool process(const json::Value &data)
+        {
+            json::Value d = data["d"];
+            if (m_cb) m_cb(m_handle, d.asString());
+            return true;
+        }
+
+    private:
+        UInt32 m_handle;
+        CharReadCallback m_cb;
+    };
+
+
+    void readCharacteristic(UInt32 handle, CharReadCallback cb = CharReadCallback())
+    {
+        startHelper();
+
+        writeCmd(Command::CharRead::create(handle, cb));
+    }
+
+//    def _readCharacteristicByUUID(self, uuid, startHnd, endHnd):
+//        # Not used at present
+//        self._writeCmd("rdu %s %X %X\n" % (UUID(uuid), startHnd, endHnd))
+//        return self._getResp('rd')
+
+public:
+
+    typedef boost::function2<void, UInt32, String> CharWriteCallback;
+
+
+    /**
+     * @brief The CharWrite command.
+     */
+    class Command::CharWrite: public Command
+    {
+    protected:
+        CharWrite() {}
+
+    public:
+        static boost::shared_ptr<CharWrite> create(UInt32 handle, const String &val, bool withResponse, CharWriteCallback cb)
+        {
+            boost::shared_ptr<CharWrite> pthis(new CharWrite());
+            pthis->command = (withResponse ? "wrr ":"wr ") + hive::dump::hex(handle) + " " + val + "\n";
+            pthis->m_handle = handle;
+            pthis->m_cb = cb;
+            return pthis;
+        }
+
+        virtual bool wantProcess(const String &response) const
+        {
+            return boost::iequals(response, "wr");
+        }
+
+        virtual bool process(const json::Value &data)
+        {
+            if (m_cb) m_cb(m_handle, String());
+            return true;
+        }
+
+    private:
+        UInt32 m_handle;
+        CharWriteCallback m_cb;
+    };
+
+
+    void writeCharacteristic(UInt32 handle, const String &val, bool withResponse = false, CharWriteCallback cb = CharWriteCallback())
+    {
+        startHelper();
+
+        writeCmd(Command::CharWrite::create(handle, val, withResponse, cb));
+    }
+
+//    def setSecurityLevel(self, level):
+//        self._writeCmd("secu %s\n" % level)
+//        return self._getResp('stat')
+
+//    def setMTU(self, mtu):
+//        self._writeCmd("mtu %x\n" % mtu)
+//        return self._getResp('stat')
+
+private:
+
+    void onHelperTerminated(boost::system::error_code err)
+    {
+        HIVELOG_DEBUG(m_log, "helper terminated: [" << err << "]: " << err.message());
+        if (m_terminated_cb)
+        {
+            m_ios.post(boost::bind(m_terminated_cb, err));
+            m_terminated_cb = TerminatedCallback(); // once
+        }
+
+        m_helper.reset();
+    }
+
+    TerminatedCallback m_terminated_cb;
+
+
+private:
+    boost::asio::io_service &m_ios;
+    String m_helperPath;
+
+    ProcessPtr m_helper;
+    String m_deviceAddr;
+    bool m_connected;
+
+    bool m_discoveredAllServices;
+    hive::log::Logger m_log;
+};
+
+
+std::vector<CharacteristicPtr> Service::getCharacteristics()
+{
+    if (m_chars.empty())
+    {
+        if (PeripheralPtr p = m_peripheral.lock())
+            m_chars = p->getCharacteristics(m_handleStart, m_handleEnd);
+    }
+
+    return m_chars;
+}
+
+std::vector<CharacteristicPtr> Service::getCharacteristics(const UUID &forUUID)
+{
+    std::vector<CharacteristicPtr> chars = getCharacteristics();
+
+    size_t k = 0;
+    for (size_t i = 0; i < chars.size(); ++i)
+        if (chars[i]->getUUID() == forUUID)
+            chars[k++] = chars[i];
+
+    chars.resize(k);
+    return chars;
+}
+
+String Characteristic::read()
+{
+//    if (PeripheralPtr p = m_peripheral.lock())
+//        return p->readCharacteristic(m_valueHandle);
+    return String();
+}
+
+void Characteristic::write(const String &val, bool withResponse)
+{
+    if (PeripheralPtr p = m_peripheral.lock())
+        p->writeCharacteristic(m_valueHandle, val, withResponse);
+}
 
 } // bluepy namespace
 
@@ -1128,6 +2102,9 @@ protected:
         if (m_bluetooth)
             m_bluetooth->close();
 
+        for (std::map<String, bluepy::PeripheralPtr>::iterator i = m_helpers.begin(); i != m_helpers.end(); ++i)
+            i->second->stop();
+
         Base::stop();
     }
 
@@ -1385,14 +2362,81 @@ private:
                 cmd += command->params.asString();
             command->result = gattParsePrimary(shellExec(cmd));
         }
-        else if (boost::iequals(command->name, "x/gatt/primary"))
+        else if (boost::iequals(command->name, "xgatt/status"))
         {
             String device = command->params.get("device", json::Value::null()).asString();
-            bluepy::ProcessPtr proc = findHelper(device);
-            if (!proc) throw std::runtime_error("cannot create helper pipe");
+            bluepy::PeripheralPtr helper = findHelper(device);
+            if (!helper) throw std::runtime_error("cannot create helper");
 
-            proc->writeStdin("primary\n");
-            //return false;
+            helper->status(boost::bind(&This::onHelperStatus, shared_from_this(), _1, command, helper));
+            m_pendedCommands[helper].push_back(command);
+            return false; // pended
+        }
+        else if (boost::iequals(command->name, "xgatt/connect"))
+        {
+            String device = command->params.get("device", json::Value::null()).asString();
+            bluepy::PeripheralPtr helper = findHelper(device);
+            if (!helper) throw std::runtime_error("cannot create helper");
+
+            helper->status(boost::bind(&This::onHelperStatusConnect, shared_from_this(), _1, command, helper));
+            m_pendedCommands[helper].push_back(command);
+            return false; // pended
+        }
+        else if (boost::iequals(command->name, "xgatt/disconnect"))
+        {
+            String device = command->params.get("device", json::Value::null()).asString();
+            bluepy::PeripheralPtr helper = findHelper(device);
+            if (!helper) throw std::runtime_error("cannot create helper");
+
+            helper->status(boost::bind(&This::onHelperStatusDisconnect, shared_from_this(), _1, command, helper));
+            m_pendedCommands[helper].push_back(command);
+            return false; // pended
+        }
+        else if (boost::iequals(command->name, "xgatt/primary"))
+        {
+            String device = command->params.get("device", json::Value::null()).asString();
+            bluepy::PeripheralPtr helper = findHelper(device);
+            if (!helper) throw std::runtime_error("cannot create helper");
+
+            helper->status(boost::bind(&This::onHelperStatusConnectPrimary, shared_from_this(), _1, command, helper));
+            m_pendedCommands[helper].push_back(command);
+            return false; // pended
+        }
+        else if (boost::iequals(command->name, "xgatt/characteristics"))
+        {
+            String device = command->params.get("device", json::Value::null()).asString();
+            bluepy::PeripheralPtr helper = findHelper(device);
+            if (!helper) throw std::runtime_error("cannot create helper");
+
+            helper->status(boost::bind(&This::onHelperStatusConnectCharacteristics, shared_from_this(), _1, command, helper));
+            m_pendedCommands[helper].push_back(command);
+            return false; // pended
+        }
+        else if (boost::iequals(command->name, "xgatt/read"))
+        {
+            String device = command->params.get("device", json::Value::null()).asString();
+            bluepy::PeripheralPtr helper = findHelper(device);
+            if (!helper) throw std::runtime_error("cannot create helper");
+
+            UInt32 handle = command->params.get("handle", json::Value::null()).asUInt32();
+
+            helper->status(boost::bind(&This::onHelperStatusConnectCharRead, shared_from_this(), _1, command, helper, handle));
+            m_pendedCommands[helper].push_back(command);
+            return false; // pended
+        }
+        else if (boost::iequals(command->name, "xgatt/write"))
+        {
+            String device = command->params.get("device", json::Value::null()).asString();
+            bluepy::PeripheralPtr helper = findHelper(device);
+            if (!helper) throw std::runtime_error("cannot create helper");
+
+            UInt32 handle = command->params.get("handle", json::Value::null()).asUInt32();
+            String value = command->params.get("value", json::Value::null()).asString();
+            bool withResponse = command->params.get("withResponse", false).asBool();
+
+            helper->status(boost::bind(&This::onHelperStatusConnectCharWrite, shared_from_this(), _1, command, helper, handle, value, withResponse));
+            m_pendedCommands[helper].push_back(command);
+            return false; // pended
         }
         else if (boost::iequals(command->name, "gatt/characteristics"))
         {
@@ -1991,21 +3035,21 @@ private:
 
 private:
 
-    std::map<String, bluepy::ProcessPtr> m_helpers;
-    bluepy::ProcessPtr findHelper(const String &device)
+    std::map<String, bluepy::PeripheralPtr> m_helpers;
+    std::map<bluepy::PeripheralPtr, std::list<devicehive::CommandPtr> > m_pendedCommands;
+    bluepy::PeripheralPtr findHelper(const String &device)
     {
-        std::map<String, bluepy::ProcessPtr>::const_iterator i = m_helpers.find(device);
+        if (device.empty()) throw std::runtime_error("no device address provided");
+
+        std::map<String, bluepy::PeripheralPtr>::const_iterator i = m_helpers.find(device);
         if (i != m_helpers.end())
         {
-            if (i->second->isValid())
+            // if (i->second->isValid())
                 return i->second;
         }
 
-        std::vector<String> argv;
-        argv.push_back(m_helperPath);
-
-        bluepy::ProcessPtr helper = bluepy::Process::create(m_ios, argv, device);
-        helper->callWhenTerminated(boost::bind(&This::onHelperTerminated, shared_from_this(), _1, device));
+        bluepy::PeripheralPtr helper = bluepy::Peripheral::create(m_ios, m_helperPath, device);
+        helper->callWhenTerminated(boost::bind(&This::onHelperTerminated, shared_from_this(), _1, device, helper));
         m_helpers[device] = helper;
         return helper;
     }
@@ -2014,12 +3058,279 @@ private:
     /**
      * @brief Helper terminated.
      */
-    void onHelperTerminated(boost::system::error_code err, const String &device)
+    void onHelperTerminated(boost::system::error_code err, const String &device, bluepy::PeripheralPtr helper)
     {
         HIVE_UNUSED(err);
+        HIVELOG_INFO(m_log, device << " stopped and removed");
 
-        // release helper
+        // release helpers
         m_helpers.erase(device);
+        if (m_device && m_service && !terminated())
+        {
+            std::list<devicehive::CommandPtr> &cmd_list = m_pendedCommands[helper];
+            for (std::list<devicehive::CommandPtr>::iterator i = cmd_list.begin(); i != cmd_list.end(); ++i)
+            {
+                (*i)->status = "Failed";
+                //(*i)->result = json::Value::null();
+                m_service->asyncUpdateCommand(m_device, *i);
+            }
+        }
+        m_pendedCommands.erase(helper);
+    }
+
+
+    /**
+     * @brief status handler.
+     */
+    void onHelperStatus(const String &state, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        if (state.empty())
+        {
+            cmd->status = "Failed";
+        }
+        else if (boost::iequals(state, "conn"))
+        {
+            cmd->status = "Success";
+            cmd->result = String("Connected");
+        }
+        else if (boost::iequals(state, "disc"))
+        {
+            cmd->status = "Success";
+            cmd->result = String("Disconnected");
+        }
+        else
+        {
+            cmd->status = "Success";
+            cmd->result = state;
+        }
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+
+    /**
+     * @brief connect if status is disconnected.
+     */
+    void onHelperStatusConnect(const String &state, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        if (!boost::iequals(state, "conn"))
+        {
+            helper->connect(boost::bind(&This::onHelperConnected, shared_from_this(), _1, cmd, helper));
+            return; // try to connect
+        }
+
+        cmd->status = "Success";
+        cmd->result = String("Connected");
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+
+    void onHelperConnected(bool connected, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        if (connected)
+        {
+            cmd->status = "Success";
+            cmd->result = String("Connected");
+        }
+        else
+        {
+            cmd->status = "Success";
+            cmd->result = String("Disconnected");
+        }
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+
+    /**
+     * @brief disconnect if status is connected.
+     */
+    void onHelperStatusDisconnect(const String &state, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        if (!boost::iequals(state, "disc"))
+        {
+            helper->disconnect(boost::bind(&This::onHelperConnected, shared_from_this(), _1, cmd, helper));
+            return; // try to disconnect
+        }
+
+        cmd->status = "Success";
+        cmd->result = String("Disconnected");
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+
+    void onHelperStatusConnectPrimary(const String &state, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        if (!boost::iequals(state, "conn"))
+        {
+            helper->connect(boost::bind(&This::onHelperConnectPrimary, shared_from_this(), _1, cmd, helper));
+            return; // try to connect
+        }
+
+        onHelperConnectPrimary(true, cmd, helper);
+    }
+
+    void onHelperConnectPrimary(bool connected, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        if (connected)
+        {
+            helper->services(boost::bind(&This::onHelperPrimaryServices, shared_from_this(), _1, cmd, helper));
+            return; // try to get services
+        }
+        else
+        {
+            cmd->status = "Failed";
+            cmd->result = String("Disconnected");
+        }
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+    void onHelperPrimaryServices(const std::vector<bluepy::ServicePtr> &services, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        cmd->result = json::Value(json::Value::TYPE_ARRAY);
+        for (size_t i = 0; i < services.size(); ++i)
+            cmd->result.append(services[i]->toJson());
+        cmd->status = "Success";
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+    void onHelperStatusConnectCharacteristics(const String &state, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        if (!boost::iequals(state, "conn"))
+        {
+            helper->connect(boost::bind(&This::onHelperConnectCharacteristics, shared_from_this(), _1, cmd, helper));
+            return; // try to connect
+        }
+
+        onHelperConnectCharacteristics(true, cmd, helper);
+    }
+
+    void onHelperConnectCharacteristics(bool connected, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        if (connected)
+        {
+            helper->characteristics(boost::bind(&This::onHelperCharacteristics, shared_from_this(), _1, cmd, helper));
+            return; // try to get services
+        }
+        else
+        {
+            cmd->status = "Failed";
+            cmd->result = String("Disconnected");
+        }
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+    void onHelperCharacteristics(const std::vector<bluepy::CharacteristicPtr> &chars, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        cmd->result = json::Value(json::Value::TYPE_ARRAY);
+        for (size_t i = 0; i < chars.size(); ++i)
+            cmd->result.append(chars[i]->toJson());
+        cmd->status = "Success";
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+
+    void onHelperStatusConnectCharRead(const String &state, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper, UInt32 handle)
+    {
+        if (!boost::iequals(state, "conn"))
+        {
+            helper->connect(boost::bind(&This::onHelperConnectCharRead, shared_from_this(), _1, cmd, helper, handle));
+            return; // try to connect
+        }
+
+        onHelperConnectCharRead(true, cmd, helper, handle);
+    }
+
+    void onHelperConnectCharRead(bool connected, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper, UInt32 handle)
+    {
+        if (connected)
+        {
+            helper->readCharacteristic(handle, boost::bind(&This::onHelperCharRead, shared_from_this(), _1, _2, cmd, helper));
+            return; // try to read char
+        }
+        else
+        {
+            cmd->status = "Failed";
+            cmd->result = String("Disconnected");
+        }
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+    void onHelperCharRead(UInt32 handle, const String &value, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        cmd->result["handle"] = handle;
+        cmd->result["valueHex"] = value;
+        cmd->status = "Success";
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+
+    void onHelperStatusConnectCharWrite(const String &state, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper, UInt32 handle, const String &value, bool withResponse)
+    {
+        if (!boost::iequals(state, "conn"))
+        {
+            helper->connect(boost::bind(&This::onHelperConnectCharWrite, shared_from_this(), _1, cmd, helper, handle, value, withResponse));
+            return; // try to connect
+        }
+
+        onHelperConnectCharWrite(true, cmd, helper, handle, value, withResponse);
+    }
+
+    void onHelperConnectCharWrite(bool connected, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper, UInt32 handle, const String &value, bool withResponse)
+    {
+        if (connected)
+        {
+            helper->writeCharacteristic(handle, value, withResponse, boost::bind(&This::onHelperCharWrite, shared_from_this(), _1, _2, cmd, helper));
+            return; // try to write char
+        }
+        else
+        {
+            cmd->status = "Failed";
+            cmd->result = String("Disconnected");
+        }
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
+    }
+
+    void onHelperCharWrite(UInt32 handle, const String &value, devicehive::CommandPtr cmd, bluepy::PeripheralPtr helper)
+    {
+        cmd->result["handle"] = handle;
+        cmd->result["valueHex"] = value;
+        cmd->status = "Success";
+
+        m_pendedCommands[helper].remove(cmd);
+        if (m_device && m_service)
+            m_service->asyncUpdateCommand(m_device, cmd);
     }
 
 private:
