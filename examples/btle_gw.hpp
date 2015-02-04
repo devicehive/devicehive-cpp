@@ -15,6 +15,9 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
 /// @brief The BTLE gateway example.
 namespace btle_gw
 {
@@ -28,6 +31,434 @@ enum Timeouts
     RETRY_TIMEOUT               = 5000,  ///< @brief Common retry timeout, milliseconds.
     DEVICE_OFFLINE_TIMEOUT      = 5
 };
+
+
+// bluepy-helper interface
+namespace bluepy
+{
+
+/**
+ * @brief The sub process.
+ *
+ * Uses pipes for stderr, stdout, stdin.
+ */
+class Process:
+    public boost::enable_shared_from_this<Process>
+{
+public:
+    typedef boost::function1<void, boost::system::error_code> TerminatedCallback;
+    typedef boost::function1<void, String> ReadLineCallback;
+
+
+    /**
+     * @brief Set terminated callback.
+     */
+    void callWhenTerminated(TerminatedCallback cb)
+    {
+        m_terminated_cb = cb;
+    }
+
+    /**
+     * @brief Set STDERR read line callback.
+     */
+    void callOnNewStderrLine(ReadLineCallback cb)
+    {
+        m_stderr_line_cb = cb;
+    }
+
+    /**
+     * @brief Set STDERR read line callback.
+     */
+    void callOnNewStdoutLine(ReadLineCallback cb)
+    {
+        m_stdout_line_cb = cb;
+    }
+
+protected:
+
+    /**
+     * @brief Create sub process.
+     * @param ios The IO service.
+     * @param argv List of arguments. First item is the executable path.
+     */
+    Process(boost::asio::io_service &ios, const std::vector<String> &argv, const String &name)
+        : m_stderr(ios)
+        , m_stdout(ios)
+        , m_stdin(ios)
+        , m_valid(false)
+        , m_pid(-1)
+        , m_log("bluepy/Process/" + name)
+    {
+        int pipe_stderr[2];
+        int pipe_stdout[2];
+        int pipe_stdin[2];
+
+        if (pipe(pipe_stderr) != 0) throw std::runtime_error("cannot create stderr pipe");
+        if (pipe(pipe_stdout) != 0) throw std::runtime_error("cannot create stdout pipe");
+        if (pipe(pipe_stdin) != 0)  throw std::runtime_error("cannot create stdin pipe");
+
+        m_pid = fork();
+        if (m_pid < 0) throw std::runtime_error("cannot create child process");
+
+        if (m_pid) // parent
+        {
+            // close unused pipe ends
+            close(pipe_stderr[1]);
+            close(pipe_stdout[1]);
+            close(pipe_stdin[0]);
+
+            // assign used pipe ends
+            m_stderr.assign(pipe_stderr[0]);
+            m_stdout.assign(pipe_stdout[0]);
+            m_stdin.assign(pipe_stdin[1]);
+
+            m_valid = true;
+        }
+        else // child
+        {
+            // copy used pipe ends
+            dup2(pipe_stderr[1], STDERR_FILENO);
+            dup2(pipe_stdout[1], STDOUT_FILENO);
+            dup2(pipe_stdin[0], STDIN_FILENO);
+
+            // close all pipe ends
+            close(pipe_stderr[0]);
+            close(pipe_stderr[1]);
+            close(pipe_stdout[0]);
+            close(pipe_stdout[1]);
+            close(pipe_stdin[0]);
+            close(pipe_stdin[1]);
+
+            char* c_argv[256];
+            size_t c_argc = 0;
+            for (; c_argc < argv.size() && c_argc < 255; ++c_argc)
+                c_argv[c_argc] = const_cast<char*>(argv[c_argc].c_str());
+            c_argv[c_argc++] = 0;
+
+            // execute
+            execv(c_argv[0], c_argv);
+            exit(-1); // if we are here - something wrong
+        }
+
+        HIVELOG_TRACE(m_log, "created");
+    }
+
+public:
+
+    /**
+     * @brief The factory method.
+     */
+    static boost::shared_ptr<Process> create(boost::asio::io_service &ios,
+                                             const std::vector<String> &argv,
+                                             const String &name)
+    {
+        boost::shared_ptr<Process> pthis(new Process(ios, argv, name));
+        pthis->readStderr();
+        pthis->readStdout();
+        return pthis;
+    }
+
+
+    /**
+     * @brief Terminate sub process and get status.
+     */
+    int terminate()
+    {
+        HIVELOG_TRACE(m_log, "killing...");
+        kill(m_pid, SIGINT);
+
+        int status = 0;
+        HIVELOG_TRACE(m_log, "waiting...");
+        waitpid(m_pid, &status, 0); // warning blocking call!
+
+        HIVELOG_INFO(m_log, "status:" << status);
+        return status;
+    }
+
+
+    /**
+     * @brief Trivial destructor.
+     */
+    virtual ~Process()
+    {
+        HIVELOG_TRACE(m_log, "deleted");
+    }
+
+
+    /**
+     * @brief Check process is valid.
+     */
+    bool isValid() const
+    {
+        return m_valid;
+    }
+
+public:
+
+    /**
+     * @brief Write command to the STDIN pipe.
+     */
+    void writeStdin(const String &cmd)
+    {
+        bool in_progress = !m_in_queue.empty();
+        m_in_queue.push_back(cmd);
+
+        if (!in_progress)
+            writeNextStdin();
+    }
+
+private:
+
+    /**
+     * @brief Write next command from the queue to STDIN pipe.
+     */
+    void writeNextStdin()
+    {
+        if (!m_in_queue.empty() && m_valid)
+        {
+            HIVELOG_INFO(m_log, "writing \"" << escape(m_in_queue.front()) << "\" to STDIN");
+            boost::asio::async_write(m_stdin,
+                boost::asio::buffer(m_in_queue.front()),
+                boost::asio::transfer_all(), boost::bind(&Process::onWriteStdin, shared_from_this(),
+                    boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+        }
+    }
+
+    /**
+     * @brief Got some data written into STDIN pipe.
+     */
+    void onWriteStdin(boost::system::error_code err, size_t len)
+    {
+        // std::cerr << "STDIN write:" << err << " " << len << " bytes\n";
+        if (!err)
+        {
+            if (!m_in_queue.empty())
+            {
+                //len == m_in_queue.front().size()
+                HIVE_UNUSED(len);
+
+                m_in_queue.pop_front();
+
+                if (!m_in_queue.empty())
+                {
+                    // write next command ASAP
+                    m_stdin.get_io_service().post(boost::bind(
+                        &Process::writeNextStdin, shared_from_this()));
+                }
+            }
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log, "STDIN write error: ["
+                        << err << "] " << err.message());
+            handleError(err);
+        }
+    }
+
+private:
+
+    /**
+     * @brief Start asynchronous STDERR reading.
+     */
+    void readStderr()
+    {
+        boost::asio::async_read(m_stderr, m_err_buf, boost::asio::transfer_at_least(1),
+            boost::bind(&Process::onReadStderr, shared_from_this(),
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+
+
+    /**
+     * @brief Start asynchronous STDOUT reading.
+     */
+    void readStdout()
+    {
+        boost::asio::async_read(m_stdout, m_out_buf, boost::asio::transfer_at_least(1),
+            boost::bind(&Process::onReadStdout, shared_from_this(),
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+
+private:
+
+    /**
+     * @brief Handle error.
+     */
+    void handleError(boost::system::error_code err)
+    {
+        m_valid = false;
+        if (m_terminated_cb)
+        {
+            m_stderr.get_io_service().post(boost::bind(m_terminated_cb, err));
+            m_terminated_cb = TerminatedCallback(); // send once
+        }
+    }
+
+    /**
+     * @brief Handle STDERR line.
+     */
+    void handleStderr(const String &line)
+    {
+        HIVELOG_INFO(m_log, "STDERR line: \"" << escape(line) << "\"");
+        if (m_stderr_line_cb)
+        {
+            m_stderr.get_io_service().post(boost::bind(m_stderr_line_cb, line));
+        }
+    }
+
+
+    /**
+     * @brief Handle STDOUT line.
+     */
+    void handleStdout(const String &line)
+    {
+        HIVELOG_INFO(m_log, "STDOUT line: \"" << escape(line) << "\"");
+        if (m_stdout_line_cb)
+        {
+            m_stdout.get_io_service().post(boost::bind(m_stdout_line_cb, line));
+        }
+    }
+
+
+    /**
+     * @brief Got some data read from STDERR pipe.
+     */
+    void onReadStderr(boost::system::error_code err, size_t len)
+    {
+        //std::cerr << "STDOUT read:" << err << " " << len << " bytes\n";
+        if (!err)
+        {
+            String line;
+            m_err_buf.commit(len);
+            while (readLine(m_err_buf, line))
+                handleStderr(line);
+
+            if (m_valid) // continue
+                readStderr();
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log, "STDERR read error: ["
+                        << err << "] " << err.message());
+            handleError(err);
+        }
+    }
+
+
+    /**
+     * @brief Got some data read from STDOUT pipe.
+     */
+    void onReadStdout(boost::system::error_code err, size_t len)
+    {
+        //std::cerr << "STDOUT read:" << err << " " << len << " bytes\n";
+        if (!err)
+        {
+            //std::cerr << "[" << len << "] ";
+
+            String line;
+            m_err_buf.commit(len);
+            while (readLine(m_out_buf, line))
+                handleStdout(line);
+
+            if (m_valid) // continue
+                readStdout();
+        }
+        else
+        {
+            HIVELOG_ERROR(m_log, "STDOUT read error: ["
+                        << err << "] " << err.message());
+            handleError(err);
+        }
+    }
+
+
+    /**
+     * @brief Try to read line from stream buffer.
+     * @return `true` if line has read.
+     */
+    bool readLine(boost::asio::streambuf &buf, String &line)
+    {
+        if (size_t pos = readLine_(buf.data(), line))
+        {
+            buf.consume(pos);
+            return true;
+        }
+
+        return false;
+    }
+
+    template<typename Buffer>
+    size_t readLine_(const Buffer &buf, String &line)
+    {
+        return readLine_(boost::asio::buffers_begin(buf),
+                         boost::asio::buffers_end(buf), line);
+    }
+
+    template<typename In>
+    size_t readLine_(In first, In last, String &line)
+    {
+        In end = std::find(first, last, '\n');
+
+        if (end != last)
+        {
+            line.assign(first, end);
+            return std::distance(first, end)+1; // including '\n'
+        }
+
+        return 0; // not found
+    }
+
+public:
+
+    /**
+     * @brief Escape non-printable symbols.
+     */
+    static String escape(const String &str)
+    {
+        String res;
+        res.reserve(str.size());
+
+        for (size_t i = 0; i < str.size(); ++i)
+        {
+            switch (str[i])
+            {
+                case '\n': res += "\\n"; break;
+                case '\r': res += "\\r"; break;
+                default: res += str[i]; break;
+            }
+        }
+
+        return res;
+    }
+
+private:
+    boost::asio::posix::stream_descriptor m_stderr; // child's stderr pipe. read end.
+    boost::asio::posix::stream_descriptor m_stdout; // child's stdout pipe. read end.
+    boost::asio::posix::stream_descriptor m_stdin;  // child's stdin pipe. write end.
+
+    boost::asio::streambuf m_err_buf;
+    boost::asio::streambuf m_out_buf;
+    std::list<String> m_in_queue;
+
+    bool m_valid;
+    pid_t m_pid; // child's PID
+
+    // callbacks
+    TerminatedCallback m_terminated_cb;
+    ReadLineCallback m_stderr_line_cb;
+    ReadLineCallback m_stdout_line_cb;
+
+    hive::log::Logger m_log;
+};
+
+
+/**
+ * @brief Process shared pointer type.
+ */
+typedef boost::shared_ptr<Process> ProcessPtr;
+
+} // bluepy namespace
 
 
 /// @brief The simple gateway application.
@@ -552,6 +983,9 @@ public:
         size_t web_timeout = 0; // zero - don't change
         String http_version;
 
+        //pthis->m_helperPath = "/usr/bin/gatttool";
+        pthis->m_helperPath = "bluepy-helper";
+
         String bluetoothName = "";
 
         // custom device properties
@@ -560,6 +994,7 @@ public:
             if (boost::algorithm::iequals(argv[i], "--help"))
             {
                 std::cout << argv[0] << " [options]";
+                std::cout << "\t--helper <helper path>\n";
                 std::cout << "\t--gatewayId <gateway identifier>\n";
                 std::cout << "\t--gatewayName <gateway name>\n";
                 std::cout << "\t--gatewayKey <gateway authentication key>\n";
@@ -575,6 +1010,8 @@ public:
 
                 exit(1);
             }
+            else if (boost::algorithm::iequals(argv[i], "--helper") && i+1 < argc)
+                pthis->m_helperPath = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--gatewayId") && i+1 < argc)
                 deviceId = argv[++i];
             else if (boost::algorithm::iequals(argv[i], "--gatewayName") && i+1 < argc)
@@ -600,6 +1037,9 @@ public:
             else if (boost::algorithm::iequals(argv[i], "--bluetooth") && i+1 < argc)
                 bluetoothName = argv[++i];
         }
+
+        if (pthis->m_helperPath.empty())
+            throw std::runtime_error("no helper provided");
 
         pthis->m_bluetooth = BluetoothDevice::create(pthis->m_ios, bluetoothName);
         pthis->m_network = devicehive::Network::create(networkName, networkKey, networkDesc);
@@ -944,6 +1384,15 @@ private:
             else
                 cmd += command->params.asString();
             command->result = gattParsePrimary(shellExec(cmd));
+        }
+        else if (boost::iequals(command->name, "x/gatt/primary"))
+        {
+            String device = command->params.get("device", json::Value::null()).asString();
+            bluepy::ProcessPtr proc = findHelper(device);
+            if (!proc) throw std::runtime_error("cannot create helper pipe");
+
+            proc->writeStdin("primary\n");
+            //return false;
         }
         else if (boost::iequals(command->name, "gatt/characteristics"))
         {
@@ -1509,7 +1958,7 @@ private:
             }
         }
 
-    private:
+    public:
         template<typename Buf>
         static String bufAsStr(const Buf &buf)
         {
@@ -1526,7 +1975,6 @@ private:
 
     typedef boost::shared_ptr<AsyncExec> AsyncExecPtr;
 
-
     /// @brief Execute OS command asynchronously.
     AsyncExecPtr asyncShellExec(boost::asio::io_service &ios, const String &cmd, AsyncExec::Callback cb)
     {
@@ -1542,6 +1990,40 @@ private:
     }
 
 private:
+
+    std::map<String, bluepy::ProcessPtr> m_helpers;
+    bluepy::ProcessPtr findHelper(const String &device)
+    {
+        std::map<String, bluepy::ProcessPtr>::const_iterator i = m_helpers.find(device);
+        if (i != m_helpers.end())
+        {
+            if (i->second->isValid())
+                return i->second;
+        }
+
+        std::vector<String> argv;
+        argv.push_back(m_helperPath);
+
+        bluepy::ProcessPtr helper = bluepy::Process::create(m_ios, argv, device);
+        helper->callWhenTerminated(boost::bind(&This::onHelperTerminated, shared_from_this(), _1, device));
+        m_helpers[device] = helper;
+        return helper;
+    }
+
+
+    /**
+     * @brief Helper terminated.
+     */
+    void onHelperTerminated(boost::system::error_code err, const String &device)
+    {
+        HIVE_UNUSED(err);
+
+        // release helper
+        m_helpers.erase(device);
+    }
+
+private:
+    String m_helperPath; ///< @brief The helper path.
     BluetoothDevicePtr m_bluetooth;  ///< @brief The bluetooth device.
 
     devicehive::CommandPtr m_pendingScanCmd;
@@ -1591,7 +2073,8 @@ inline void main(int argc, const char* argv[])
 
         // disable annoying messages
         Logger("/hive/websocket").setTarget(file);
-        Logger("/hive/http").setTarget(file);
+        Logger("/hive/http").setTarget(file)
+                            .setLevel(LEVEL_DEBUG);
     }
 
     Application::create(argc, argv)->run();
