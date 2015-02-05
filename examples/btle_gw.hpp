@@ -1656,7 +1656,8 @@ private:
         }
 
         bluepy::PeripheralPtr helper = bluepy::Peripheral::create(m_ios, m_helperPath, device);
-        helper->callWhenTerminated(boost::bind(&This::onHelperTerminated, shared_from_this(), _1, device, helper));
+        helper->callWhenTerminated(boost::bind(&This::onHelperTerminated, shared_from_this(), _1, helper));
+        helper->callOnNewNotification(boost::bind(&This::onHelperNotification, shared_from_this(), _1, _2, helper));
         m_helpers[device] = helper;
         return helper;
     }
@@ -1665,9 +1666,11 @@ private:
     /**
      * @brief Helper terminated.
      */
-    void onHelperTerminated(boost::system::error_code err, const String &device, bluepy::PeripheralPtr helper)
+    void onHelperTerminated(boost::system::error_code err, bluepy::PeripheralPtr helper)
     {
         HIVE_UNUSED(err);
+
+        const String &device = helper->getAddress();
         HIVELOG_INFO(m_log, device << " stopped and removed");
 
         // release helpers
@@ -1684,6 +1687,24 @@ private:
             }
         }
         m_pendedCommands.erase(helper);
+    }
+
+
+    /**
+     * @brief Send notification.
+     */
+    void onHelperNotification(UInt32 handle, const String &value, bluepy::PeripheralPtr helper)
+    {
+        if (m_device && m_service)
+        {
+            json::Value params;
+            params["device"] = helper->getAddress();
+            params["handle"] = handle;
+            params["valueHex"] = value;
+
+            m_service->asyncInsertNotification(m_device,
+                devicehive::Notification::create("xgatt/value", params));
+        }
     }
 
 

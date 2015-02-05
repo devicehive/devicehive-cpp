@@ -746,6 +746,14 @@ public:
     }
 
 
+    /**
+     * @brief Get MAC address.
+     */
+    const String& getAddress() const
+    {
+        return m_deviceAddr;
+    }
+
 public:
 
     typedef boost::function1<void, boost::system::error_code> TerminatedCallback;
@@ -882,7 +890,7 @@ public:
         return resp;
     }
 
-public:
+private:
 
     /**
      * @brief The abstract Command class.
@@ -988,7 +996,7 @@ public:
             }
             else if (rsp == "ntfy")
             {
-                // TODO: process notifications
+                processNotification(data);
             }
             else
             {
@@ -1002,6 +1010,32 @@ public:
             // TODO: reset?
         }
     }
+
+public:
+    typedef boost::function2<void, UInt32, String> NotificationCallback;
+
+    void callOnNewNotification(NotificationCallback cb)
+    {
+        m_notification_cb = cb;
+    }
+
+private:
+    NotificationCallback m_notification_cb;
+
+    /**
+     * @brief Process notifications.
+     */
+    void processNotification(const json::Value &data)
+    {
+        UInt32 handle = data["hnd"].asUInt32();
+        String value = data["d"].asString(); // hex
+
+        if (m_notification_cb)
+        {
+            m_ios.post(boost::bind(m_notification_cb, handle, value));
+        }
+    }
+
 
 public: // status
 
