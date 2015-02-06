@@ -709,7 +709,7 @@ private:
         , m_helperPath(helperPath)
         , m_deviceAddr(deviceAddr)
         , m_discoveredAllServices(false)
-        , m_log("/bluepy/Periperal/" + deviceAddr)
+        , m_log("/bluepy/Peripheral/" + deviceAddr)
     {
         HIVELOG_TRACE(m_log, "created");
     }

@@ -566,6 +566,7 @@ public:
             {
                 std::cout << argv[0] << " [options]";
                 std::cout << "\t--helper <helper path>\n";
+                std::cout << "\t--log <log file name>\n";
                 std::cout << "\t--gatewayId <gateway identifier>\n";
                 std::cout << "\t--gatewayName <gateway name>\n";
                 std::cout << "\t--gatewayKey <gateway authentication key>\n";
@@ -1878,6 +1879,23 @@ private:
 };
 
 
+/**
+ * @brief Get log file name from command line.
+ */
+inline String getLogFileName(int argc, const char* argv[])
+{
+    String fileName = "btle_gw.log";
+
+    for (int i = 0; i < argc; ++i)
+    {
+        if (boost::iequals(argv[i], "--log") && i+1<argc)
+            fileName = argv[++i];
+    }
+
+    return fileName;
+}
+
+
 /// @brief The BTLE gateway application entry point.
 /**
 Creates the Application instance and calls its Application::run() method.
@@ -1890,7 +1908,7 @@ inline void main(int argc, const char* argv[])
     { // configure logging
         using namespace hive::log;
 
-        Target::File::SharedPtr file = Target::File::create("btle_gw.log");
+        Target::File::SharedPtr file = Target::File::create(getLogFileName(argc, argv));
         file->setAutoFlushLevel(LEVEL_TRACE)
              .setMaxFileSize(1*1024*1024)
              .setNumberOfBackups(1)
