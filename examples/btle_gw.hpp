@@ -390,7 +390,10 @@ public:
                         ba2str(&info->bdaddr, addr);
                         String name = parse_name(info->data, info->length);
 
-                        m_scan_devices[addr] = name;
+                        if (!name.empty())
+                            m_scan_devices[addr] = name;
+                        else if (m_scan_devices.find(addr) == m_scan_devices.end())
+                            m_scan_devices[addr] = "(unknown)"; // save as unknown if not exists
                     }
                 }
 
@@ -440,7 +443,7 @@ public:
                 eir += field_len + 1;
             }
 
-            return "(unknown)";
+            return String();
         }
 
     public:
