@@ -928,6 +928,20 @@ private:
     {
         bool is_progress = !m_commands.empty();
         m_commands.push_back(cmd);
+        HIVELOG_TRACE(m_log, "putting \"" << Process::escape(cmd->getCommand()) << "\" to the BACK of command queue");
+
+        if (!is_progress)
+            writeNextCommand();
+    }
+
+    /**
+     * @brief Write command to the front of command queue!
+     */
+    void writeCmdFront(const CommandPtr &cmd)
+    {
+        bool is_progress = !m_commands.empty();
+        m_commands.push_front(cmd);
+        HIVELOG_TRACE(m_log, "putting \"" << Process::escape(cmd->getCommand()) << "\" to the FRONT of command queue");
 
         if (!is_progress)
             writeNextCommand();
@@ -978,9 +992,10 @@ private:
 
             if (!m_commands.empty() && m_commands.front()->wantProcess(rsp))
             {
-                if (m_commands.front()->process(rsp, data))
+                CommandPtr cmd = m_commands.front();
+                if (cmd->process(rsp, data))
                 {
-                    m_commands.pop_front();
+                    m_commands.remove(cmd); // cmd might not be the first
                     if (!m_commands.empty())
                         writeNextCommand();
                 }
@@ -1207,8 +1222,8 @@ public: // connect
 
         // otherwise send Connect command
         CommandPtr cmd = Command::Connect::create(m_deviceAddr, cb);
-        Callback fail = boost::bind(&Peripheral::writeCmd,
-                            shared_from_this(), cmd);
+        Callback fail = boost::bind(&Peripheral::writeCmdFront,
+                                shared_from_this(), cmd);
 
         // check status first, then connect
         status(boost::bind(&Peripheral::onStatusConn,
@@ -1301,7 +1316,7 @@ public: // disconnect
 
         // otherwise send Disconnect command
         CommandPtr cmd = Command::Disconnect::create(cb);
-        Callback fail = boost::bind(&Peripheral::writeCmd,
+        Callback fail = boost::bind(&Peripheral::writeCmdFront,
                             shared_from_this(), cmd);
 
         // check status first, then disconnect
@@ -1385,7 +1400,7 @@ public:
 
         // send Services command if connected
         CommandPtr cmd = Command::Services::create(cb);
-        Callback ok = boost::bind(&Peripheral::writeCmd,
+        Callback ok = boost::bind(&Peripheral::writeCmdFront,
                           shared_from_this(), cmd);
 
         // otherwise report error
@@ -1488,7 +1503,7 @@ public:
 
         // send Characteristics command if connected
         CommandPtr cmd = Command::Characteristics::create(start, end, uuid, cb);
-        Callback ok = boost::bind(&Peripheral::writeCmd,
+        Callback ok = boost::bind(&Peripheral::writeCmdFront,
                           shared_from_this(), cmd);
 
         // otherwise report error
@@ -1559,7 +1574,7 @@ public:
 
         // send CharRead command if connected
         CommandPtr cmd = Command::CharRead::create(handle, cb);
-        Callback ok = boost::bind(&Peripheral::writeCmd,
+        Callback ok = boost::bind(&Peripheral::writeCmdFront,
                           shared_from_this(), cmd);
 
         // otherwise report error
@@ -1640,7 +1655,7 @@ public:
 
         // send CharWrite command if connected
         CommandPtr cmd = Command::CharWrite::create(handle, val, withResp, cb);
-        Callback ok = boost::bind(&Peripheral::writeCmd,
+        Callback ok = boost::bind(&Peripheral::writeCmdFront,
                           shared_from_this(), cmd);
 
         // otherwise report error
