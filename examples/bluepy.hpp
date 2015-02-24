@@ -706,6 +706,8 @@ class Peripheral
 private:
     Peripheral(boost::asio::io_service &ios, const String &helperPath, const String &deviceAddr)
         : m_ios(ios)
+        , m_idle_timer(ios)
+        , m_idle_timeout(0)
         , m_helperPath(helperPath)
         , m_deviceAddr(deviceAddr)
         , m_discoveredAllServices(false)
@@ -764,6 +766,37 @@ public:
     void callWhenTerminated(TerminatedCallback cb)
     {
         m_terminated_cb = cb;
+    }
+
+
+    void setIdleTimeout(int timeout_ms)
+    {
+        m_idle_timeout = timeout_ms;
+        restartIdleTimeout();
+    }
+
+private:
+
+    void restartIdleTimeout()
+    {
+        if (m_idle_timeout)
+        {
+            HIVELOG_TRACE(m_log, "re-starting idle timeout (" << m_idle_timeout << " ms)");
+            m_idle_timer.expires_from_now(boost::posix_time::milliseconds(m_idle_timeout));
+            m_idle_timer.async_wait(boost::bind(&Peripheral::idleTimedout,
+                shared_from_this(), boost::asio::placeholders::error));
+        }
+        else
+            m_idle_timer.cancel();
+    }
+
+    void idleTimedout(boost::system::error_code err)
+    {
+        if (!err)
+        {
+            HIVELOG_INFO(m_log, "idle timed out, stopping");
+            stop();
+        }
     }
 
 private:
@@ -960,6 +993,8 @@ private:
             HIVELOG_DEBUG(m_log, "sending \"" << Process::escape(cmd) << "\" to STDIN");
             m_helper->writeStdin(cmd);
         }
+
+        restartIdleTimeout();
     }
 
     /**
@@ -986,6 +1021,7 @@ private:
         {
             json::Value data = Peripheral::parseResp(line);
             HIVELOG_DEBUG(m_log, "response parsed as " << json::toStr(data));
+            restartIdleTimeout();
 
             String rsp = data["rsp"].asString();
             if (rsp.empty()) throw std::runtime_error("no response type indicator");
@@ -1680,6 +1716,8 @@ public:
 
 private:
     boost::asio::io_service &m_ios;
+    boost::asio::deadline_timer m_idle_timer;
+    int m_idle_timeout;
     String m_helperPath;
 
     ProcessPtr m_helper;

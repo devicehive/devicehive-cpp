@@ -1659,6 +1659,7 @@ private:
         bluepy::PeripheralPtr helper = bluepy::Peripheral::create(m_ios, m_helperPath, device);
         helper->callWhenTerminated(boost::bind(&This::onHelperTerminated, shared_from_this(), _1, helper));
         helper->callOnNewNotification(boost::bind(&This::onHelperNotification, shared_from_this(), _1, _2, helper));
+        helper->setIdleTimeout(60*1000);
         m_helpers[device] = helper;
         return helper;
     }
