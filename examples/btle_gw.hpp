@@ -174,10 +174,12 @@ public:
         hci_filter scan_filter_old;
         bool scan_filter_old_valid;
 
+        typedef boost::function2<void,String,String> ScanCallback;
+
         /**
          * @brief Start scan operation.
          */
-        void scanStart(const json::Value &opts)
+        void scanStart(const json::Value &opts, ScanCallback cb)
         {
             uint8_t own_type = LE_PUBLIC_ADDRESS;
             uint8_t scan_type = 0x01;
@@ -296,6 +298,7 @@ public:
             if (err < 0) throw std::runtime_error("failed to set filter option");
 
             m_scan_devices.clear(); // new search...
+            m_scan_cb = cb;
         }
 
 
@@ -316,6 +319,8 @@ public:
                 int err = hci_le_set_scan_enable(m_dd, 0x00, scan_filter_dup, 10000);
                 if (err < 0) throw std::runtime_error("failed to disable scan");
             }
+
+            m_scan_cb = ScanCallback();
         }
 
     public:
@@ -360,6 +365,7 @@ public:
     private:
         bool m_scan_active;
         bool m_read_active;
+        ScanCallback m_scan_cb;
         boost::asio::streambuf m_read_buf;
         std::map<String, String> m_scan_devices;
 
@@ -394,6 +400,9 @@ public:
                             m_scan_devices[addr] = name;
                         else if (m_scan_devices.find(addr) == m_scan_devices.end())
                             m_scan_devices[addr] = "(unknown)"; // save as unknown if not exists
+
+                        if (!name.empty() && m_scan_cb)
+                            m_ios.post(boost::bind(m_scan_cb, String(addr), name));
                     }
                 }
 
@@ -923,7 +932,8 @@ private:
                 m_pendingScanCmdTimeout->cancel();
             onScanCommandTimeout();
 
-            m_bluetooth->scanStart(command->params);
+            m_bluetooth->scanStart(command->params,
+                    boost::bind(&This::onScanFound, shared_from_this(), _1, _2)); // send notification on new device found
             m_bluetooth->asyncReadSome();
 
             const int def_timeout = boost::iequals(command->name, "scan") ? 20 : 0;
@@ -1487,6 +1497,21 @@ private:
                 m_pendingNotifications[i]);
         }
         m_pendingNotifications.clear();
+    }
+
+
+    /// @brief New device found.
+    void onScanFound(const String &MAC, const String &name)
+    {
+        HIVELOG_INFO(m_log, "found " << MAC << " - " << name);
+        if (m_device && m_service)
+        {
+            json::Value params;
+            params[MAC] = name;
+
+            m_service->asyncInsertNotification(m_device,
+                devicehive::Notification::create("xgatt/scan", params));
+        }
     }
 
 
