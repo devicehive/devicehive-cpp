@@ -744,7 +744,6 @@ public:
     void stop()
     {
         stopHelper();
-        m_terminated_cb = TerminatedCallback();
     }
 
 
@@ -1036,14 +1035,15 @@ private:
                         writeNextCommand();
                 }
             }
-//            else if (rsp == "stat" && data["state"].asString() == "disc")
-//            {
-//                throw std::runtime_error("device disconnected");
-//            }
+            else if (rsp == "stat" && data["state"].asString() == "disc")
+            {
+                if (m_disconnect_cb)
+                    m_ios.post(boost::bind(m_disconnect_cb, String("Disconnected")));
+            }
             else if (rsp == "err")
             {
-                throw std::runtime_error("Bluetooth error: " + data["code"].asString());
-                // TODO: process error
+                if (m_error_cb)
+                    m_ios.post(boost::bind(m_error_cb, data["code"].asString()));
             }
             else if (rsp == "ntfy")
             {
@@ -1064,14 +1064,28 @@ private:
 
 public:
     typedef boost::function2<void, UInt32, String> NotificationCallback;
+    typedef boost::function1<void, String> DisconnectCallback;
+    typedef boost::function1<void, String> ErrorCallback;
 
     void callOnNewNotification(NotificationCallback cb)
     {
         m_notification_cb = cb;
     }
 
+    void callOnUnintendedDisconnect(DisconnectCallback cb)
+    {
+        m_disconnect_cb = cb;
+    }
+
+    void callOnUnhandledError(ErrorCallback cb)
+    {
+        m_error_cb = cb;
+    }
+
 private:
     NotificationCallback m_notification_cb;
+    DisconnectCallback m_disconnect_cb;
+    ErrorCallback m_error_cb;
 
     /**
      * @brief Process notifications.

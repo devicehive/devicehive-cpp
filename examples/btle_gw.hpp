@@ -1662,6 +1662,8 @@ private:
         bluepy::PeripheralPtr helper = bluepy::Peripheral::create(m_ios, m_helperPath, device);
         helper->callWhenTerminated(boost::bind(&This::onHelperTerminated, shared_from_this(), _1, helper));
         helper->callOnNewNotification(boost::bind(&This::onHelperNotification, shared_from_this(), _1, _2, helper));
+        helper->callOnUnintendedDisconnect(boost::bind(&This::onHelperDisconnected, shared_from_this(), _1, helper));
+        helper->callOnUnhandledError(boost::bind(&This::onHelperError, shared_from_this(), _1, helper));
         helper->setIdleTimeout(60*1000);
         m_helpers[device] = helper;
         return helper;
@@ -1677,6 +1679,13 @@ private:
 
         const String &device = helper->getAddress();
         HIVELOG_INFO(m_log, device << " stopped and removed");
+
+        // unbind callbacks to release shared pointers...
+        helper->callWhenTerminated(bluepy::Peripheral::TerminatedCallback());
+        helper->callOnNewNotification(bluepy::Peripheral::NotificationCallback());
+        helper->callOnUnintendedDisconnect(bluepy::Peripheral::DisconnectCallback());
+        helper->callOnUnhandledError(bluepy::Peripheral::ErrorCallback());
+        helper->setIdleTimeout(0);
 
         // release helpers
         m_helpers.erase(device);
@@ -1710,6 +1719,47 @@ private:
             m_service->asyncInsertNotification(m_device,
                 devicehive::Notification::create("xgatt/value", params));
         }
+    }
+
+
+    /**
+     * @brief Stop helper on disconnection.
+     */
+    void onHelperDisconnected(const String &status, bluepy::PeripheralPtr helper)
+    {
+        HIVE_UNUSED(status);
+
+        if (m_device && m_service)
+        {
+            json::Value params;
+            params["device"] = helper->getAddress();
+
+            m_service->asyncInsertNotification(m_device,
+                devicehive::Notification::create("xgatt/diconnected", params));
+        }
+
+        HIVELOG_WARN(m_log, "BTLE device is diconnected, stopping...");
+        helper->stop();
+    }
+
+
+    /**
+     * @brief Stop helper on error.
+     */
+    void onHelperError(const String &status, bluepy::PeripheralPtr helper)
+    {
+        if (m_device && m_service)
+        {
+            json::Value params;
+            params["device"] = helper->getAddress();
+            params["error"] = status;
+
+            m_service->asyncInsertNotification(m_device,
+                devicehive::Notification::create("xgatt/error", params));
+        }
+
+        HIVELOG_WARN(m_log, "BTLE device error: \"" << status << "\", stopping...");
+        helper->stop();
     }
 
 
