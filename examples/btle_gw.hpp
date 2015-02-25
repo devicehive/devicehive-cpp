@@ -944,6 +944,7 @@ private:
                     boost::bind(&This::onScanCommandTimeout, shared_from_this()));
             }
 
+            m_scanReportedDevices.clear();
             m_pendingScanCmd = command;
             return false; // pended
         }
@@ -1504,13 +1505,15 @@ private:
     void onScanFound(const String &MAC, const String &name)
     {
         HIVELOG_INFO(m_log, "found " << MAC << " - " << name);
-        if (m_device && m_service)
+        bool reported = m_scanReportedDevices.find(MAC) != m_scanReportedDevices.end();
+        if (m_device && m_service && !reported)
         {
             json::Value params;
             params[MAC] = name;
 
             m_service->asyncInsertNotification(m_device,
                 devicehive::Notification::create("xgatt/scan", params));
+            m_scanReportedDevices.insert(MAC); // mark as reported
         }
     }
 
@@ -1940,6 +1943,7 @@ private:
 
     devicehive::CommandPtr m_pendingScanCmd;
     basic_app::DelayedTask::SharedPtr m_pendingScanCmdTimeout;
+    std::set<String> m_scanReportedDevices; // set of devices already reported
 
 private:
     devicehive::IDeviceServicePtr m_service; ///< @brief The cloud service.
