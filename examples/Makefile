@@ -36,7 +36,7 @@ endif
 #base_path:=$(shell dirname "${home_path}")
 home_path:=.
 include_dirs:=-I${home_path}/../include -I${home_path}/../externals/include
-ex_libs:=${home_path}/../externals/lib.${platform}
+#ex_libs:=${home_path}/../externals/lib.${platform}
 
 defines+=-DBOOST_SYSTEM_NO_DEPRECATED
 # disable SSL for tests
@@ -53,22 +53,21 @@ endif
 
 CXXFLAGS+=-Wall ${include_dirs} ${defines}
 CXXFLAGS+=-fdata-sections -ffunction-sections
-LDFLAGS+=-Wl,--gc-sections -pthread -L${ex_libs}
-#LIBS+=-lboost_system
+LDFLAGS+=-Wl,--gc-sections -pthread -lboost_system
 
 examples: simple_dev simple_gw zigbee_gw
 
 simple_dev: ${home_path}/simple_dev.cpp
-	${CROSS_COMPILE}${CXX} -o simple_dev ${home_path}/simple_dev.cpp ${CXXFLAGS} ${LDFLAGS} \
-		${ex_libs}/libboost_system.a
+	${CROSS_COMPILE}${CXX} -o simple_dev ${home_path}/simple_dev.cpp ${CXXFLAGS} ${LDFLAGS}
+#		${ex_libs}/libboost_system.a
 
 simple_gw: ${home_path}/simple_gw.cpp
-	${CROSS_COMPILE}${CXX} -o simple_gw ${home_path}/simple_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
-		${ex_libs}/libboost_system.a
+	${CROSS_COMPILE}${CXX} -o simple_gw ${home_path}/simple_gw.cpp ${CXXFLAGS} ${LDFLAGS}
+#		${ex_libs}/libboost_system.a
 
 zigbee_gw: ${home_path}/zigbee_gw.cpp
-	${CROSS_COMPILE}${CXX} -o zigbee_gw ${home_path}/zigbee_gw.cpp ${CXXFLAGS} ${LDFLAGS} \
-		${ex_libs}/libboost_system.a
+	${CROSS_COMPILE}${CXX} -o zigbee_gw ${home_path}/zigbee_gw.cpp ${CXXFLAGS} ${LDFLAGS}
+#		${ex_libs}/libboost_system.a
 
 #########################################################
 # clean all the object files and applications

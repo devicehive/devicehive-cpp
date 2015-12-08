@@ -23,6 +23,34 @@ that allows to interface with devices connected to it. Leave communications
 to [DeviceHive] and focus on actual product and innovation.
 
 
+Building
+------------------
+
+### Obtaining source code
+
+```
+git clone https://github.com/devicehive/devicehive-cpp.git
+```
+
+
+### Pre-requisites
+First of all you need to install required libraries and tools to build device hive cpp library.
+Depending on your preferences you need to install c++ compiler toolset.
+
+Ubuntu:
+```
+sudo apt-get install libboost-all-dev make
+```
+
+Archlinux:
+```
+sudo pacman -S boost make
+```
+
+
+Now you are ready to go to examples directory and issue make command.
+This would build all the required library source codes and create example binary files.
+
 DeviceHive license
 ------------------
 
