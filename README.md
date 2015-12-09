@@ -5,7 +5,7 @@ DeviceHive C++ framework
 [DataArt]: http://dataart.com "DataArt"
 
 This is C++ framework for [DeviceHive].
-For more information please see corresponding documentation.
+For more information please see [full documentation](http://devicehive.github.io/devicehive-cpp).
 
 
 About DeviceHive
