@@ -3,9 +3,10 @@ DeviceHive C++ framework
 
 [DeviceHive]: http://devicehive.com "DeviceHive framework"
 [DataArt]: http://dataart.com "DataArt"
+[boost]: http://www.boost.org "Boost"
 
-This is C++ framework for [DeviceHive].
-For more information please see corresponding documentation.
+This is C++ framework for [DeviceHive]. The library is header-only but require [boost].
+For more information please see corresponding [Get Started](http://devicehive.github.io/devicehive-cpp/page_start.html) page.
 
 
 About DeviceHive
@@ -22,34 +23,6 @@ libraries. For solutions involving gateways, there is also gateway middleware
 that allows to interface with devices connected to it. Leave communications
 to [DeviceHive] and focus on actual product and innovation.
 
-
-Building
-------------------
-
-### Obtaining source code
-
-```
-git clone https://github.com/devicehive/devicehive-cpp.git
-```
-
-
-### Pre-requisites
-First of all you need to install required libraries and tools to build device hive cpp library.
-Depending on your preferences you need to install c++ compiler toolset.
-
-Ubuntu:
-```
-sudo apt-get install libboost-all-dev make
-```
-
-Archlinux:
-```
-sudo pacman -S boost make
-```
-
-
-Now you are ready to go to examples directory and issue make command.
-This would build all the required library source codes and create example binary files.
 
 DeviceHive license
 ------------------
