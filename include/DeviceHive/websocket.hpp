@@ -129,7 +129,7 @@ public:
         // TODO: cancel only related requests
         m_http->cancelAll();
 
-        close();
+        close(true); // force to close
     }
 
 public:
@@ -193,6 +193,7 @@ private:
     void onConnected(ErrorCode err, ws13::WebSocket::SharedPtr ws, ConnectedCallback callback)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onConnect()");
+        HIVE_UNUSED(ws);
 
         if (!err)
         {
@@ -252,6 +253,7 @@ private:
     void onMessageSent(ErrorCode err, ws13::MessagePtr msg, json::Value const& jaction, ActionSentCallback callback)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onActionSent()");
+        HIVE_UNUSED(msg);
 
         if (callback)
             callback(err, jaction);
@@ -323,6 +325,7 @@ private:
     void onFrameReceived(ErrorCode err, ws13::FramePtr frame)
     {
         HIVELOG_TRACE_BLOCK(m_log, "onFrameReceived()");
+        HIVE_UNUSED(frame);
 
         if (!err)
         {

@@ -1265,6 +1265,20 @@ public:
     }
 
 
+    /// @brief Remove **ARRAY** element by index.
+    /**
+    @param[in] index The zero-based element index.
+    */
+    void remove(size_t index)
+    {
+        assert(isArray() && "not an array");
+        assert(index < m_arr.size()
+            && "index out of range");
+
+        m_arr.erase(m_arr.begin() + index);
+    }
+
+
     /// @brief The **ARRAY** elements iterator type.
     /**
     This type is used to iterate all elements in **ARRAY**.
@@ -1377,7 +1391,7 @@ public:
     @param[in] name The member name.
     @return `true` if member with such name exists.
     */
-    bool hasMemeber(String const& name) const
+    bool hasMember(String const& name) const
     {
         assert((isNull() || isObject()) && "not an object");
         Object::const_iterator m = findMember(name);
@@ -1436,7 +1450,7 @@ private:
 
     /// @brief Find **OBJECT** member by name.
     /**
-    @param[in] name The memeber name.
+    @param[in] name The member name.
     @return The member iterator.
     */
     Object::const_iterator findMember(String const& name) const
@@ -1454,7 +1468,7 @@ private:
 
     /// @brief Find **OBJECT** member by name.
     /**
-    @param[in] name The memeber name.
+    @param[in] name The member name.
     @return The member iterator.
     */
     Object::iterator findMember(String const& name)

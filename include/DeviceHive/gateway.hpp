@@ -1186,7 +1186,7 @@ public:
         }
     };
 
-private:
+protected:
     LayoutManager m_layouts; ///< @brief The registered intents and its layouts.
     std::map<String, int> m_commands; ///< @brief The registered commands.
     std::map<int, String> m_notifications; ///< @brief The registered notifications.
