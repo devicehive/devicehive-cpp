@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.9.1"/>
-<title>DeviceHive C++ Framework: DeviceHive C++ Framework</title>
+<title>DeviceHive C++ Framework: Common definitions</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -72,7 +72,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('page_hive_defs.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -91,31 +91,35 @@ $(document).ready(function(){initNavTree('index.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">DeviceHive C++ Framework </div>  </div>
+<div class="title">Common definitions </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>This is C++ framework for DeviceHive. Go to <a class="el" href="page_start.html">Getting started</a> page to get know how to use DeviceHive.</p>
-<h2>Overview </h2>
-<p>DeviceHive provides a C++ library for various devices, including embedded.</p>
-<p>It is cross-platform and may be used on Windows, MAC OS X and Linux. Moreover, using corresponding cross compiler it is possible to use DeviceHive C++ library on various CPU architectures: x86, ARM, MIPS...</p>
-<p>DeviceHive C++ library provides implementation of DeviceHive RESTful interface and binary protocol. Additionally it includes a lot of <a class="el" href="page_hive.html">Basic tools</a> (for example HTTP client or JSON parser) which may be used in any C++ project.</p>
-<p>DeviceHive C++ library is header-only and very easy to use. In most cases you just have to include corresponding header file.</p>
-<p>DeviceHive C++ library widely uses some best-of-the-art boost libraries: asio, bind etc.</p>
-<h2>Directory structure </h2>
-<p>DeviceHive C++ framework contains the following directories:</p><ul>
-<li><code>docs</code> - documentation, images and <a href="http://doxygen.org">doxygen</a> configuration</li>
-<li><code>examples</code> - various examples such as simple device or simple gateway</li>
-<li><code>include</code> - header files:<ul>
-<li><code>DeviceHive</code> - DeviceHive framework itself</li>
-<li><code>hive</code> - various basic C++ tools such as JSON parser or HTTP client</li>
+<div class="textblock"><h2>The fixed-size integers </h2>
+<p>The fixed-size integer is very useful for binary protocols. See also <a class="el" href="page_hive_swab.html">Byte order tools</a> page for various byte ordering functions.</p>
+<p>The following typedefs are avaialble for signed integers:</p><ul>
+<li><a class="el" href="namespacehive.html#a69019565b7bfeaa00c3c60f0e3713967" title="The 8-bits signed integer. ">hive::Int8</a></li>
+<li><a class="el" href="namespacehive.html#ab3de47b83f090d0296a6d0ac3176ca4c" title="The 16-bits signed integer. ">hive::Int16</a></li>
+<li><a class="el" href="namespacehive.html#a8a270393d1e65033e3390657d2f87816" title="The 32-bits signed integer. ">hive::Int32</a></li>
+<li><a class="el" href="namespacehive.html#abe43b15a17655f92891c34b6d11fca84" title="The 64-bits signed integer. ">hive::Int64</a></li>
 </ul>
-</li>
-<li><code>src</code> - source files (empty for now since framework is header-only)</li>
-<li><code>test</code> - various unit tests</li>
-<li><code>tools</code> - various tools and utilities</li>
+<p>The following typedefs are available for unsigned integers:</p><ul>
+<li><a class="el" href="namespacehive.html#a2a46a824202d85556d055cb7bb89dd93" title="The 8-bits unsigned integer. ">hive::UInt8</a></li>
+<li><a class="el" href="namespacehive.html#a76a5c97c13a602de7a11ea6c20fe74df" title="The 16-bits unsigned integer. ">hive::UInt16</a></li>
+<li><a class="el" href="namespacehive.html#aadd7914d7d855810cbbf4bd2c17eabe9" title="The 32-bits unsigned integer. ">hive::UInt32</a></li>
+<li><a class="el" href="namespacehive.html#a7aea79fe991dbeaf9527670a1b44d7f9" title="The 64-bits unsigned integer. ">hive::UInt64</a></li>
 </ul>
-<h2>Examples </h2>
-<p>There are several examples of using DeviceHive C++ Framework. All examples can be found on the <a class="el" href="page_examples.html">Example Pages</a> page. Please take a look at <a class="el" href="page_simple_dev.html">Simple device example</a> first. </p>
+<h2>String and streams </h2>
+<p>The main purpose of these typedes is possibility to use UNICODE strings and streams in the future.</p>
+<p>The <a class="el" href="namespacehive.html#afbeda3fd1bdc8c37d01bdf9f5c8274ff" title="The string. ">hive::String</a> is used as container for string data.</p>
+<p>Also the following stream typedefs are available:</p><ul>
+<li><a class="el" href="namespacehive.html#a404e79e210a38d985b3bfdab1e496280" title="The output string stream. ">hive::OStringStream</a></li>
+<li><a class="el" href="namespacehive.html#ac3dfa09fe7fa389ed534dd72abe3a195" title="The input string stream. ">hive::IStringStream</a></li>
+<li><a class="el" href="namespacehive.html#a3b00b4d9ec9db1584a445acde990ced6" title="The input/output string stream. ">hive::StringStream</a></li>
+<li><a class="el" href="namespacehive.html#a4fcce0eedf9be71754b55a7e7a6d7f50" title="The basic output stream. ">hive::OStream</a></li>
+<li><a class="el" href="namespacehive.html#a3ae955d826788591b03995dc737012c7" title="The basic input stream. ">hive::IStream</a></li>
+</ul>
+<h2>Other typedefs </h2>
+<p>The <a class="el" href="namespacehive.html#abc9c619bcf16c5d1308f9255a9e10a4d" title="The non-copyable interface. ">hive::NonCopyable</a> interface is used as "not permitted to copy" indicator. </p>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

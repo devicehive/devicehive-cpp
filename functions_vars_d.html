@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.9.1"/>
-<title>DeviceHive C++ Framework: DeviceHive C++ Framework</title>
+<title>DeviceHive C++ Framework: Data Fields - Variables</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -72,7 +72,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('functions_vars_d.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -89,34 +89,54 @@ $(document).ready(function(){initNavTree('index.html','');});
 </iframe>
 </div>
 
-<div class="header">
-  <div class="headertitle">
-<div class="title">DeviceHive C++ Framework </div>  </div>
-</div><!--header-->
 <div class="contents">
-<div class="textblock"><p>This is C++ framework for DeviceHive. Go to <a class="el" href="page_start.html">Getting started</a> page to get know how to use DeviceHive.</p>
-<h2>Overview </h2>
-<p>DeviceHive provides a C++ library for various devices, including embedded.</p>
-<p>It is cross-platform and may be used on Windows, MAC OS X and Linux. Moreover, using corresponding cross compiler it is possible to use DeviceHive C++ library on various CPU architectures: x86, ARM, MIPS...</p>
-<p>DeviceHive C++ library provides implementation of DeviceHive RESTful interface and binary protocol. Additionally it includes a lot of <a class="el" href="page_hive.html">Basic tools</a> (for example HTTP client or JSON parser) which may be used in any C++ project.</p>
-<p>DeviceHive C++ library is header-only and very easy to use. In most cases you just have to include corresponding header file.</p>
-<p>DeviceHive C++ library widely uses some best-of-the-art boost libraries: asio, bind etc.</p>
-<h2>Directory structure </h2>
-<p>DeviceHive C++ framework contains the following directories:</p><ul>
-<li><code>docs</code> - documentation, images and <a href="http://doxygen.org">doxygen</a> configuration</li>
-<li><code>examples</code> - various examples such as simple device or simple gateway</li>
-<li><code>include</code> - header files:<ul>
-<li><code>DeviceHive</code> - DeviceHive framework itself</li>
-<li><code>hive</code> - various basic C++ tools such as JSON parser or HTTP client</li>
-</ul>
+&#160;
+
+<h3><a class="anchor" id="index_d"></a>- d -</h3><ul>
+<li>data
+: <a class="el" href="classdevicehive_1_1_device_1_1_class.html#af0bdeeef572012523868c17bb25964f5">Device::Class</a>
+, <a class="el" href="classdevicehive_1_1_device.html#af0bdeeef572012523868c17bb25964f5">Device</a>
+, <a class="el" href="classdevicehive_1_1_equipment.html#af0bdeeef572012523868c17bb25964f5">Equipment</a>
+, <a class="el" href="classhive_1_1ws13_1_1_frame_1_1_binary.html#a947698b1376896c69da045aff38076d1">Frame::Binary</a>
+, <a class="el" href="classhive_1_1ws13_1_1_frame_1_1_continue.html#a947698b1376896c69da045aff38076d1">Frame::Continue</a>
+, <a class="el" href="classhive_1_1ws13_1_1_frame_1_1_ping.html#a947698b1376896c69da045aff38076d1">Frame::Ping</a>
+, <a class="el" href="classhive_1_1ws13_1_1_frame_1_1_pong.html#a947698b1376896c69da045aff38076d1">Frame::Pong</a>
+, <a class="el" href="classxbee_1_1_frame_1_1_z_b_receive_packet.html#a1393b21435bd418d78d2fb07973af726">Frame::ZBReceivePacket</a>
+, <a class="el" href="classxbee_1_1_frame_1_1_z_b_transmit_request.html#a1393b21435bd418d78d2fb07973af726">Frame::ZBTransmitRequest</a>
 </li>
-<li><code>src</code> - source files (empty for now since framework is header-only)</li>
-<li><code>test</code> - various unit tests</li>
-<li><code>tools</code> - various tools and utilities</li>
+<li>dataType
+: <a class="el" href="classgateway_1_1_layout_1_1_element.html#a40b562eabddbadcbdc2efe2eb450224c">Layout::Element</a>
+</li>
+<li>delayedNotifications
+: <a class="el" href="classexamples_1_1zigbee__gw_1_1_application_1_1_z_device.html#a0a48b3b3361257b0ac8b6d7fed2bfd39">Application::ZDevice</a>
+</li>
+<li>deliveryStatus
+: <a class="el" href="classxbee_1_1_frame_1_1_z_b_transmit_status.html#a8baf9c990d7e12fe7a0ca6ff7de71a6b">Frame::ZBTransmitStatus</a>
+</li>
+<li>desc
+: <a class="el" href="classdevicehive_1_1_network.html#a43279d2c3c0bbefdd95a37ac11d52cd4">Network</a>
+</li>
+<li>device
+: <a class="el" href="classexamples_1_1zigbee__gw_1_1_application_1_1_z_device.html#a8d3eac2b5f761a2f9e1c7c9fb1adf6c0">Application::ZDevice</a>
+</li>
+<li>deviceClass
+: <a class="el" href="classdevicehive_1_1_device.html#a6f5e643f905add222bba505673d659fc">Device</a>
+</li>
+<li>deviceRegistered
+: <a class="el" href="classexamples_1_1zigbee__gw_1_1_application_1_1_z_device.html#a0748f4a19af22934b3f61f01a90277b5">Application::ZDevice</a>
+</li>
+<li>discoveryStatus
+: <a class="el" href="classxbee_1_1_frame_1_1_z_b_transmit_status.html#a59dc28a4e830dfe9407bb0835b88f9b7">Frame::ZBTransmitStatus</a>
+</li>
+<li>dstAddr16
+: <a class="el" href="classxbee_1_1_frame_1_1_z_b_transmit_request.html#a28306187433277a98bdc500eecc2e399">Frame::ZBTransmitRequest</a>
+, <a class="el" href="classxbee_1_1_frame_1_1_z_b_transmit_status.html#a28306187433277a98bdc500eecc2e399">Frame::ZBTransmitStatus</a>
+</li>
+<li>dstAddr64
+: <a class="el" href="classxbee_1_1_frame_1_1_z_b_transmit_request.html#a0d1a24f1392ed48944c34ec88e322246">Frame::ZBTransmitRequest</a>
+</li>
 </ul>
-<h2>Examples </h2>
-<p>There are several examples of using DeviceHive C++ Framework. All examples can be found on the <a class="el" href="page_examples.html">Example Pages</a> page. Please take a look at <a class="el" href="page_simple_dev.html">Simple device example</a> first. </p>
-</div></div><!-- contents -->
+</div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->

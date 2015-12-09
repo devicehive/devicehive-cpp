@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.9.1"/>
-<title>DeviceHive C++ Framework: DeviceHive C++ Framework</title>
+<title>DeviceHive C++ Framework: Data Fields</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -72,7 +72,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('functions_h.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -89,34 +89,69 @@ $(document).ready(function(){initNavTree('index.html','');});
 </iframe>
 </div>
 
-<div class="header">
-  <div class="headertitle">
-<div class="title">DeviceHive C++ Framework </div>  </div>
-</div><!--header-->
 <div class="contents">
-<div class="textblock"><p>This is C++ framework for DeviceHive. Go to <a class="el" href="page_start.html">Getting started</a> page to get know how to use DeviceHive.</p>
-<h2>Overview </h2>
-<p>DeviceHive provides a C++ library for various devices, including embedded.</p>
-<p>It is cross-platform and may be used on Windows, MAC OS X and Linux. Moreover, using corresponding cross compiler it is possible to use DeviceHive C++ library on various CPU architectures: x86, ARM, MIPS...</p>
-<p>DeviceHive C++ library provides implementation of DeviceHive RESTful interface and binary protocol. Additionally it includes a lot of <a class="el" href="page_hive.html">Basic tools</a> (for example HTTP client or JSON parser) which may be used in any C++ project.</p>
-<p>DeviceHive C++ library is header-only and very easy to use. In most cases you just have to include corresponding header file.</p>
-<p>DeviceHive C++ library widely uses some best-of-the-art boost libraries: asio, bind etc.</p>
-<h2>Directory structure </h2>
-<p>DeviceHive C++ framework contains the following directories:</p><ul>
-<li><code>docs</code> - documentation, images and <a href="http://doxygen.org">doxygen</a> configuration</li>
-<li><code>examples</code> - various examples such as simple device or simple gateway</li>
-<li><code>include</code> - header files:<ul>
-<li><code>DeviceHive</code> - DeviceHive framework itself</li>
-<li><code>hive</code> - various basic C++ tools such as JSON parser or HTTP client</li>
-</ul>
+<div class="textblock">Here is a list of all struct and union fields with links to the structures/unions they belong to:</div>
+
+<h3><a class="anchor" id="index_h"></a>- h -</h3><ul>
+<li>h2e()
+: <a class="el" href="classhive_1_1misc_1_1_endian_t_3_011234_01_4.html#ae2f1e69085668922547e38d3e4ed4275">EndianT&lt; 1234 &gt;</a>
+, <a class="el" href="classhive_1_1misc_1_1_endian_t_3_014321_01_4.html#ab236cdb04eb5a860d25f017fc5a023c4">EndianT&lt; 4321 &gt;</a>
 </li>
-<li><code>src</code> - source files (empty for now since framework is header-only)</li>
-<li><code>test</code> - various unit tests</li>
-<li><code>tools</code> - various tools and utilities</li>
+<li>handleError()
+: <a class="el" href="classexamples_1_1simple__dev_1_1_application.html#a4b6ae67c37d94f0ce2c46e0b2b67321f">Application</a>
+</li>
+<li>handleGatewayMessage()
+: <a class="el" href="classexamples_1_1simple__gw_1_1_application.html#af0cc4ee2ba3ab5ed96c444f8fe0eef34">Application</a>
+</li>
+<li>handleRecvXBeeFrame()
+: <a class="el" href="classexamples_1_1zigbee__gw_1_1_application.html#af32ea86d83e5afa90f30e441ca10b521">Application</a>
+</li>
+<li>handleRegister2Response()
+: <a class="el" href="classgateway_1_1_engine.html#afe184eb98b9fd378072019a631444c0a">Engine</a>
+</li>
+<li>handleRegisterResponse()
+: <a class="el" href="classgateway_1_1_engine.html#aaf0e80b4eb12775c1fe5fd0bb075d3d9">Engine</a>
+</li>
+<li>handleServiceError()
+: <a class="el" href="classexamples_1_1simple__gw_1_1_application.html#a150a3be1f82fc0a4ffff90da1bef10d4">Application</a>
+</li>
+<li>HandshakeCallback
+: <a class="el" href="classhive_1_1http_1_1_connection.html#a3212037fad4bf75b399d994e1e65d335">Connection</a>
+</li>
+<li>hasHeader()
+: <a class="el" href="classhive_1_1http_1_1_message.html#a1cb15bbcc6479c60a3403c4dea445399">Message</a>
+</li>
+<li>hasMemeber()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a6e61476d62559448f2b2ced4fdfb36a9">Value</a>
+</li>
+<li>haveToSend()
+: <a class="el" href="classexamples_1_1simple__dev_1_1_temp_sensor.html#a3e19aad4ba1a91679f92c0b99323ef1b">TempSensor</a>
+</li>
+<li>HEADER_LEN
+: <a class="el" href="classgateway_1_1_frame.html#af49c5760dba09e8a245f0a051a5211e5a989beebfa1cf92994e8efc29aee72c24">Frame</a>
+, <a class="el" href="classhive_1_1bin_1_1_simple_frame.html#af49c5760dba09e8a245f0a051a5211e5a989beebfa1cf92994e8efc29aee72c24">SimpleFrame</a>
+, <a class="el" href="classxbee_1_1_frame.html#a96dbe3fdaf54a5653f1986d2fe2cb3dca989beebfa1cf92994e8efc29aee72c24">Frame</a>
+</li>
+<li>HeaderIterator
+: <a class="el" href="classhive_1_1http_1_1_message.html#a6c083858604eeb0b1cb503e41b3222f0">Message</a>
+</li>
+<li>HeaderMap
+: <a class="el" href="classhive_1_1http_1_1_message.html#ae09b2a17732148e387aec35d24e3d87a">Message</a>
+</li>
+<li>headersBegin()
+: <a class="el" href="classhive_1_1http_1_1_message.html#a8bc8e29a5be40a45793253e714e65988">Message</a>
+</li>
+<li>headersEnd()
+: <a class="el" href="classhive_1_1http_1_1_message.html#a1b20528a2cadd67bdb29fb1bc050c6a1">Message</a>
+</li>
+<li>hexdump()
+: <a class="el" href="classhive_1_1bin_1_1_transceiver.html#a1cc61afb2f8546bba36a1e3d595eaae7">Transceiver&lt; StreamT, FrameT &gt;</a>
+</li>
+<li>HOST
+: <a class="el" href="classhive_1_1http_1_1_url.html#a2d82fae3d669f96693bbd9dc22ea6abda1e8b0083abfe3fb8f02bcb3a1c26a766">Url</a>
+</li>
 </ul>
-<h2>Examples </h2>
-<p>There are several examples of using DeviceHive C++ Framework. All examples can be found on the <a class="el" href="page_examples.html">Example Pages</a> page. Please take a look at <a class="el" href="page_simple_dev.html">Simple device example</a> first. </p>
-</div></div><!-- contents -->
+</div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->

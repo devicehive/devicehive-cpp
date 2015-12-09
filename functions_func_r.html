@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.9.1"/>
-<title>DeviceHive C++ Framework: DeviceHive C++ Framework</title>
+<title>DeviceHive C++ Framework: Data Fields - Functions</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -72,7 +72,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('functions_func_r.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -89,34 +89,65 @@ $(document).ready(function(){initNavTree('index.html','');});
 </iframe>
 </div>
 
-<div class="header">
-  <div class="headertitle">
-<div class="title">DeviceHive C++ Framework </div>  </div>
-</div><!--header-->
 <div class="contents">
-<div class="textblock"><p>This is C++ framework for DeviceHive. Go to <a class="el" href="page_start.html">Getting started</a> page to get know how to use DeviceHive.</p>
-<h2>Overview </h2>
-<p>DeviceHive provides a C++ library for various devices, including embedded.</p>
-<p>It is cross-platform and may be used on Windows, MAC OS X and Linux. Moreover, using corresponding cross compiler it is possible to use DeviceHive C++ library on various CPU architectures: x86, ARM, MIPS...</p>
-<p>DeviceHive C++ library provides implementation of DeviceHive RESTful interface and binary protocol. Additionally it includes a lot of <a class="el" href="page_hive.html">Basic tools</a> (for example HTTP client or JSON parser) which may be used in any C++ project.</p>
-<p>DeviceHive C++ library is header-only and very easy to use. In most cases you just have to include corresponding header file.</p>
-<p>DeviceHive C++ library widely uses some best-of-the-art boost libraries: asio, bind etc.</p>
-<h2>Directory structure </h2>
-<p>DeviceHive C++ framework contains the following directories:</p><ul>
-<li><code>docs</code> - documentation, images and <a href="http://doxygen.org">doxygen</a> configuration</li>
-<li><code>examples</code> - various examples such as simple device or simple gateway</li>
-<li><code>include</code> - header files:<ul>
-<li><code>DeviceHive</code> - DeviceHive framework itself</li>
-<li><code>hive</code> - various basic C++ tools such as JSON parser or HTTP client</li>
-</ul>
+&#160;
+
+<h3><a class="anchor" id="index_r"></a>- r -</h3><ul>
+<li>recv()
+: <a class="el" href="classhive_1_1bin_1_1_transceiver.html#a4761e56c25e52f9a6e64866975a4be71">Transceiver&lt; StreamT, FrameT &gt;</a>
 </li>
-<li><code>src</code> - source files (empty for now since framework is header-only)</li>
-<li><code>test</code> - various unit tests</li>
-<li><code>tools</code> - various tools and utilities</li>
+<li>registerIntent()
+: <a class="el" href="classgateway_1_1_layout_manager.html#a699c0626f82d9dfb807930dba42b3cf4">LayoutManager</a>
+</li>
+<li>registerSystemIntent()
+: <a class="el" href="classgateway_1_1_layout_manager.html#a90b321bd071f432811a26092eb2d1aa4">LayoutManager</a>
+</li>
+<li>remote_endpoint()
+: <a class="el" href="classhive_1_1http_1_1_connection.html#aecce2d79719620ab06c3ca384a7001ad">Connection</a>
+, <a class="el" href="classhive_1_1http_1_1_connection_1_1_secure.html#aaf717b5756fcebe0a200fc76f6915012">Connection::Secure</a>
+, <a class="el" href="classhive_1_1http_1_1_connection_1_1_simple.html#aaf717b5756fcebe0a200fc76f6915012">Connection::Simple</a>
+</li>
+<li>remove()
+: <a class="el" href="classhive_1_1http_1_1_client_1_1_name_cache.html#aa86dc27d19153afbdaf9bdb5ad769f7e">Client::NameCache</a>
+</li>
+<li>removeHeader()
+: <a class="el" href="classhive_1_1http_1_1_message.html#aeb550675dcfc8c7bf211920230a5d224">Message</a>
+</li>
+<li>removeMember()
+: <a class="el" href="classhive_1_1json_1_1_value.html#ac7b8509113691a132254d3654a2bdc85">Value</a>
+</li>
+<li>Request()
+: <a class="el" href="classhive_1_1http_1_1_request.html#a68333663f95e7d8d6a5d31c64a3355a5">Request</a>
+</li>
+<li>resetAllLedControls()
+: <a class="el" href="classexamples_1_1simple__dev_1_1_application.html#a801636c0f5b6e62d4ecbc00aebe386bc">Application</a>
+</li>
+<li>resetSerial()
+: <a class="el" href="classexamples_1_1zigbee__gw_1_1_application.html#a02764a2e9c3e613f8b059bad2dab56d0">Application</a>
+</li>
+<li>resetStreamDevice()
+: <a class="el" href="classexamples_1_1simple__gw_1_1_application.html#a7b934039cef42a036d897a25eb01dbdb">Application</a>
+</li>
+<li>resize()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a38b46ed5bb64b7fa849fbdfbdb3bb7a2">Value</a>
+</li>
+<li>Response()
+: <a class="el" href="classhive_1_1http_1_1_response.html#a336a2cc9396946b1d03ed338968c196a">Response</a>
+</li>
+<li>RestfulService()
+: <a class="el" href="classdevicehive_1_1_restful_service.html#a9ee3e2c8f39c12831abe9f40389d1e57">RestfulService</a>
+</li>
+<li>RestfulServiceBase()
+: <a class="el" href="classdevicehive_1_1_restful_service_base.html#a5ab1bd5449512bf35bb1b358a8660fb3">RestfulServiceBase</a>
+</li>
+<li>root()
+: <a class="el" href="classhive_1_1log_1_1_logger.html#aa288e1d280a97ee13840fa5b9d08f775">Logger</a>
+</li>
+<li>run()
+: <a class="el" href="classexamples_1_1basic__app_1_1_application.html#a13a43e6d814de94978c515cb084873b1">Application</a>
+</li>
 </ul>
-<h2>Examples </h2>
-<p>There are several examples of using DeviceHive C++ Framework. All examples can be found on the <a class="el" href="page_examples.html">Example Pages</a> page. Please take a look at <a class="el" href="page_simple_dev.html">Simple device example</a> first. </p>
-</div></div><!-- contents -->
+</div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->

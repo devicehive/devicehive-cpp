@@ -1,0 +1,20 @@
+var searchData=
+[
+  ['recv',['recv',['../classhive_1_1bin_1_1_transceiver.html#a4761e56c25e52f9a6e64866975a4be71',1,'hive::bin::Transceiver']]],
+  ['registerintent',['registerIntent',['../classgateway_1_1_layout_manager.html#a699c0626f82d9dfb807930dba42b3cf4',1,'gateway::LayoutManager']]],
+  ['registersystemintent',['registerSystemIntent',['../classgateway_1_1_layout_manager.html#a90b321bd071f432811a26092eb2d1aa4',1,'gateway::LayoutManager']]],
+  ['remote_5fendpoint',['remote_endpoint',['../classhive_1_1http_1_1_connection.html#aecce2d79719620ab06c3ca384a7001ad',1,'hive::http::Connection::remote_endpoint()'],['../classhive_1_1http_1_1_connection_1_1_simple.html#aaf717b5756fcebe0a200fc76f6915012',1,'hive::http::Connection::Simple::remote_endpoint()'],['../classhive_1_1http_1_1_connection_1_1_secure.html#aaf717b5756fcebe0a200fc76f6915012',1,'hive::http::Connection::Secure::remote_endpoint()']]],
+  ['remove',['remove',['../classhive_1_1http_1_1_client_1_1_name_cache.html#aa86dc27d19153afbdaf9bdb5ad769f7e',1,'hive::http::Client::NameCache']]],
+  ['removeheader',['removeHeader',['../classhive_1_1http_1_1_message.html#aeb550675dcfc8c7bf211920230a5d224',1,'hive::http::Message']]],
+  ['removemember',['removeMember',['../classhive_1_1json_1_1_value.html#ac7b8509113691a132254d3654a2bdc85',1,'hive::json::Value']]],
+  ['request',['Request',['../classhive_1_1http_1_1_request.html#a68333663f95e7d8d6a5d31c64a3355a5',1,'hive::http::Request']]],
+  ['resetallledcontrols',['resetAllLedControls',['../classexamples_1_1simple__dev_1_1_application.html#a801636c0f5b6e62d4ecbc00aebe386bc',1,'examples::simple_dev::Application']]],
+  ['resetserial',['resetSerial',['../classexamples_1_1zigbee__gw_1_1_application.html#a02764a2e9c3e613f8b059bad2dab56d0',1,'examples::zigbee_gw::Application']]],
+  ['resetstreamdevice',['resetStreamDevice',['../classexamples_1_1simple__gw_1_1_application.html#a7b934039cef42a036d897a25eb01dbdb',1,'examples::simple_gw::Application']]],
+  ['resize',['resize',['../classhive_1_1json_1_1_value.html#a38b46ed5bb64b7fa849fbdfbdb3bb7a2',1,'hive::json::Value']]],
+  ['response',['Response',['../classhive_1_1http_1_1_response.html#a336a2cc9396946b1d03ed338968c196a',1,'hive::http::Response']]],
+  ['restfulservice',['RestfulService',['../classdevicehive_1_1_restful_service.html#a9ee3e2c8f39c12831abe9f40389d1e57',1,'devicehive::RestfulService']]],
+  ['restfulservicebase',['RestfulServiceBase',['../classdevicehive_1_1_restful_service_base.html#a5ab1bd5449512bf35bb1b358a8660fb3',1,'devicehive::RestfulServiceBase']]],
+  ['root',['root',['../classhive_1_1log_1_1_logger.html#aa288e1d280a97ee13840fa5b9d08f775',1,'hive::log::Logger']]],
+  ['run',['run',['../classexamples_1_1basic__app_1_1_application.html#a13a43e6d814de94978c515cb084873b1',1,'examples::basic_app::Application']]]
+];

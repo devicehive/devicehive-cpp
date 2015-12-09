@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.9.1"/>
-<title>DeviceHive C++ Framework: DeviceHive C++ Framework</title>
+<title>DeviceHive C++ Framework: Precompiled headers</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -72,7 +72,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('page_hive_pch.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -91,31 +91,37 @@ $(document).ready(function(){initNavTree('index.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">DeviceHive C++ Framework </div>  </div>
+<div class="title">Precompiled headers </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>This is C++ framework for DeviceHive. Go to <a class="el" href="page_start.html">Getting started</a> page to get know how to use DeviceHive.</p>
-<h2>Overview </h2>
-<p>DeviceHive provides a C++ library for various devices, including embedded.</p>
-<p>It is cross-platform and may be used on Windows, MAC OS X and Linux. Moreover, using corresponding cross compiler it is possible to use DeviceHive C++ library on various CPU architectures: x86, ARM, MIPS...</p>
-<p>DeviceHive C++ library provides implementation of DeviceHive RESTful interface and binary protocol. Additionally it includes a lot of <a class="el" href="page_hive.html">Basic tools</a> (for example HTTP client or JSON parser) which may be used in any C++ project.</p>
-<p>DeviceHive C++ library is header-only and very easy to use. In most cases you just have to include corresponding header file.</p>
-<p>DeviceHive C++ library widely uses some best-of-the-art boost libraries: asio, bind etc.</p>
-<h2>Directory structure </h2>
-<p>DeviceHive C++ framework contains the following directories:</p><ul>
-<li><code>docs</code> - documentation, images and <a href="http://doxygen.org">doxygen</a> configuration</li>
-<li><code>examples</code> - various examples such as simple device or simple gateway</li>
-<li><code>include</code> - header files:<ul>
-<li><code>DeviceHive</code> - DeviceHive framework itself</li>
-<li><code>hive</code> - various basic C++ tools such as JSON parser or HTTP client</li>
-</ul>
-</li>
-<li><code>src</code> - source files (empty for now since framework is header-only)</li>
-<li><code>test</code> - various unit tests</li>
-<li><code>tools</code> - various tools and utilities</li>
-</ul>
-<h2>Examples </h2>
-<p>There are several examples of using DeviceHive C++ Framework. All examples can be found on the <a class="el" href="page_examples.html">Example Pages</a> page. Please take a look at <a class="el" href="page_simple_dev.html">Simple device example</a> first. </p>
+<div class="textblock"><p>The &lt;<a class="el" href="pch_8hpp.html" title="The precompiled header. ">hive/pch.hpp</a>&gt; file contains commonly used boost, STL and libc headers.</p>
+<p>To use this file as precompiled header you have to include it into every source file.</p>
+<p>For example the <em>MyDevice.cpp</em> file: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="pch_8hpp.html">hive/pch.hpp</a>&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &quot;MyDevice.hpp&quot;</span></div>
+<div class="line"></div>
+<div class="line"><span class="comment">// MyDevice implementation...</span></div>
+<div class="line"></div>
+<div class="line">MyDevice::MyDevice()</div>
+<div class="line">{</div>
+<div class="line">    ...</div>
+<div class="line">}</div>
+<div class="line"></div>
+<div class="line">...</div>
+</div><!-- fragment --><p>and the <em>MyDevice.hpp</em> header file: </p><div class="fragment"><div class="line"><span class="preprocessor">#if !defined(HIVE_PCH)</span></div>
+<div class="line"><span class="preprocessor">#   include &lt;string&gt;</span></div>
+<div class="line"><span class="preprocessor">#   include &lt;vector&gt;</span></div>
+<div class="line"><span class="preprocessor">#endif</span></div>
+<div class="line"></div>
+<div class="line"><span class="comment">// MyDevice</span></div>
+<div class="line"><span class="keyword">class </span>MyDevice</div>
+<div class="line">{</div>
+<div class="line"><span class="keyword">public</span>:</div>
+<div class="line">    MyDevice();</div>
+<div class="line"></div>
+<div class="line">    ...</div>
+<div class="line">};</div>
+</div><!-- fragment --><p>Anyway the header file should include all necessary headers and the <code>#if !defined(HIVE_PCH)</code> section is used when precompiled headers are disabled.</p>
+<p>There is also possible to compile header file using <code>gcc</code> compiler. It produces corresponding <code>*.gch</code> file. </p>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

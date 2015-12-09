@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.9.1"/>
-<title>DeviceHive C++ Framework: DeviceHive C++ Framework</title>
+<title>DeviceHive C++ Framework: EndianT&lt; int &gt; Class Template Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -72,7 +72,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('classhive_1_1misc_1_1_endian_t.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -91,36 +91,38 @@ $(document).ready(function(){initNavTree('index.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">DeviceHive C++ Framework </div>  </div>
+<div class="title">EndianT&lt; int &gt; Class Template Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>This is C++ framework for DeviceHive. Go to <a class="el" href="page_start.html">Getting started</a> page to get know how to use DeviceHive.</p>
-<h2>Overview </h2>
-<p>DeviceHive provides a C++ library for various devices, including embedded.</p>
-<p>It is cross-platform and may be used on Windows, MAC OS X and Linux. Moreover, using corresponding cross compiler it is possible to use DeviceHive C++ library on various CPU architectures: x86, ARM, MIPS...</p>
-<p>DeviceHive C++ library provides implementation of DeviceHive RESTful interface and binary protocol. Additionally it includes a lot of <a class="el" href="page_hive.html">Basic tools</a> (for example HTTP client or JSON parser) which may be used in any C++ project.</p>
-<p>DeviceHive C++ library is header-only and very easy to use. In most cases you just have to include corresponding header file.</p>
-<p>DeviceHive C++ library widely uses some best-of-the-art boost libraries: asio, bind etc.</p>
-<h2>Directory structure </h2>
-<p>DeviceHive C++ framework contains the following directories:</p><ul>
-<li><code>docs</code> - documentation, images and <a href="http://doxygen.org">doxygen</a> configuration</li>
-<li><code>examples</code> - various examples such as simple device or simple gateway</li>
-<li><code>include</code> - header files:<ul>
-<li><code>DeviceHive</code> - DeviceHive framework itself</li>
-<li><code>hive</code> - various basic C++ tools such as JSON parser or HTTP client</li>
+
+<p>The endian converter prototype.  
+ <a href="classhive_1_1misc_1_1_endian_t.html#details">More...</a></p>
+
+<p><code>#include &lt;<a class="el" href="swab_8hpp_source.html">swab.hpp</a>&gt;</code></p>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><h3>template&lt;int&gt;<br />
+class hive::misc::EndianT&lt; int &gt;</h3>
+
+<p>The endian converter prototype. </p>
+<p>There is no actual implementation.</p>
+<p>Use static methods e2h() and h2e() of the following template specializations:</p><ul>
+<li><a class="el" href="classhive_1_1misc_1_1_endian_t_3_011234_01_4.html" title="The little-endian converter. ">EndianT&lt;1234&gt;</a> for little-endian</li>
+<li><a class="el" href="classhive_1_1misc_1_1_endian_t_3_014321_01_4.html" title="The big-endian converter. ">EndianT&lt;4321&gt;</a> for big-endian</li>
 </ul>
-</li>
-<li><code>src</code> - source files (empty for now since framework is header-only)</li>
-<li><code>test</code> - various unit tests</li>
-<li><code>tools</code> - various tools and utilities</li>
+<dl class="section see"><dt>See also</dt><dd><a class="el" href="namespacehive_1_1misc.html#a24ac64b020d599273303df79a31c6920" title="The little-endian converter type. ">hive::misc::LittleEndian</a> </dd>
+<dd>
+<a class="el" href="namespacehive_1_1misc.html#a51d1cacb8a0c13f50fb69c53adedfb27" title="The big-endian converter type. ">hive::misc::BigEndian</a> </dd></dl>
+
+<p>Definition at line <a class="el" href="swab_8hpp_source.html#l00545">545</a> of file <a class="el" href="swab_8hpp_source.html">swab.hpp</a>.</p>
+</div><hr/>The documentation for this class was generated from the following file:<ul>
+<li><a class="el" href="swab_8hpp_source.html">swab.hpp</a></li>
 </ul>
-<h2>Examples </h2>
-<p>There are several examples of using DeviceHive C++ Framework. All examples can be found on the <a class="el" href="page_examples.html">Example Pages</a> page. Please take a look at <a class="el" href="page_simple_dev.html">Simple device example</a> first. </p>
-</div></div><!-- contents -->
+</div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
+    <li class="navelem"><a class="el" href="namespacehive.html">hive</a></li><li class="navelem"><a class="el" href="namespacehive_1_1misc.html">misc</a></li><li class="navelem"><a class="el" href="classhive_1_1misc_1_1_endian_t.html">EndianT</a></li>
     <li class="footer">Generated on Wed Dec 9 2015 04:33:23 for DeviceHive C++ Framework by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.9.1 </li>

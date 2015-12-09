@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.9.1"/>
-<title>DeviceHive C++ Framework: DeviceHive C++ Framework</title>
+<title>DeviceHive C++ Framework: Data Fields - Functions</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -72,7 +72,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('functions_func_i.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -89,34 +89,86 @@ $(document).ready(function(){initNavTree('index.html','');});
 </iframe>
 </div>
 
-<div class="header">
-  <div class="headertitle">
-<div class="title">DeviceHive C++ Framework </div>  </div>
-</div><!--header-->
 <div class="contents">
-<div class="textblock"><p>This is C++ framework for DeviceHive. Go to <a class="el" href="page_start.html">Getting started</a> page to get know how to use DeviceHive.</p>
-<h2>Overview </h2>
-<p>DeviceHive provides a C++ library for various devices, including embedded.</p>
-<p>It is cross-platform and may be used on Windows, MAC OS X and Linux. Moreover, using corresponding cross compiler it is possible to use DeviceHive C++ library on various CPU architectures: x86, ARM, MIPS...</p>
-<p>DeviceHive C++ library provides implementation of DeviceHive RESTful interface and binary protocol. Additionally it includes a lot of <a class="el" href="page_hive.html">Basic tools</a> (for example HTTP client or JSON parser) which may be used in any C++ project.</p>
-<p>DeviceHive C++ library is header-only and very easy to use. In most cases you just have to include corresponding header file.</p>
-<p>DeviceHive C++ library widely uses some best-of-the-art boost libraries: asio, bind etc.</p>
-<h2>Directory structure </h2>
-<p>DeviceHive C++ framework contains the following directories:</p><ul>
-<li><code>docs</code> - documentation, images and <a href="http://doxygen.org">doxygen</a> configuration</li>
-<li><code>examples</code> - various examples such as simple device or simple gateway</li>
-<li><code>include</code> - header files:<ul>
-<li><code>DeviceHive</code> - DeviceHive framework itself</li>
-<li><code>hive</code> - various basic C++ tools such as JSON parser or HTTP client</li>
-</ul>
+&#160;
+
+<h3><a class="anchor" id="index_i"></a>- i -</h3><ul>
+<li>Impl()
+: <a class="el" href="classhive_1_1log_1_1_logger_1_1_impl.html#a2559777e44bf5515a7d862f4d8a2b295">Logger::Impl</a>
 </li>
-<li><code>src</code> - source files (empty for now since framework is header-only)</li>
-<li><code>test</code> - various unit tests</li>
-<li><code>tools</code> - various tools and utilities</li>
+<li>init()
+: <a class="el" href="classgateway_1_1_frame.html#a00a0de40589364a1fda2e824d581584a">Frame</a>
+, <a class="el" href="classhive_1_1bin_1_1_simple_frame.html#aa8a2334d33d3788af3249d6dc5a6b0ba">SimpleFrame</a>
+, <a class="el" href="classhive_1_1ws13_1_1_frame.html#a7b0960184f2e19dc68787f6bb413b2f1">Frame</a>
+</li>
+<li>is_open()
+: <a class="el" href="classgateway_1_1_stream_device.html#ad6aba59441567497e22647c046a8e4ae">StreamDevice</a>
+, <a class="el" href="classgateway_1_1_stream_device_1_1_serial.html#ade74025b4cb24a6475b67991397f76ff">StreamDevice::Serial</a>
+, <a class="el" href="classgateway_1_1_stream_device_1_1_socket.html#ade74025b4cb24a6475b67991397f76ff">StreamDevice::Socket</a>
+</li>
+<li>is_tspecial()
+: <a class="el" href="classhive_1_1http_1_1_client.html#ae8518cab115bb4c1968914c27ab7e5c3">Client</a>
+</li>
+<li>isArray()
+: <a class="el" href="classhive_1_1json_1_1_value.html#aef40eedcc1e197c3cb158f66fb385e43">Value</a>
+</li>
+<li>isBool()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a9bf8623d40e3d9a84b341913306d2e6f">Value</a>
+</li>
+<li>isConvertibleTo()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a4d1fbeb20898dd671c15987cf6d18f0c">Value</a>
+</li>
+<li>isConvertibleToBool()
+: <a class="el" href="classhive_1_1json_1_1_value.html#ae53f0baa0f6e574911bafce01ed459ad">Value</a>
+</li>
+<li>isConvertibleToDouble()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a9bed8bb0ebcbaddfbd3886f2d3ed72c7">Value</a>
+</li>
+<li>isConvertibleToInteger()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a7432f9edd746ce6df4b297ee406607bd">Value</a>
+</li>
+<li>isConvertibleToString()
+: <a class="el" href="classhive_1_1json_1_1_value.html#ac9afaaadca7c420b81aefe6be6115c9f">Value</a>
+</li>
+<li>isDouble()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a78d8001c710dd77d1b16e80ac4298068">Value</a>
+</li>
+<li>isEnabledFor()
+: <a class="el" href="classhive_1_1log_1_1_logger.html#ac5153f462ba085ee73aee4cf1f99f11c">Logger</a>
+</li>
+<li>isInteger()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a06625615adfaf28305767ac42b1ef0a4">Value</a>
+</li>
+<li>isKeepAlive()
+: <a class="el" href="classhive_1_1http_1_1_client.html#a580e375d5fcf69d71fc639847d1622c5">Client</a>
+</li>
+<li>isNull()
+: <a class="el" href="classhive_1_1json_1_1_value.html#ac02f2a4d7312eb91f40980adfd4e31b2">Value</a>
+</li>
+<li>isObject()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a1618990b0a14bfbdfc702735b2d6ac4f">Value</a>
+</li>
+<li>isOpen()
+: <a class="el" href="classdevicehive_1_1_websocket_service_base.html#a3c7351cec1380d07f9e4b3ec96b2b1ff">WebsocketServiceBase</a>
+, <a class="el" href="classhive_1_1ws13_1_1_web_socket.html#a3c7351cec1380d07f9e4b3ec96b2b1ff">WebSocket</a>
+</li>
+<li>isSimple()
+: <a class="el" href="classhive_1_1json_1_1_formatter.html#a62186cc2bf48744c647201698f282aa4">Formatter</a>
+</li>
+<li>isStatusSuccessful()
+: <a class="el" href="classhive_1_1http_1_1_response.html#a9bf157b34194457cb717ea56b7e3d740">Response</a>
+</li>
+<li>isString()
+: <a class="el" href="classhive_1_1json_1_1_value.html#a3ea0b05483601e9acd735f48ccf7ed80">Value</a>
+</li>
+<li>isText()
+: <a class="el" href="classhive_1_1ws13_1_1_message.html#a1a7f42e0e48cda650863953f6d9fdc91">Message</a>
+</li>
+<li>IStream()
+: <a class="el" href="classhive_1_1bin_1_1_i_stream.html#a3c925d6edeb392cb3f295d43eba64f3c">IStream</a>
+</li>
 </ul>
-<h2>Examples </h2>
-<p>There are several examples of using DeviceHive C++ Framework. All examples can be found on the <a class="el" href="page_examples.html">Example Pages</a> page. Please take a look at <a class="el" href="page_simple_dev.html">Simple device example</a> first. </p>
-</div></div><!-- contents -->
+</div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
