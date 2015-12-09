@@ -56,7 +56,7 @@ int main(int argc, const char *argv[])
 #else                       // manual
         if (0) basic_app::main(argc, argv);
         if (0) simple_dev::main(argc, argv);
-        if (0) simple_gw::main(argc, argv);
+        if (1) simple_gw::main(argc, argv);
         if (0) zigbee_gw::main(argc, argv);
 
         if (0) test_defs0();
@@ -66,7 +66,6 @@ int main(int argc, const char *argv[])
         if (0) test_json1(1<argc ? argv[1] : "../json");
         if (0) test_http0();
         if (0) test_http1();
-        if (1) test_http2();
         if (0) test_ws13_0();
         if (0) test_ws13_1();
         if (0) test_log_0();

@@ -27,6 +27,7 @@ int main(int argc, const char *argv[])
 {
     try
     {
+        using namespace examples;
         simple_dev::main(argc, argv);
     }
     catch (std::exception const& ex)

@@ -3317,7 +3317,7 @@ private:
                 const Entry entry = i->second;
 
                 const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-                if ((now - entry.created).total_milliseconds() < m_lifetime)
+                if ((now - entry.created).total_milliseconds() < ssize_t(m_lifetime))
                 {
                     endpoint = i->second.endpoint;
                     return true;
@@ -3412,7 +3412,7 @@ to the standard output:
 ~~~{.cpp}
 using namespace hive;
 
-//// callback: print the request/response to standard output
+// callback: print the request/response to standard output
 void on_print(http::Client::TaskPtr task)
 {
     if (task->request)
@@ -3423,7 +3423,7 @@ void on_print(http::Client::TaskPtr task)
         std::cout << "ERROR: " << task->errorCode.message() << "\n";
 }
 
-//// application entry point
+// application entry point
 int main()
 {
     boost::asio::io_service ios;

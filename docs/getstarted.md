@@ -43,6 +43,20 @@ b2.exe --with-system --with-date_time --with-thread
 
 ### Building *boost* on Linux
 
+Some Linux distributives has boost package available.
+
+Ubuntu:
+
+~~~{.sh}
+sudo apt-get install libboost-system-dev libboost-thread-dev
+~~~
+
+Archlinux:
+
+~~~{.sh}
+sudo pacman -S boost make
+~~~
+
 If there is no preconfigured *boost* package available it is quite easy
 to build boost manually. [Download](http://www.boost.org/users/download/) and
 unpack *boost* library package. Open terminal and cd-ing into unpacked *boost*
@@ -57,15 +71,16 @@ To build *boost* using custom toolchain `toolset` parameter may be used.
 For example, to build *boost* for the RaspberryPi use the following commands:
 
 ~~~{.sh}
-./bootstrap.sh --with-libraries=system,date_time,thread --prefix=/usr/local/raspberrypi
-./b2 toolset=gcc-arm
+./bootstrap.sh --with-libraries=system,thread --prefix=/usr/local/raspberrypi
+echo "using gcc : bbb : arm-linux-gnueabihf-g++ ;" >> ~/user-config.jam
+./b2 toolset=gcc-bbb
 ~~~
 
 Note, in that case, before build the *boost* you have ensure that the
 `~/user-config.jam` configuration file contains the following line:
 
 ~~~
-using gcc : arm : arm-unknown-linux-gnueabi-g++ ;
+using gcc : arm : arm-linux-gnueabihf-g++ ;
 ~~~
 
 ### Usage
@@ -87,11 +102,18 @@ Preparing toolchain
 -------------------
 
 Since RaspberryPi and BeagleBone has ARM processor we have to use special
-toolchain to build example applications. There are a few tools which can help
-to prepare such a toolchain: `crossdev`, `crosstool`, `crosstool-NG` etc.
-Let's use the last one.
+toolchain to build example applications.
 
-### Installing
+Ubuntu has corresponding package:
+
+~~~{.sh}
+sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+~~~
+
+Also there are a few tools which can help to prepare such a toolchain:
+`crossdev`, `crosstool`, `crosstool-NG` etc.
+
+### Installing using crosstool-NG
 
 The following [article](http://www.bootc.net/archives/2012/05/26/how-to-build-a-cross-compiler-for-your-raspberry-pi)
 describes how to prepare toolchain for RaspberryPi. The short version is:
@@ -111,9 +133,9 @@ sudo apt-get install bison flex texinfo subversion libtool automake libncurses5-
 
 ### Simple "Hello World!" application
 
-To check cross compilation is working just build the "Hello" application:
+To check cross compilation is working just build the "Hello" example:
 ~~~{.sh}
-make hello CROSS_COMPILE=arm-unknown-linux-gnueabi-
+make hello CROSS_COMPILE=arm-linux-gnueabihf-
 ~~~
 
 The following command

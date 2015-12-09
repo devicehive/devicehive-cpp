@@ -12,6 +12,8 @@
 #include <DeviceHive/xbee.hpp>
 #include "basic_app.hpp"
 
+namespace examples
+{
 
 /// @brief The ZigBee gateway example.
 namespace zigbee_gw
@@ -913,6 +915,7 @@ inline void main(int argc, const char* argv[])
 }
 
 } // zigbee_gw namespace
+} // examples namespace
 
 
 ///////////////////////////////////////////////////////////////////////////////

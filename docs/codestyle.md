@@ -28,11 +28,12 @@ int main()
 
 The contents of an outermost `namespace` block (and any nested namespaces with the same scope)
 should not be indented. The nested namespace definition should be indented.
-All implementaion should be placed in separate `namespace` block to use advantages of text editor with folding support.
+All implementaion should be placed in separate `namespace` block to use advantages
+of text editor with folding support.
 
 - Right:
 ~~~{.cpp}
-//// core.h
+// core.h
 namespace core
 {
 
@@ -61,8 +62,8 @@ class Fail
 } // core namespace
 ~~~
 ~~~{.cpp}
-//// core.cpp
-//// Foo
+// core.cpp
+// Foo
 namespace core
 {
 
@@ -73,7 +74,7 @@ Foo::Foo()
 
 } // Foo
 
-//// Bar
+// Bar
 namespace core
 {
 
@@ -87,7 +88,7 @@ Bar::Bar()
 
 - Wrong:
 ~~~{.cpp}
-//// core.h
+// core.h
 namespace core {
 
     class Foo {
@@ -111,7 +112,7 @@ namespace core {
 }
 ~~~
 ~~~{.cpp}
-//// core.cpp
+// core.cpp
 namespace core {
 
     Foo::Foo() {
@@ -125,7 +126,7 @@ namespace core {
 }
 ~~~
 
-A `case` label should is indented with its `switch` statement. The `case` statement is indented iwth its `case` label.
+A `case` label should be indented with its `switch` statement. The `case` statement is indented with its `case` label.
 
 - Right:
 ~~~{.cpp}
@@ -160,7 +161,8 @@ default: i = 0;
 ~~~
 
 
-Boolean expressions at the same nesting level that span multiple lines should have their operators on the left side of the line instead of the right side.
+Boolean expressions at the same nesting level that span multiple lines
+should have their operators on the left side of the line instead of the right side.
 
 - Right:
 ~~~{.cpp}
@@ -380,7 +382,7 @@ if (condition)
 
 if (condition)
 {
-    //// comment
+    // comment
     doIt();
 }
 
@@ -398,7 +400,7 @@ if (condition) {
 }
 
 if (condition)
-    //// comment
+    // comment
     doIt();
 
 if (condition)
@@ -686,5 +688,4 @@ Comments
 Make comments look like sentences by starting with a capital letter and ending with a period (punctation).
 One exception may be end of line comments like this "if (x == y) // false for NaN".
 
-Use FIXME or TODO: (without attribution) to denote items that need to be addressed in the future.
-*/
+Use `FIXME:` or `TODO:` (without attribution) to denote items that need to be addressed in the future.

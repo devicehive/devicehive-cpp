@@ -3,9 +3,11 @@ DeviceHive C++ framework
 
 [DeviceHive]: http://devicehive.com "DeviceHive framework"
 [DataArt]: http://dataart.com "DataArt"
+[boost]: http://www.boost.org "Boost"
+[getstarted](http://devicehive.github.io/devicehive-cpp/page_start.html) "Get Started"
 
-This is C++ framework for [DeviceHive].
-For more information please see corresponding documentation.
+This is C++ framework for [DeviceHive]. The library is header-only but require [boost].
+For more information please see corresponding [getstarted] page.
 
 
 About DeviceHive
@@ -33,6 +35,6 @@ is included. This also means you don't have to contribute the end product or
 modified sources back to Open Source, but if you feel like sharing, you are
 highly encouraged to do so!
 
-Copyright (C) 2012 DataArt Apps
+Copyright (C) 2015 DataArt Apps
 
 All Rights Reserved

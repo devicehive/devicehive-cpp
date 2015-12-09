@@ -20,6 +20,10 @@
 
 #include <set>
 
+/// @brief All examples.
+namespace examples
+{
+
 /// @brief The simplest example.
 namespace basic_app
 {
@@ -512,6 +516,12 @@ Creates the Application instance and calls its Application::run() method.
 */
 inline void main(int argc, const char* argv[])
 {
+    // avoid some boost.asio "unused variable" warnings
+    HIVE_UNUSED(boost::asio::error::system_category);
+    HIVE_UNUSED(boost::asio::error::netdb_category);
+    HIVE_UNUSED(boost::asio::error::addrinfo_category);
+    HIVE_UNUSED(boost::asio::error::misc_category);
+
     { // configure logging
         using namespace hive::log;
 
@@ -522,6 +532,7 @@ inline void main(int argc, const char* argv[])
 }
 
 } // basic_app namespace
+} // examples namespace
 
 
 ///////////////////////////////////////////////////////////////////////////////

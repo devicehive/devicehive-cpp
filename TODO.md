@@ -8,7 +8,6 @@ Basic tools:
   - formal tests
 - HTTP module:
   - support for HTTPS connections, checks certificates
-  - support for HTTP 1.1, multiple request per connection
   - support for proxies
   - support for redirects
 - LOG module:
