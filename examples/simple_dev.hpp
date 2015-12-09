@@ -11,6 +11,9 @@
 #include "basic_app.hpp"
 
 
+namespace examples
+{
+
 /// @brief The simple device example.
 namespace simple_dev
 {
@@ -631,6 +634,7 @@ inline void main(int argc, const char* argv[])
 }
 
 } // simple_dev namespace
+} // examples namespace
 
 
 ///////////////////////////////////////////////////////////////////////////////

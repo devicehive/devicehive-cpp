@@ -64,7 +64,7 @@ For example the *MyDevice.cpp* file:
 #include <hive/pch.hpp>
 #include "MyDevice.hpp"
 
-//// MyDevice implementation...
+// MyDevice implementation...
 
 MyDevice::MyDevice()
 {
@@ -81,7 +81,7 @@ and the *MyDevice.hpp* header file:
 #   include <vector>
 #endif
 
-//// MyDevice
+// MyDevice
 class MyDevice
 {
 public:

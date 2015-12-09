@@ -12,6 +12,9 @@
 #include "basic_app.hpp"
 
 
+namespace examples
+{
+
 /// @brief The simple gateway example.
 namespace simple_gw
 {
@@ -714,6 +717,7 @@ inline void main(int argc, const char* argv[])
 }
 
 } // simple_gw namespace
+} // examples namespace
 
 
 ///////////////////////////////////////////////////////////////////////////////

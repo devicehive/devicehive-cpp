@@ -27,6 +27,7 @@ int main(int argc, const char *argv[])
 {
     try
     {
+        using namespace examples;
         zigbee_gw::main(argc, argv);
     }
     catch (std::exception const& ex)

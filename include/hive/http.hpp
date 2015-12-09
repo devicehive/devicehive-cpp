@@ -3412,7 +3412,7 @@ to the standard output:
 ~~~{.cpp}
 using namespace hive;
 
-//// callback: print the request/response to standard output
+// callback: print the request/response to standard output
 void on_print(http::Client::TaskPtr task)
 {
     if (task->request)
@@ -3423,7 +3423,7 @@ void on_print(http::Client::TaskPtr task)
         std::cout << "ERROR: " << task->errorCode.message() << "\n";
 }
 
-//// application entry point
+// application entry point
 int main()
 {
     boost::asio::io_service ios;
