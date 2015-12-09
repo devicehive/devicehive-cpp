@@ -3317,7 +3317,7 @@ private:
                 const Entry entry = i->second;
 
                 const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-                if ((now - entry.created).total_milliseconds() < m_lifetime)
+                if ((now - entry.created).total_milliseconds() < ssize_t(m_lifetime))
                 {
                     endpoint = i->second.endpoint;
                     return true;

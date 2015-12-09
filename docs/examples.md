@@ -1,4 +1,4 @@
-Examples {#page_examples}
+Example Pages {#page_examples}
 =========================
 
 Please read the @ref page_start first.

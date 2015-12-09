@@ -2,3 +2,5 @@
 /doxygen.exe
 /doxywarn.log
 /html
+
+*.bak
