@@ -40,6 +40,14 @@ Defined as:
 - `4321` for big-endian platforms
 */
 #define HIVE_BYTE_ORDER
+
+/// @brief The endian compatibility macro.
+/**
+Define this macro to use `__bswap32` instead of `__bswap_32`.
+*/
+// TODO: auto-detection of HIVE_ENDIAN_COMPAT!
+#define HIVE_ENDIAN_COMPAT
+
 #endif // HIVE_DOXY_MODE
 
 
@@ -68,8 +76,10 @@ inline UInt16 swab_16(UInt16 x)
 {
 #if defined(WIN32) || defined(_WIN32)  // win
     return _byteswap_ushort(x);
-#else                                  // nix
+#elif !defined(HIVE_ENDIAN_COMPAT)     // nix
     return __bswap_16(x);
+#else
+    return __bswap16(x);
 #endif
 }
 
@@ -83,8 +93,10 @@ inline UInt32 swab_32(UInt32 x)
 {
 #if defined(WIN32) || defined(_WIN32)  // win
     return _byteswap_ulong(x);
-#else                                  // nix
+#elif !defined(HIVE_ENDIAN_COMPAT)     // nix
     return __bswap_32(x);
+#else
+    return __bswap32(x);
 #endif
 }
 
@@ -98,8 +110,10 @@ inline UInt64 swab_64(UInt64 x)
 {
 #if defined(WIN32) || defined(_WIN32)  // win
     return _byteswap_uint64(x);
-#else                                  // nix
+#elif !defined(HIVE_ENDIAN_COMPAT)     // nix
     return __bswap_64(x);
+#else
+    return __bswap64(x);
 #endif
 }
 
