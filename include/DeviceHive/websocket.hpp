@@ -35,6 +35,7 @@ protected:
         , m_ws(ws13::WebSocket::create(name))
         , m_log("/devicehive/websocket/" + name)
         , m_baseUrl(baseUrl)
+        //, m_access_key("")
         , m_timeout_ms(60000)
         , m_pingPong(m_ios)
     {}
@@ -95,6 +96,29 @@ public:
 
 public:
 
+    /// @brief Get access token.
+    /**
+    @return The server's access token.
+    */
+    String const& getAccessKey() const
+    {
+        return m_access_key;
+    }
+
+
+    /// @brief Set access token.
+    /**
+    @param[in] key The server's access token.
+    @return Self reference.
+    */
+    This& setAccessKey(String const& key)
+    {
+        m_access_key = key;
+        return *this;
+    }
+
+public:
+
     /// @brief Enable PING/PONG messages.
     /**
     @param[in] enabled The PING/PONG enabled flag.
@@ -150,11 +174,17 @@ public:
         url.appendPath("device");
         // TODO: client websocket!!!
 
+        String key; // should be empty
+        std::map<String, String> headers;
+        headers[http::header::Origin] = "http://localhost/";
+        if (!m_access_key.empty())
+            headers[http::header::Authorization] = "Bearer " + m_access_key;
+
         m_ws->asyncConnect(url.build(), m_http,
             boost::bind(&This::onConnected,
                 shared_from_this(),
                 _1, _2, callback),
-            m_timeout_ms);
+            m_timeout_ms, key, headers);
     }
 
 
@@ -448,6 +478,7 @@ private:
 
     hive::log::Logger m_log;        ///< @brief The logger.
     http::Url m_baseUrl;            ///< @brief The base URL.
+    String m_access_key;            ///< @brief The server's access token.
     size_t m_timeout_ms;            ///< @brief The HTTP request timeout, milliseconds.
 
 private: // Ping/Pong

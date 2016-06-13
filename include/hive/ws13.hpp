@@ -990,7 +990,8 @@ public:
         Empty string for automatic key.
     @return The WebSocket handshake request.
     */
-    static http::RequestPtr getHandshakeRequest(http::Url const& url, String const& key = String())
+    static http::RequestPtr getHandshakeRequest(http::Url const& url, String const& key = String(),
+        std::map<String, String> const& headers = std::map<String, String>())
     {
         http::RequestPtr req = http::Request::GET(url);
         req->setVersion(1, 1); // at least HTTP 1.1 required
@@ -998,6 +999,15 @@ public:
         req->addHeader(http::header::Upgrade, NAME);
         req->addHeader(ws13::header::Version, VERSION);
         req->addHeader(ws13::header::Key, key.empty() ? generateNewKey() : key);
+
+        // add custom headers
+        if (!headers.empty())
+        {
+            std::map<String, String>::const_iterator i = headers.begin();
+            for (; i != headers.end(); ++i)
+                req->addHeader(i->first, i->second);
+        }
+
         return req;
     }
 
@@ -1057,12 +1067,13 @@ public:
         Empty string for random key.
     */
     void asyncConnect(http::Url const& url, http::Client::SharedPtr httpClient,
-        ConnectCallback callback, size_t timeout_ms, String const& key = String())
+        ConnectCallback callback, size_t timeout_ms, String const& key = String(),
+        std::map<String, String> const& headers = std::map<String, String>())
     {
         HIVELOG_TRACE_BLOCK(m_log, "asyncConnect()");
 
         HIVELOG_DEBUG(m_log, "try to connect to " << url.toStr());
-        if (http::Client::TaskPtr task = httpClient->send(getHandshakeRequest(url, key), timeout_ms))
+        if (http::Client::TaskPtr task = httpClient->send(getHandshakeRequest(url, key, headers), timeout_ms))
             task->callWhenDone(boost::bind(&This::onConnect, shared_from_this(), task, httpClient, callback));
     }
 

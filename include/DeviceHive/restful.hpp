@@ -43,6 +43,7 @@ protected:
         , m_http_minor(1)
         , m_log("/devicehive/rest/" + name)
         , m_baseUrl(baseUrl)
+        //, m_access_key("")
         , m_timeout_ms(60000)
     {}
 
@@ -97,6 +98,29 @@ public:
             << timeout_ms << " milliseconds");
 
         m_timeout_ms = timeout_ms;
+        return *this;
+    }
+
+public:
+
+    /// @brief Get access token.
+    /**
+    @return The server's access token.
+    */
+    String const& getAccessKey() const
+    {
+        return m_access_key;
+    }
+
+
+    /// @brief Set access token.
+    /**
+    @param[in] key The server's access token.
+    @return Self reference.
+    */
+    This& setAccessKey(String const& key)
+    {
+        m_access_key = key;
         return *this;
     }
 
@@ -157,6 +181,7 @@ public:
         urlb.appendPath("info");
 
         http::RequestPtr req = http::Request::GET(urlb.build());
+        authorize(req, DevicePtr(), m_access_key);
         req->setVersion(m_http_major, m_http_minor);
 
         HIVELOG_INFO(m_log, "getting server info");
@@ -236,9 +261,8 @@ public:
         const json::Value jcontent = Serializer::toJson(device);
 
         http::RequestPtr req = http::Request::PUT(urlb.build());
+        authorize(req, device, m_access_key);
         req->addHeader(http::header::Content_Type, "application/json")
-            .addHeader("Auth-DeviceID", device->id)
-            .addHeader("Auth-DeviceKey", device->key)
             .setVersion(m_http_major, m_http_minor)
             .setContent(json::toStr(jcontent));
 
@@ -268,9 +292,8 @@ public:
             .appendPath(device->id);
 
         http::RequestPtr req = http::Request::GET(urlb.build());
-        req->addHeader("Auth-DeviceID", device->id)
-            .addHeader("Auth-DeviceKey", device->key)
-            .setVersion(m_http_major, m_http_minor);
+        authorize(req, device, m_access_key);
+        req->setVersion(m_http_major, m_http_minor);
 
         HIVELOG_INFO(m_log, "getting device data for \"" << device->id << "\"");
         http::Client::TaskPtr task = m_http->send(req, m_timeout_ms);
@@ -300,9 +323,8 @@ public:
         jcontent["data"] = device->data;
 
         http::RequestPtr req = http::Request::PUT(urlb.build());
+        authorize(req, device, m_access_key);
         req->addHeader(http::header::Content_Type, "application/json")
-            .addHeader("Auth-DeviceID", device->id)
-            .addHeader("Auth-DeviceKey", device->key)
             .setVersion(m_http_major, m_http_minor)
             .setContent(json::toStr(jcontent));
 
@@ -451,9 +473,8 @@ public:
             urlb.appendQuery("waitTimeout="+boost::lexical_cast<String>(wait_sec));
 
         http::RequestPtr req = http::Request::GET(urlb.build());
-        req->addHeader("Auth-DeviceID", device->id)
-            .addHeader("Auth-DeviceKey", device->key)
-            .setVersion(m_http_major, m_http_minor);
+        authorize(req, device, m_access_key);
+        req->setVersion(m_http_major, m_http_minor);
 
         HIVELOG_DEBUG(m_log, "poll commands for \"" << device->id << "\"");
         http::Client::TaskPtr task = m_http->send(req, m_timeout_ms);
@@ -539,9 +560,8 @@ public:
         jcontent["flags"] = command->flags;
 
         http::RequestPtr req = http::Request::PUT(urlb.build());
+        authorize(req, device, m_access_key);
         req->addHeader(http::header::Content_Type, "application/json")
-            .addHeader("Auth-DeviceID", device->id)
-            .addHeader("Auth-DeviceKey", device->key)
             .setVersion(m_http_major, m_http_minor)
             .setContent(json::toStr(jcontent));
 
@@ -619,9 +639,8 @@ public:
         const json::Value jcontent = Serializer::toJson(notification);
 
         http::RequestPtr req = http::Request::POST(urlb.build());
+        authorize(req, device, m_access_key);
         req->addHeader(http::header::Content_Type, "application/json")
-            .addHeader("Auth-DeviceID", device->id)
-            .addHeader("Auth-DeviceKey", device->key)
             .setVersion(m_http_major, m_http_minor)
             .setContent(json::toStr(jcontent));
 
@@ -715,6 +734,22 @@ private:
         return err;
     }
 
+
+    /// @brief Add authorization information to the HTTP request.
+    void authorize(http::RequestPtr req, DevicePtr device, String const& bearer)
+    {
+        if (!bearer.empty())
+        {
+            req->addHeader(http::header::Authorization, "Bearer " + bearer);
+        }
+
+        if (device)
+        {
+            req->addHeader("Auth-DeviceID", device->id);
+            req->addHeader("Auth-DeviceKey", device->key);
+        }
+    }
+
 private:
     http::ClientPtr m_http; ///< @brief The HTTP client.
     int m_http_major; ///< @brief The HTTP major version.
@@ -725,6 +760,7 @@ private:
 
     hive::log::Logger m_log;        ///< @brief The logger.
     http::Url m_baseUrl;            ///< @brief The base URL.
+    String m_access_key;            ///< @brief The server's access token.
     size_t m_timeout_ms;            ///< @brief The HTTP request timeout, milliseconds.
 };
 

@@ -708,6 +708,7 @@ const char Upgrade[]            = "Upgrade";            ///< @hideinitializer @b
 const char Authorization[]      = "Authorization";      ///< @hideinitializer @brief The "Authorization" header name.
 const char SetCookie[]          = "Set-Cookie";         ///< @hideinitializer @brief The "Set-Cookie" header name.
 const char Cookie[]             = "Cookie";             ///< @hideinitializer @brief The "Cookie" header name.
+const char Origin[]             = "Origin";             ///< @hideinitializer @brief The "Origin" header name.
 const char Proxy_Connection[]   = "Proxy-Connection";   ///< @hideinitializer @brief The "Proxy-Connection" header name.
 
         // TODO: add more headers here
