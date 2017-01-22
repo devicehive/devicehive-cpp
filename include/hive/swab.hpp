@@ -45,6 +45,8 @@ Defined as:
 
 #if defined(WIN32) || defined(_WIN32) // win
 #   include <stdlib.h>
+#elif defined(__APPLE__)              //osx                                                                                                                                                                  
+#   include <machine/endian.h>
 #else                                 // nix
 #   include <endian.h>
 #endif // WIN32
@@ -68,41 +70,51 @@ inline UInt16 swab_16(UInt16 x)
 {
 #if defined(WIN32) || defined(_WIN32)  // win
     return _byteswap_ushort(x);
-#else                                  // nix
+#elif defined(__APPLE__)               // osx                                                                                                                                                                
+    // GCC 4.6 lacks __builtin_bswap16                                                                                                                           
+#if defined(__clang__) && (__GNUC__ >=4 && __GNUC_MINOR__ > 6)
+    return __builtin_bswap16(x);
+#else
+    return ((x & 0xff00) >> 8) | ((x & 0x00ff) << 8);
+#endif
+#else                                  // nix                                                                                                                                                                
     return __bswap_16(x);
 #endif
 }
 
 
-/// @brief Reverse byte order (32-bits).
-/**
-@param[in] x The 32-bits integer.
-@return The reversed 32-bits integer.
+/// @brief Reverse byte order (32-bits).                                                                                                                                                                     
+/**                                                                                                                                                                                                          
+@param[in] x The 32-bits integer.                                                                                                                                                                            
+@return The reversed 32-bits integer.                                                                                                                                                                        
 */
 inline UInt32 swab_32(UInt32 x)
 {
-#if defined(WIN32) || defined(_WIN32)  // win
+#if defined(WIN32) || defined(_WIN32)  // win                                                                                                                                                                
     return _byteswap_ulong(x);
-#else                                  // nix
+#elif defined(__APPLE__)               // osx                                                                                                                                                                
+    return __builtin_bswap32(x);
+#else                                  // nix                                                                                                                                                                
     return __bswap_32(x);
 #endif
 }
 
 
-/// @brief Reverse byte order (64-bits).
-/**
-@param[in] x The 64-bits integer.
-@return The reversed 64-bits integer.
+/// @brief Reverse byte order (64-bits).                                                                                                                                                                     
+/**                                                                                                                                                                                                          
+@param[in] x The 64-bits integer.                                                                                                                                                                            
+@return The reversed 64-bits integer.                                                                                                                                                                        
 */
 inline UInt64 swab_64(UInt64 x)
 {
-#if defined(WIN32) || defined(_WIN32)  // win
+#if defined(WIN32) || defined(_WIN32)  // win                                                                                                                                                                
     return _byteswap_uint64(x);
-#else                                  // nix
+#elif defined(__APPLE__)               // osx                                                                                                                                                                
+    return __builtin_bswap64(x);
+#else                                  // nix                                                                                                                                                                
     return __bswap_64(x);
 #endif
 }
-
 
 /// @copydoc swab_16()
 inline UInt16 swab(UInt16 x)
